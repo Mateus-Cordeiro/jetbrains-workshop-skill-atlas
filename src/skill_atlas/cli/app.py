@@ -2,7 +2,7 @@
 
 import typer
 
-from skill_atlas.commands import scan, serve
+from skill_atlas.cli.commands import scan, serve
 
 
 def create_app() -> typer.Typer:

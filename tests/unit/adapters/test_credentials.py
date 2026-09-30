@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from skill_atlas import auth
+from skill_atlas.adapters import credentials
 
 
 @pytest.mark.parametrize(
@@ -18,8 +18,8 @@ def test_environment_credentials_take_precedence(monkeypatch, environment, expec
     def unexpected(*args, **kwargs):
         pytest.fail("gh should not run when a token is provided")
 
-    monkeypatch.setattr(auth.subprocess, "run", unexpected)
-    assert auth.github_token(environment) == expected
+    monkeypatch.setattr(credentials.subprocess, "run", unexpected)
+    assert credentials.github_token(environment) == expected
 
 
 def test_github_cli_fallback(monkeypatch):
@@ -29,8 +29,8 @@ def test_github_cli_fallback(monkeypatch):
         assert kwargs["timeout"] == 5
         return SimpleNamespace(returncode=0, stdout="test-token\n")
 
-    monkeypatch.setattr(auth.subprocess, "run", run)
-    assert auth.github_token({}) == "test-token"
+    monkeypatch.setattr(credentials.subprocess, "run", run)
+    assert credentials.github_token({}) == "test-token"
 
 
 @pytest.mark.parametrize("failure", [FileNotFoundError(), subprocess.TimeoutExpired("gh", 5)])
@@ -38,14 +38,14 @@ def test_unavailable_github_cli_allows_anonymous_access(monkeypatch, failure):
     def run(*args, **kwargs):
         raise failure
 
-    monkeypatch.setattr(auth.subprocess, "run", run)
-    assert auth.github_token({}) is None
+    monkeypatch.setattr(credentials.subprocess, "run", run)
+    assert credentials.github_token({}) is None
 
 
 def test_unauthenticated_github_cli_does_not_use_stdout(monkeypatch):
     monkeypatch.setattr(
-        auth.subprocess,
+        credentials.subprocess,
         "run",
         lambda *args, **kwargs: SimpleNamespace(returncode=1, stdout="error"),
     )
-    assert auth.github_token({}) is None
+    assert credentials.github_token({}) is None

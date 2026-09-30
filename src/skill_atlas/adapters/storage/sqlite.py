@@ -1,9 +1,9 @@
 import sqlite3
 from pathlib import Path
 
+from skill_atlas.adapters.storage.migrations import MIGRATIONS, migrate
 from skill_atlas.errors import CatalogError
 from skill_atlas.models import Repository, RepositorySummary, ScanResult, Skill
-from skill_atlas.storage.migrations import MIGRATIONS, migrate
 
 
 class SQLiteCatalog:

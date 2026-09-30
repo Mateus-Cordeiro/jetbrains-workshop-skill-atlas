@@ -6,11 +6,11 @@ from rich.console import Console
 from rich.text import Text
 
 from skill_atlas import runtime
+from skill_atlas.cli.output.console import print_result
+from skill_atlas.cli.output.tui import ResultsApp
 from skill_atlas.config import Settings
 from skill_atlas.errors import AtlasError
 from skill_atlas.models import Repository
-from skill_atlas.presentation.console import print_result
-from skill_atlas.presentation.tui import ResultsApp
 
 
 def scan(

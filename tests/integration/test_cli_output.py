@@ -5,8 +5,8 @@ import pytest
 from rich.console import Console
 from textual.widgets import Button, Link
 
-from skill_atlas.presentation.console import print_result
-from skill_atlas.presentation.tui import ResultsApp
+from skill_atlas.cli.output.console import print_result
+from skill_atlas.cli.output.tui import ResultsApp
 
 
 def test_plain_output_preserves_literal_markup_and_removes_control_sequences(scan_result):

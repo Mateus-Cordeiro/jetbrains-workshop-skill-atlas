@@ -6,17 +6,17 @@ from contextlib import contextmanager
 import httpx
 from fastapi import FastAPI
 
-from skill_atlas.auth import github_token
+from skill_atlas.adapters.credentials import github_token
+from skill_atlas.adapters.frontmatter import FrontmatterParser
+from skill_atlas.adapters.git import GitSnapshotReader
+from skill_atlas.adapters.github import GitHubReader
+from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
+from skill_atlas.application.documents import Documents
+from skill_atlas.application.reader_fallback import FallbackReader
+from skill_atlas.application.scan import Scanner
+from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.config import Settings
-from skill_atlas.documents import Documents
-from skill_atlas.git import GitSnapshotReader
-from skill_atlas.github import GitHubReader
-from skill_atlas.jobs import ScanJobs
 from skill_atlas.models import Repository, ScanResult
-from skill_atlas.parsing import FrontmatterParser
-from skill_atlas.readers import FallbackReader
-from skill_atlas.scanner import Scanner
-from skill_atlas.storage.sqlite import SQLiteCatalog
 
 
 @contextmanager

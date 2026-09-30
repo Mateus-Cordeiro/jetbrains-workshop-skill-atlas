@@ -10,9 +10,9 @@ import pytest
 from typer.testing import CliRunner
 
 from skill_atlas import runtime
-from skill_atlas.cli import create_app
+from skill_atlas.adapters.git import GitSnapshotReader
+from skill_atlas.cli.app import create_app
 from skill_atlas.errors import RepositoryError
-from skill_atlas.git import GitSnapshotReader
 from skill_atlas.models import Repository, Snapshot
 
 

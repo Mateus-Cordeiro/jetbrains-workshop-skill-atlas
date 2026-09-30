@@ -76,22 +76,41 @@ boundaries; adapters satisfy them structurally. Immutable dataclasses carry
 values between components. Constructor injection makes dependencies explicit.
 No dependency injection framework or plugin loader is needed.
 
+The source layout separates application workflows (`application/`), concrete
+integrations (`adapters/`), and user interfaces (`cli/` and `web/`). Shared values,
+ports, errors, settings, and the composition root remain at the package root.
+Application modules depend on shared values and ports, not concrete adapters or
+UI frameworks. Adapters implement the ports; interfaces adapt user input and
+service results. `runtime.py` wires them together and owns I/O resource contexts.
+
 | Module | Responsibility and extension point |
 | --- | --- |
-| `cli.py`, `commands/` | Register subcommands and adapt arguments, exit codes, and presentation. |
+| `cli/app.py`, `cli/commands/` | Register subcommands and adapt arguments, exit codes, and presentation. |
 | `models.py` | Immutable repository, snapshot, skill file, metadata, skill, scan result, and repository summary values. |
 | `ports.py` | Narrow reader, parser, catalog-write, catalog-read, and document-reader interfaces. |
-| `scanner.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. |
+| `errors.py` | Shared operational error types translated by adapters and presented by interfaces. |
+| `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. |
+| `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
+| `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
+| `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
 | `runtime.py` | Composition root: select adapters and own HTTP, Git, scanner, and Web application resource lifetimes. |
-| `github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
-| `git.py`, `readers.py` | Temporary partial Git snapshots, authenticated subprocesses, cleanup, and fallback selection policy. |
-| `parsing.py` | Frontmatter extraction policy with no network or database dependencies. |
-| `storage/` | SQLite read/write adapter and ordered schema migrations. |
-| `documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
-| `jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
-| `presentation/` | Independent text and interactive views of completed scan results. |
-| `web/` | HTTP routes, safe document rendering, templates, and static assets. |
-| `config.py`, `auth.py` | Local settings and credential resolution. |
+| `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
+| `adapters/git.py` | Temporary partial Git snapshots, authenticated subprocesses, and cleanup. |
+| `adapters/frontmatter.py` | YAML implementation of the metadata parser, with no network or database dependencies. |
+| `adapters/storage/` | SQLite read/write adapter and ordered schema migrations. |
+| `adapters/credentials.py` | Credential resolution from the environment and GitHub CLI. |
+| `cli/output/` | Independent text and interactive terminal views of completed scan results. |
+| `web/app.py` | Assemble the Web app, mount assets, and manage the worker lifespan. |
+| `web/routes.py` | Catalog pages, HTMX fragments, and HTTP error adaptation. |
+| `web/middleware.py` | Local Host and Origin checks and browser response protections. |
+| `web/rendering.py`, `web/templates/`, `web/static/` | Safe document rendering, full pages and fragments, and browser assets. |
+| `config.py` | Local settings. |
+
+Templates use `pages/` for full pages and `fragments/` for partial responses and
+shared page content, with `base.html` at the template root. Keep the browser
+assets bundled beside the Web interface. Tests retain their unit, integration,
+and browser levels; unit tests group application, adapter, and Web responsibilities
+separately. Integration scenarios keep the real components involved together.
 
 `SnapshotReader` lists and reads files; `RepositoryReader` also resolves a
 repository snapshot. `SkillParser` extracts metadata. `Catalog` exposes
@@ -110,6 +129,25 @@ job. Release HTTP and temporary Git resources on success, operational errors,
 timeouts, and interruption, before opening a terminal view. The scan feature
 owns [Git cleanup details](features/scan.md#github-access-strategy); the Web
 feature owns [worker shutdown](features/web-ui.md#scan-execution-and-lifecycle).
+
+### Following a scan
+
+Start at `cli/commands/scan.py` for a terminal scan or `web/routes.py` for a Web
+submission. Web submissions go through `application/scan_jobs.py`; both paths
+use `runtime.create_scanner()` to supply `application/scan.py` with a reader,
+parser, and catalog. `application/reader_fallback.py` selects GitHub or the
+temporary Git reader, `adapters/frontmatter.py` extracts metadata, and
+`adapters/storage/sqlite.py` commits the complete result. The CLI then presents
+the result through `cli/output/`; the Web UI reads the job status and catalog.
+
+### Following a document selection
+
+The browser requests a document fragment from `web/routes.py`.
+`application/documents.py` checks the selected identity and commit against the
+catalog, then retrieves the document through the GitHub adapter configured in
+`runtime.py`. `web/rendering.py` prepares safe Markdown and the document fragment
+renders preview and source together. Selection history, source toggling, and
+late-response handling stay in `web/static/app.js`.
 
 ## Shared domain contracts
 
@@ -185,7 +223,7 @@ canonical URL; skill queries follow the shared name/path ordering.
 ### Schema evolution
 
 Explicitly map persisted fields in the SQLite adapter. Append numbered
-migrations in `storage/migrations.py`; do not edit shipped migrations. Use
+migrations in `adapters/storage/migrations.py`; do not edit shipped migrations. Use
 defaults or backfills when existing rows need new values. `PRAGMA user_version`
 tracks the schema version.
 
@@ -234,8 +272,8 @@ presentation must not expose tokens, raw subprocess output, or tracebacks.
 
 ### Add a command or feature
 
-Add a module in `commands/` with `register(app)` and register it in
-`cli.create_app()`. Keep business behavior in an application service, reuse or
+Add a module in `cli/commands/` with `register(app)` and register it in
+`cli.app.create_app()`. Keep business behavior in `application/`, reuse or
 add narrow ports for actual dependencies, and wire adapters in `runtime.py`.
 Catalog browsing reuses `CatalogReader` rather than expanding the scan service.
 Document feature behavior and acceptance criteria in `features/` and update

@@ -1,3 +1,3 @@
-from skill_atlas.cli import app
+from skill_atlas.cli.app import app
 
 app()

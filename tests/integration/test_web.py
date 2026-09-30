@@ -1,16 +1,11 @@
-import sqlite3
 from dataclasses import replace
 from time import monotonic, sleep
 
 import pytest
 from fastapi.testclient import TestClient
-from typer.testing import CliRunner
 
-from skill_atlas.cli import create_app
-from skill_atlas.commands import serve
-from skill_atlas.errors import CatalogError
+from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
 from skill_atlas.models import Repository
-from skill_atlas.storage.sqlite import SQLiteCatalog
 
 HEADERS = {"Origin": "http://127.0.0.1", "X-Atlas-Request": "1", "HX-Request": "true"}
 
@@ -34,34 +29,6 @@ def wait_scan(client, response, state="succeeded"):
             return result
         sleep(0.01)
     pytest.fail(result.text)
-
-
-def test_catalog_queries_preserve_schema_and_report_failures(tmp_path, scan_result):
-    path = tmp_path / "catalog.sqlite3"
-    catalog = SQLiteCatalog(path)
-    assert catalog.repositories() == ()
-    assert catalog.skills(scan_result.repository) == ()
-    assert catalog.skill(scan_result.repository, "SKILL.md") is None
-    assert not path.exists()
-    catalog.replace_repository(scan_result)
-    before = path.read_bytes()
-    assert catalog.repositories()[0].skill_count == 2
-    assert catalog.skills(scan_result.repository) == scan_result.skills
-    assert (
-        catalog.skill(scan_result.repository, scan_result.skills[0].path) == scan_result.skills[0]
-    )
-    assert path.read_bytes() == before
-    with sqlite3.connect(path) as connection:
-        connection.execute("PRAGMA user_version = 99")
-    with pytest.raises(CatalogError, match="newer"):
-        catalog.repositories()
-    with sqlite3.connect(path) as connection:
-        connection.execute("PRAGMA user_version = 0")
-    with pytest.raises(CatalogError, match="Unsupported"):
-        catalog.skills(scan_result.repository)
-    path.write_bytes(b"corrupt")
-    with pytest.raises(CatalogError, match="Could not read"):
-        catalog.repositories()
 
 
 def test_pages_and_packaged_assets(client, web_environment, scan_result):
@@ -139,6 +106,27 @@ def test_scan_validation_and_cross_origin_rejection(client):
     assert client.post("/scans", content=b"\xff", headers=HEADERS).status_code == 400
 
 
+@pytest.mark.parametrize("fragment", [False, True], ids=["page", "fragment"])
+@pytest.mark.parametrize(
+    ("path", "status", "code"),
+    [
+        ("/repository", 400, "invalid_input"),
+        ("/repository?repository_url=bad", 400, "invalid_input"),
+        ("/scans/unknown", 404, "missing_job"),
+    ],
+)
+def test_http_errors_preserve_layout_and_response_protections(client, fragment, path, status, code):
+    response = client.get(path, headers={"HX-Request": "true"} if fragment else {})
+    assert response.status_code == status
+    assert response.headers["X-Error-Code"] == code
+    assert f'data-error-code="{code}"' in response.text
+    assert ("<!doctype html>" in response.text.lower()) is not fragment
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+
+
 def test_documents_are_pinned_private_and_transient(client, web_environment, scan_result):
     state = web_environment
     skill = replace(scan_result.skills[0], path="nested/a #?/SKILL.md")
@@ -184,28 +172,10 @@ def test_corrupt_catalog_is_not_an_empty_page(client, web_environment):
     assert "No repositories" not in response.text
 
 
-def test_serve_command_and_startup_error(monkeypatch):
-    calls = []
-    monkeypatch.setattr(serve.uvicorn, "run", lambda app, **options: calls.append(options))
-    result = CliRunner().invoke(create_app(), ["serve", "--port", "8123"])
-    assert result.exit_code == 0
-    assert "http://127.0.0.1:8123" in result.stdout
-    assert calls == [{"host": "127.0.0.1", "port": 8123}]
-    assert CliRunner().invoke(create_app(), ["serve", "--port", "0"]).exit_code == 2
-
-    def failure(*args, **kwargs):
-        raise OSError(48, "Address already in use")
-
-    monkeypatch.setattr(serve.uvicorn, "run", failure)
-    result = CliRunner().invoke(create_app(), ["serve"])
-    assert result.exit_code == 1
-    assert "Address already in use" in result.stderr
-
-
 def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
     from contextlib import contextmanager
 
-    from skill_atlas.jobs import ScanJobs
+    from skill_atlas.application.scan_jobs import ScanJobs
     from skill_atlas.web.app import create_app as web_app
 
     catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")

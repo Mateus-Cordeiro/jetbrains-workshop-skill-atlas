@@ -3,8 +3,8 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Footer, Link, Static
 
+from skill_atlas.cli.output.text import display_text, summary
 from skill_atlas.models import ScanResult
-from skill_atlas.presentation.text import display_text, summary
 
 
 class ResultsApp(App[None]):

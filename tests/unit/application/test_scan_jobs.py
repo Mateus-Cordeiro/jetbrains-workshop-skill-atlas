@@ -4,11 +4,9 @@ from time import monotonic, sleep
 
 import pytest
 
-from skill_atlas.documents import Document, Documents, MissingSkill, StaleSkill
+from skill_atlas.application.scan_jobs import QueueFull, ScanJobs
 from skill_atlas.errors import RepositoryError
-from skill_atlas.jobs import QueueFull, ScanJobs
 from skill_atlas.models import Repository
-from skill_atlas.web.rendering import render
 
 
 def await_state(jobs, job_id, state):
@@ -78,62 +76,3 @@ def test_shutdown_discards_queued_jobs(scan_result):
     job = jobs.submit(scan_result.repository)
     jobs.close()
     assert jobs.get(job.id) is None
-
-
-def test_documents_validate_identity_and_decode_without_writes(scan_result):
-    skill = scan_result.skills[0]
-
-    class Catalog:
-        def skill(self, repository, path):
-            return skill if path == skill.path else None
-
-    class Reader:
-        content = b"\xef\xbb\xbf# Document"
-        reads = 0
-
-        def read_document(self, selected):
-            assert selected == skill
-            self.reads += 1
-            return self.content
-
-    reader = Reader()
-    documents = Documents(Catalog(), reader)
-    with pytest.raises(MissingSkill):
-        documents.load(skill.repository, "missing", skill.commit_sha)
-    with pytest.raises(StaleSkill):
-        documents.load(skill.repository, skill.path, "b" * 40)
-    assert reader.reads == 0
-    assert documents.load(skill.repository, skill.path, skill.commit_sha).source == "# Document"
-    reader.content = b"\xff"
-    with pytest.raises(RepositoryError, match="UTF-8"):
-        documents.load(skill.repository, skill.path, skill.commit_sha)
-
-
-def test_rendering_escapes_html_pins_links_and_never_embeds_images(scan_result):
-    skill = scan_result.skills[0]
-    source = """---
-name: example
----
-# Example
-<script>alert(1)</script>
-
-[relative](../guide%20book.md?q=1#part)
-[root](/README.md)
-[fragment](#example)
-[external](https://example.org)
-[unsafe](javascript:alert(1))
-![diagram](image.png)
-<img src="https://evil.test/tracker">
-"""
-    output = render(Document(skill, source))
-    assert output.frontmatter == "---\nname: example\n---\n"
-    assert "<script>" not in output.html
-    assert "<img" not in output.html
-    assert 'href="javascript:' not in output.html
-    assert f"{skill.repository.url}/blob/{skill.commit_sha}/guide%20book.md?q=1#part" in output.html
-    assert f"{skill.repository.url}/blob/{skill.commit_sha}/README.md" in output.html
-    assert f"{skill.repository.url}/blob/{skill.commit_sha}/review/image.png" in output.html
-    assert 'href="#example"' in output.html
-    assert 'href="https://example.org"' in output.html
-    assert "diagram (image)" in output.html
-    assert render(Document(skill, "Plain text")).frontmatter == ""

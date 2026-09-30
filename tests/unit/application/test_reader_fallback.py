@@ -1,8 +1,8 @@
 import pytest
 
+from skill_atlas.application.reader_fallback import FallbackReader
 from skill_atlas.errors import IncompleteListingError, RepositoryError
 from skill_atlas.models import SkillFile, Snapshot
-from skill_atlas.readers import FallbackReader
 
 
 class Primary:

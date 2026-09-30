@@ -2,9 +2,9 @@ import base64
 
 import pytest
 
-from skill_atlas import git
+from skill_atlas.adapters import git
+from skill_atlas.adapters.git import GitSnapshotReader
 from skill_atlas.errors import RepositoryError
-from skill_atlas.git import GitSnapshotReader
 
 
 def test_credentials_are_process_local_and_repository_overrides_are_removed(monkeypatch):

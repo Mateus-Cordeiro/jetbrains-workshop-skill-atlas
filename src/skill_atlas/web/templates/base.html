@@ -13,7 +13,7 @@
   <header class="topbar"><a class="brand" href="/"><span class="brand-icon" aria-hidden="true">▦</span> Skill Atlas</a><span class="local-label"><span></span> Local catalog</span></header>
   <main>
     <div id="scan-feedback" role="alert"></div>
-    <section id="jobs" aria-label="Scan activity" aria-live="polite">{% if jobs is defined %}{% include 'jobs.html' %}{% endif %}</section>
+    <section id="jobs" aria-label="Scan activity" aria-live="polite">{% if jobs is defined %}{% include 'fragments/jobs.html' %}{% endif %}</section>
     {% block content %}{% endblock %}
   </main>
   <footer>Discover skills. Explore how they work.</footer>
