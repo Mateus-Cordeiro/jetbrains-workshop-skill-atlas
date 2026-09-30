@@ -237,6 +237,31 @@ To enforce merge blocking in GitHub, select **CI required** as a required status
 check in the repository's branch protection or ruleset. The workflow file alone
 does not configure repository-level merge rules.
 
+## Pull request descriptions
+
+Use the [PR template](.github/pull_request_template.md) when creating or updating
+a pull request description, including through the CLI or API where an explicit
+body can bypass GitHub's template. Keep Summary, Changes, and Validation; remove
+unused Demo and Review notes sections. Keep small PRs concise and rewrite the
+description around the final change when its scope changes.
+
+Validation reports checks actually performed and their results, plus checks not
+run and the reason. For a longer inventory of tests added or updated, use the
+template's collapsible details block. Describe scenarios and behaviors rather
+than enumerating test functions. Prioritize integration and end-to-end coverage,
+and include meaningful unit regressions and edge cases. Link relevant tests when
+useful; a single visible bullet is enough for a small change. Keep required checks
+authoritative in this document rather than duplicating them in the template.
+
+Include a Demo for changes with visible browser or terminal behavior. Use the
+[pr-demo skill](.agents/skills/pr-demo/SKILL.md) to prepare and verify it; read
+the skill directly if it is not discovered automatically. Use one or more short
+videos for interactions and screenshots for static changes, with a caption for
+each. Separate videos may demonstrate distinct flows without redundant coverage.
+Omit the section when no visual demonstration is useful. If capture or attachment
+is unavailable, state the limitation and provide any usable artifact and handoff
+instructions. A demonstration supplements the required checks.
+
 ## Delivery and CI status
 
 For tasks that change repository files, delivery includes committing the task's
