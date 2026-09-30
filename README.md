@@ -60,6 +60,8 @@ descriptions match case-insensitively; every search word must appear in either
 field. The repository view has its own filter above the skill list. Filters stay
 in the URL through navigation and refresh, and filtering keeps the open document
 visible. Clear the field or press Escape while focused to show all skills again.
+See the [Filter specification](spec/features/filter.md) for the shared matching
+rules and the proposed `filter` subcommand, which is not yet available.
 
 Choose **Find similar** beneath a skill to discover alternatives across your
 scanned catalog. Results show a colour-coded **0–100% similarity bar** and
@@ -149,7 +151,9 @@ or specify the checkout with `uv run --project /path/to/checkout skill-atlas ...
 Start with the [specification index](spec/README.md). The
 [shared architecture](spec/architecture.md) records the adopted stack, component
 boundaries, catalog contracts, and extension patterns. Feature specs describe
-scan, Web UI, and similarity-search behavior and their acceptance criteria.
+scan, filtering, Web UI, and similarity-search behavior and their acceptance
+criteria. The [Filter specification](spec/features/filter.md) distinguishes the
+implemented Web matching rules from the proposed CLI extension.
 
 The source package groups workflows in `application/`, concrete integrations
 in `adapters/`, terminal commands and output in `cli/`, and the browser interface

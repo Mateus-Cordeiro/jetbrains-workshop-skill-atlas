@@ -155,7 +155,8 @@ late document response handling stay in `web/static/app.js`.
 ### Following a catalog filter
 
 `web/routes.py` adapts queries to `application/catalog.py`. Both scopes use the
-same matching policy there, keeping rules out of routes, SQL, and JavaScript.
+same [filter matching policy](features/filter.md#shared-matching-rules) there,
+keeping rules out of routes, SQL, and JavaScript.
 An unfiltered homepage requests repository summaries; expanding one requests
 its metadata. A filtered homepage requests all skill metadata in one read
 snapshot, groups matches and counts on the server, and renders only matches.
@@ -165,6 +166,10 @@ and indexed full-text search are not introduced for this metadata-only catalog.
 `web/static/filters.js` handles query history, expansion state, and cancellable
 list requests separately from document loading. No filtering operation reads
 GitHub, changes the catalog, or retrieves document bodies.
+
+The [filter specification](features/filter.md) also proposes a CLI adapter over
+this catalog service. That command is not yet implemented; the walkthrough
+above describes the current Web path.
 
 Homepage and repository skill lists share `fragments/skill-entry.html` for
 compact descriptions, expansion controls, and links to similarity search.
