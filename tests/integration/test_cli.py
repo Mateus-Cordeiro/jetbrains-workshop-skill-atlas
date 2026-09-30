@@ -2,6 +2,7 @@ import base64
 import sqlite3
 
 import httpx
+from rich.text import Text
 from typer.testing import CliRunner
 
 from skill_atlas import runtime
@@ -23,10 +24,11 @@ def configure_http(monkeypatch, handler):
 def test_help_exposes_subcommand():
     result = runner.invoke(create_app(), ["--help"])
     assert result.exit_code == 0
-    assert "scan" in result.stdout
+    assert "scan" in Text.from_ansi(result.stdout).plain
     result = runner.invoke(create_app(), ["scan", "--help"])
     assert result.exit_code == 0
-    assert "--no-interactive" in result.stdout
+    # CI terminal styling can insert ANSI sequences inside an option's name.
+    assert "--no-interactive" in Text.from_ansi(result.stdout).plain
 
 
 def test_bad_url_has_usage_exit_code_and_no_token_in_error(tmp_path, monkeypatch):
