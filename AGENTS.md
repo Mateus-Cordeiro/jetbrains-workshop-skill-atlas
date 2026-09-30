@@ -237,45 +237,46 @@ To enforce merge blocking in GitHub, select **CI required** as a required status
 check in the repository's branch protection or ruleset. The workflow file alone
 does not configure repository-level merge rules.
 
-## Delivery and CI feedback loop
+## Delivery and CI status
 
 For tasks that change repository files, delivery includes committing the task's
-changes, pushing a task branch, and verifying GitHub Actions. This applies to
-documentation changes too. Respect an explicit user instruction to keep work
+changes, pushing a task branch, and reporting GitHub Actions status. This applies
+to documentation changes too. Respect an explicit user instruction to keep work
 local, defer delivery, or make no changes. Do not include unrelated user changes
 in a commit. Use a `codex/` task branch for new work; reuse the appropriate
 existing task branch when continuing it.
 
 When opening a pull request, create it ready for review by default. Use draft
-mode only when the user explicitly requests it. A ready-for-review PR must still
-complete the CI feedback loop below before the task is reported complete.
+mode only when the user explicitly requests it. Tasks may finish while CI is
+queued or running; a green **CI required** aggregate is not a prerequisite for
+reporting task completion. Wait for CI only when the user explicitly asks.
 
 1. Review the diff and run the local checks appropriate to the change. Behavioral
    changes require the full local checks above; prose-only changes require
    documentation consistency and link validation. Add integration, browser, or
    installed-package checks when the affected scope requires them.
-2. Commit and push the task branch. Record the pushed commit SHA and find the CI
-   run for that exact commit and branch. If no run starts, diagnose the trigger
-   or dispatch the existing workflow for that branch; absence of a run is not
-   success.
-3. Wait for every required quality, Python test, and browser job and the
-   **CI required** aggregate to finish successfully. Inspect failed job logs,
-   reproduce and fix failures, run relevant local checks, then commit and push
-   the fixes. Repeat this loop until CI is green for the latest pushed commit.
-4. A green earlier commit does not validate newer changes. Pending, cancelled,
-   or skipped required jobs do not count as success. Rerun transiently failed or
-   cancelled jobs when appropriate; do not repeatedly rerun a deterministic
-   failure instead of fixing it. Never weaken tests, assertions, coverage,
-   required jobs, or workflow protections simply to obtain a green result.
+2. Commit and push the task branch. Record the pushed commit SHA and check once
+   for CI runs for that exact commit and branch. If no run is visible yet, report
+   that status and link to the branch's Actions page; do not poll or wait for a
+   run to appear or finish.
+3. If that check reveals a failure caused by the task's changes, inspect the
+   failed job logs, reproduce and fix the failure, run relevant local checks,
+   then commit and push the fix. Check the new commit's CI status once without
+   waiting for completion. Report unrelated failures or external blockers with
+   the affected commit/run and any action needed.
+4. A green earlier commit does not validate newer changes. Report queued,
+   running, failed, cancelled, skipped, or unavailable checks accurately; none
+   counts as success. Never weaken tests, assertions, coverage, required jobs,
+   or workflow protections simply to obtain a green result.
 5. Before reporting completion, verify that the task's final changes are in the
-   validated commit and that no newer task commit is awaiting CI. Report the
-   commit SHA, local validation, and a link to the successful CI run.
+   latest pushed commit. Report the commit SHA, local validation, observed CI
+   status, and a link to the CI run or branch's Actions page. State explicitly
+   when CI verification is incomplete.
 
-Do not stop at pushing or report completion while required CI is pending or
-failing. If an external blocker such as missing push permissions, unavailable
-Actions service, or a required secret prevents progress, report the exact
-blocker, affected commit/run, checks completed, and action needed. State clearly
-that CI verification is incomplete; do not claim green or silently bypass gates.
+If an external blocker such as missing push permissions prevents delivery,
+report the exact blocker, affected commit, checks completed, and action needed.
+An unavailable Actions service does not require keeping the task open after a
+successful push; report CI status as unavailable and verification as incomplete.
 
 Pushing a task branch does not authorize merging into or pushing directly to the
 default branch. Merging remains a separate user-directed action.
