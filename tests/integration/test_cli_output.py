@@ -87,6 +87,8 @@ async def test_interactive_toggle_keyboard_button_and_links(results_view, monkey
                 app.query_one(".group-label", Static).render()
             )
         links[-1].focus()
+        # Let deferred focus scrolling start before waiting for its animation.
+        await pilot.pause()
         await pilot.wait_for_scheduled_animations()
         scroll = app.query_one("#skills", VerticalScroll)
         assert links[-1].region.bottom <= scroll.region.bottom
@@ -127,6 +129,8 @@ async def test_interactive_metadata_is_literal_and_wraps(scan_result, monkeypatc
         link = app.query_one(Link)
         assert link.url == skill.url
         link.focus()
+        # Let deferred focus scrolling start before waiting for its animation.
+        await pilot.pause()
         await pilot.wait_for_scheduled_animations()
         assert link.region.bottom <= app.query_one("#skills").region.bottom
         await pilot.press("enter")
