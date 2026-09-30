@@ -19,7 +19,7 @@ Memory supplements the specifications and repository instructions. Keep
 architecture and behavior contracts in `spec/`, contribution rules here, and
 installation and usage guidance in `README.md`; memory links to those sources
 instead of redefining them. Codex and Claude share this policy and the same
-repository-local `memory/` directory; [CLAUDE.md](CLAUDE.md) imports this file.
+repository-local `memory/` directory, reading `AGENTS.md` directly.
 
 ## Architecture and behavior
 

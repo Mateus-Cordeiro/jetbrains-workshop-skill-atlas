@@ -75,8 +75,8 @@ Coding agents share development context through curated Markdown in
 [instruction-only skill](../.agents/skills/shared-memory/SKILL.md). Keeping notes
 in the repository makes them portable between Codex and Claude and reviewable
 with the code they describe. Separate checkouts exchange updates through Git.
-[AGENTS.md](../AGENTS.md#shared-project-memory) owns the lifecycle policy;
-[CLAUDE.md](../CLAUDE.md) imports it for Claude.
+[AGENTS.md](../AGENTS.md#shared-project-memory) owns the lifecycle policy and
+is read directly by both agents.
 
 ## Components and dependency boundaries
 

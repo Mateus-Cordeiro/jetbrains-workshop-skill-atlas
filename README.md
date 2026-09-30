@@ -199,11 +199,16 @@ scan history. Malformed skill definitions are silently skipped.
 ### Working with coding agents
 
 Codex and Claude use the same [shared project memory](memory/index.md) and
-[memory skill](.agents/skills/shared-memory/SKILL.md). Codex follows
-[AGENTS.md](AGENTS.md); [CLAUDE.md](CLAUDE.md) imports those instructions for
-Claude. Both agents read relevant memory before a task and reconcile durable
-findings before finishing. The skill can be read directly; no personal skill
-installation, hook, or memory service is required.
+[memory skill](.agents/skills/shared-memory/SKILL.md). Both follow
+[AGENTS.md](AGENTS.md) directly, read relevant memory before a task, and
+reconcile durable findings before finishing. The skill can be read directly;
+no personal skill installation, hook, or memory service is required.
+
+For Claude Code, use v2.1.281 or later with
+[AGENTS.md support](https://code.claude.com/docs/en/memory#agents-md) enabled.
+If local or ancestor `CLAUDE.md` or `CLAUDE.local.md` files take precedence,
+set **Project instructions** to `claude-md-and-agents-md` in `/config`.
+Use `/memory` to confirm that this repository's `AGENTS.md` loaded.
 
 Memory is curated Markdown tracked with the project. Agents in the same
 checkout see the same files; separate branches, worktrees, and machines share
