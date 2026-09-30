@@ -107,7 +107,6 @@ def register_routes(
         request: Request,
         repository_url: str,
         skill_path: str,
-        other_repositories: bool = False,
         selected_repository: str = "",
         selected_path: str = "",
     ) -> Response:
@@ -116,9 +115,7 @@ def register_routes(
             Repository.from_url(selected_repository) if selected_repository else None
         )
         try:
-            result = similarity.search(
-                repository, skill_path, other_repositories=other_repositories
-            )
+            result = similarity.search(repository, skill_path)
         except MissingSimilaritySource as exc:
             return error(request, str(exc), 404, "missing_similarity_source")
         selected = next(
@@ -139,7 +136,6 @@ def register_routes(
             else "pages/similar.html",
             result=result,
             selected=selected,
-            other_repositories=other_repositories,
             jobs=jobs.recent(),
         )
 

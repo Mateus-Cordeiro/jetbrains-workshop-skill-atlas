@@ -7,9 +7,9 @@ and HTTP contracts.
 
 ## Scope and behavior
 
-Search all scanned repositories by default. An **Other repositories only** filter
-excludes every entry from the starting repository. Exclude the starting entry by
-its canonical repository URL and exact path, never by name. Searching performs
+Search all scanned repositories, including the starting repository. There is no
+repository filter. Exclude the starting entry by its canonical repository URL
+and exact path, never by name. Searching performs
 no scans, document fetches, writes, migrations, or external model requests.
 
 Read the starting skill and every candidate in one catalog snapshot. A missing
@@ -21,14 +21,13 @@ labelled **Same metadata**, with expandable locations. Normalize grouping keys
 with Unicode NFKC, case folding, and collapsed whitespace; preserve punctuation.
 Do not claim matching document bodies. Grouping changes only presentation, never
 catalog identity. A copy of the starting skill at another location remains a
-candidate. Apply the repository filter before selecting group locations.
+candidate.
 
 ## Ranking and score
 
 Use standard-library TF-IDF with separately normalized name and description
 vectors. Compute corpus statistics over distinct metadata pairs, including the
-starting skill, across the complete catalog even when filtering repositories.
-Copies must not change scores or consume separate top-result slots.
+starting skill, across the complete catalog. Copies must not change scores or consume separate top-result slots.
 
 - Normalize Unicode with NFKC, case-fold, and split hyphens/underscores. Preserve technical suffixes such as `C++` and `C#`.
 - Extract Unicode word tokens and adjacent two-word phrases. Remove a fixed small
@@ -47,9 +46,10 @@ Copies must not change scores or consume separate top-result slots.
   breaking equal contributions alphabetically. These explain lexical overlap,
   not an inferred semantic judgment.
 
-Display **Similarity: 82/100**, rounded to the nearest integer (halves up).
-Explain that it measures names and descriptions, not probability, quality, or
-identical instructions. A rounded 100 does not establish identical metadata or
+Display the score as a percentage in a colour-coded bar spanning 0–100%, rounded
+to the nearest integer (halves up). The [Web UI](web-ui.md#similar-skills) owns
+bar presentation, colour thresholds, and accessibility. Explain that it measures names and descriptions, not probability, quality, or
+identical instructions. A rounded 100% does not establish identical metadata or
 bodies. Scores may change as the catalog grows because IDF depends on the corpus.
 
 The 80/20 weights and cutoff of 10 are initial defaults, covered by a small
@@ -66,14 +66,15 @@ after evaluation against the lexical baseline.
 2. Case, separators, phrases, repeated words, technical tokens, Unicode, and
    empty vocabularies have deterministic finite scores. Scores are not rescaled
    to make the highest result 100.
-3. Source identity exclusion, cross-repository filtering, matching metadata
+3. Source identity exclusion, same- and cross-repository results, matching metadata
    groups, stable ties, top-ten limits, and explanation contributions are tested.
    Adding copies does not change existing scores.
 4. Existing catalogs work without rescanning or schema changes. Missing,
    corrupt, unsupported, concurrently replaced, and zero-skill catalogs preserve
    the shared read and error contracts. Search does not persist data.
 5. Browser tests cover entry from metadata even after document failure, result
-   selection without losing the source, grouping, filters, score explanations,
+   selection without losing the source, grouping, percentage bars and colour bands,
+   score explanations, absence of metadata descriptions and retired controls,
    keyboard/mobile behavior, refresh/back, stale/deleted selections, and late
    responses. Documents retain commit-pinned retrieval and safe rendering.
 6. Installed-wheel checks exercise the new page and fragment. Benchmark a

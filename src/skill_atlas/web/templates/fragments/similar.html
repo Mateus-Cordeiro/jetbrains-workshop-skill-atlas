@@ -1,36 +1,26 @@
 {% set source = result.source %}
-{% set scope = 'true' if other_repositories else 'false' %}
 {% macro location_link(skill, primary=false) %}
 <a class="skill-link" {% if selected and selected.repository.url == skill.repository.url and selected.path == skill.path %}aria-current="true"{% endif %}
-   href="{{ url('/similar', repository_url=source.repository.url, skill_path=source.path, other_repositories=scope, selected_repository=skill.repository.url, selected_path=skill.path) }}"
+   href="{{ url('/similar', repository_url=source.repository.url, skill_path=source.path, selected_repository=skill.repository.url, selected_path=skill.path) }}"
    data-skill-path="{{ skill.path }}" data-skill-repository="{{ skill.repository.url }}"
    hx-get="{{ url('/fragments/document', repository_url=skill.repository.url, skill_path=skill.path, commit_sha=skill.commit_sha) }}" hx-target="#document" hx-sync="#workspace:replace">
-  {% if primary %}<strong>{{ skill.name }}</strong><p>{{ skill.description }}</p>{% endif %}
+  {% if primary %}<strong>{{ skill.name }}</strong>{% endif %}
   <span class="result-repository">{{ skill.repository.full_name }}</span><code>{{ skill.path }}</code>
 </a>
 {% endmacro %}
-<section id="workspace" data-mode="similar" data-repository="{{ source.repository.url }}" data-source-path="{{ source.path }}" data-other-repositories="{{ scope }}" data-selected-repository="{{ selected.repository.url if selected else '' }}" data-selected-path="{{ selected.path if selected else '' }}">
+<section id="workspace" data-mode="similar" data-repository="{{ source.repository.url }}" data-source-path="{{ source.path }}" data-selected-repository="{{ selected.repository.url if selected else '' }}" data-selected-path="{{ selected.path if selected else '' }}">
   <div class="repository-heading similarity-heading">
-    <div><p class="eyebrow">SIMILAR SKILLS</p><h1>Similar to “{{ source.name }}”</h1><p>{{ source.description }}</p>
+    <div><p class="eyebrow">SIMILAR SKILLS</p><h1>Similar to “{{ source.name }}”</h1>
       <p class="muted">{{ source.repository.full_name }} · <code>{{ source.path }}</code> · Snapshot <code title="{{ source.commit_sha }}">{{ source.commit_sha[:8] }}</code></p>
     </div>
-    <button type="button" data-refresh-workspace>Refresh results</button>
   </div>
-  <div class="similarity-controls">
-    <form method="get" action="/similar">
-      <input type="hidden" name="repository_url" value="{{ source.repository.url }}">
-      <input type="hidden" name="skill_path" value="{{ source.path }}">
-      <label><input type="checkbox" name="other_repositories" value="true" {% if other_repositories %}checked{% endif %}> Other repositories only</label>
-      <button type="submit">Apply filter</button>
-    </form>
-    <details class="score-help"><summary>How similarity scores work</summary><p>Scores compare names (20%) and descriptions (80%) using shared words and phrases. Higher scores indicate closer metadata matches. They are not probabilities or quality ratings. Even 100/100 does not establish identical instructions. Scores can change as the catalog grows; synonyms and exclusions may be missed.</p></details>
-  </div>
+  <details class="score-help"><summary>How similarity scores work</summary><p>Scores compare names (20%) and descriptions (80%) using shared words and phrases. Higher percentages indicate closer metadata matches. Bars use red below 40%, amber from 40–69%, and green from 70–100%. Values are rounded to whole percentages. They are not probabilities or quality ratings. Even 100% does not establish identical instructions. Scores can change as the catalog grows; synonyms and exclusions may be missed.</p></details>
   <div class="split-view">
     <aside class="skills-pane" aria-label="Similar skills"><div class="pane-heading">MATCHES <span class="count">{{ result.matches|length }}</span></div>
       <nav class="skills-list" aria-label="Select a similar skill">
         {% for match in result.matches %}
         <article class="similar-result">
-          <p class="similarity-score" title="Based on similarity between skill names and descriptions. Higher scores indicate a closer match.">Similarity: {{ match.display_score }}/100</p>
+          {% with score=match.display_score, name=match.skill.name %}{% include 'fragments/similarity-score.html' %}{% endwith %}
           {{ location_link(match.skill, true) }}
           <p class="shared-terms">Shared terms: {{ match.shared_terms|join(', ') }}</p>
           {% if match.locations|length > 1 %}
@@ -39,7 +29,7 @@
           </details>
           {% endif %}
         </article>
-        {% else %}<div class="empty"><h2>No similar skills found</h2><p>No matches scored at least 10/100 in this scope. Try all repositories or scan more repositories.</p></div>{% endfor %}
+        {% else %}<div class="empty"><h2>No similar skills found</h2><p>No matches scored at least 10%. Scan more repositories to find alternatives.</p></div>{% endfor %}
       </nav>
     </aside>
     <section class="document-pane" aria-label="Skill definition"><div id="document" aria-live="polite" {% if selected %}hx-get="{{ url('/fragments/document', repository_url=selected.repository.url, skill_path=selected.path, commit_sha=selected.commit_sha) }}" hx-trigger="load" hx-sync="#workspace:replace"{% endif %}><div class="empty"><h2>{% if selected %}Loading SKILL.md…{% else %}Explore a match{% endif %}</h2><p>{% if selected %}Retrieving the scanned version from GitHub.{% else %}Select a similar skill to view its SKILL.md{% endif %}</p></div></div></section>

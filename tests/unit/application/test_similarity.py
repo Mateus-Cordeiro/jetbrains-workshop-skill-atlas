@@ -13,9 +13,9 @@ def skill(name, description, path="SKILL.md", repository=REPO):
     return Skill(repository, path, name, description, "a" * 40)
 
 
-def search(source, *candidates, **options):
+def search(source, *candidates):
     catalog = SimpleNamespace(all_skills=lambda: (source, *candidates))
-    return SimilarSkills(catalog).search(source.repository, source.path, **options).matches
+    return SimilarSkills(catalog).search(source.repository, source.path).matches
 
 
 def test_relevance_prefers_purpose_to_name_and_omits_unrelated():
@@ -33,7 +33,7 @@ def test_relevance_prefers_purpose_to_name_and_omits_unrelated():
     assert search(source, purpose)[0].display_score == 80
 
 
-def test_identity_copies_groups_and_repository_filter_do_not_change_scores():
+def test_identity_copies_groups_and_all_repositories_do_not_change_scores():
     source = skill("review", "Check patches carefully.")
     local = replace(source, path=".agents/SKILL.md")
     remote = replace(source, repository=Repository("other", "repo"))
@@ -46,9 +46,8 @@ def test_identity_copies_groups_and_repository_filter_do_not_change_scores():
     assert source not in duplicates[0].locations
     assert len(duplicates[0].locations) == 3
     assert duplicates[0].display_score == 100
-    filtered = search(source, local, remote, same_name, other_repositories=True)
-    assert filtered[0].locations == (remote,)
-    assert filtered[0].score == baseline[0].score
+    assert local in duplicates[0].locations
+    assert remote in duplicates[0].locations
 
 
 def test_grouping_normalizes_unicode_case_and_whitespace_without_discarding_punctuation():

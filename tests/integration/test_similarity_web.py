@@ -27,18 +27,24 @@ def test_catalog_similarity_is_read_only_and_does_not_fetch_documents(
     before = state.settings.database_path.read_bytes()
     response = client.get(route, params=selection(fixture.source))
     assert response.status_code == 200
-    assert "Similarity: 100/100" in response.text and "Similarity: 80/100" in response.text
+    assert 'aria-valuetext="100% similarity"' in response.text
+    assert 'aria-valuetext="80% similarity"' in response.text
+    assert 'min="0" max="100"' in response.text
+    assert fixture.source.description not in response.text
     assert "Same metadata · 3 locations" in response.text
-    assert "Shared terms:" in response.text and "Other repositories only" in response.text
+    assert "Shared terms:" in response.text
+    for removed in ("Other repositories only", "Apply filter", "Refresh results"):
+        assert removed not in response.text
     assert "selected_path=review+%23%3F%2FSKILL.md" in response.text
     assert "fixture-token" not in response.text
     assert response.headers["Cache-Control"] == "no-store"
     assert state.settings.database_path.read_bytes() == before
     assert not state.requests
     assert len(state.catalog.all_skills()) == 6
-    filtered = client.get(route, params={**selection(fixture.source), "other_repositories": True})
-    assert "Same metadata · 2 locations" in filtered.text
-    assert ".agents/skills/review/SKILL.md" not in filtered.text
+    legacy = client.get(route, params={**selection(fixture.source), "other_repositories": True})
+    assert legacy.text == response.text  # Retired filters no longer change the search scope.
+    assert "other_repositories" not in response.text
+    assert ".agents/skills/review/SKILL.md" in response.text
     selected = client.get(
         route,
         params={
@@ -86,7 +92,6 @@ def test_similarity_empty_missing_and_invalid_catalog_requests(
     for invalid in (
         {},
         {**params, "repository_url": "bad"},
-        {**params, "other_repositories": "bad"},
     ):
         assert client.get("/similar", params=invalid).status_code == 400
     assert (

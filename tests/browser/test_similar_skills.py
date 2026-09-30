@@ -17,7 +17,7 @@ def similar_url(page, source, **params):
     )
 
 
-def test_find_similar_from_metadata_scores_grouping_filter_and_history(
+def test_find_similar_from_metadata_score_bars_grouping_and_history(
     browser_page, web_environment, similar_catalog
 ):
     page, state, fixture = browser_page, web_environment, similar_catalog
@@ -35,14 +35,17 @@ def test_find_similar_from_metadata_scores_grouping_filter_and_history(
     )
     entry.get_by_role("link", name="Find similar", exact=False).click()
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
-    expect(page.locator(".similarity-score").first).to_have_text("Similarity: 100/100")
+    expect(page.get_by_role("meter").first).to_have_attribute("value", "100")
+    expect(page.get_by_role("meter").first).to_have_attribute("aria-valuetext", "100% similarity")
+    expect(page.locator(".score-value").first).to_have_text("100%")
+    expect(page.get_by_text(fixture.source.description, exact=True)).to_have_count(0)
+    for removed in ("Refresh results", "Apply filter"):
+        expect(page.get_by_role("button", name=removed)).to_have_count(0)
+    expect(page.get_by_label("Other repositories only")).to_have_count(0)
     expect(page.get_by_text("Same metadata · 3 locations")).to_be_visible()
     page.get_by_text("How similarity scores work").click()
     expect(page.get_by_text("They are not probabilities", exact=False)).to_be_visible()
-    page.get_by_label("Other repositories only").check()
-    page.get_by_role("button", name="Apply filter").click()
-    expect(page.get_by_text("Same metadata · 2 locations")).to_be_visible()
-    page.get_by_text("Same metadata · 2 locations").click()
+    page.get_by_text("Same metadata · 3 locations").click()
     remote = page.locator('.skill-link[data-skill-path="review #?/SKILL.md"]')
     remote.focus()
     state.document_status = 200
@@ -59,7 +62,7 @@ def test_find_similar_from_metadata_scores_grouping_filter_and_history(
     expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
     page.reload()
     expect(remote).to_have_attribute("aria-current", "true")
-    expect(page.get_by_label("Other repositories only")).to_be_checked()
+    assert "other_repositories" not in page.url
     page.set_viewport_size({"width": 390, "height": 844})
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert (
@@ -74,7 +77,10 @@ def test_similar_refresh_stale_commit_and_removed_selection(
     browser_page, web_environment, similar_catalog
 ):
     page, state, fixture = browser_page, web_environment, similar_catalog
-    page.goto(similar_url(page, fixture.source, other_repositories="true"))
+    state.catalog.replace_repository(
+        ScanResult(fixture.source.repository, fixture.source.commit_sha, (fixture.source,))
+    )
+    page.goto(similar_url(page, fixture.source))
     updated = replace(fixture.alternative, commit_sha="d" * 40)
     state.catalog.replace_repository(ScanResult(updated.repository, updated.commit_sha, (updated,)))
     page.locator('.skill-link[data-skill-path="alternative/SKILL.md"]').click()
@@ -88,8 +94,13 @@ def test_similar_refresh_stale_commit_and_removed_selection(
     expect(page.get_by_role("heading", name="No similar skills found")).to_be_visible()
     expect(page.locator(".document-toolbar")).to_have_count(0)
     assert "selected_path" not in parse_qs(urlsplit(page.url).query)
+    copy = replace(fixture.source, path="copy/SKILL.md")
+    state.catalog.replace_repository(
+        ScanResult(copy.repository, copy.commit_sha, (fixture.source, copy))
+    )
+    page.reload()
     state.catalog.replace_repository(ScanResult(fixture.source.repository, "f" * 40, ()))
-    page.get_by_role("button", name="Refresh results").click()
+    page.locator('.skill-link[data-skill-path="copy/SKILL.md"]').click()
     expect(page.locator("#scan-feedback")).to_contain_text("starting skill is no longer")
     page.reload()
     expect(page.get_by_text("starting skill is no longer", exact=False)).to_be_visible()
@@ -99,7 +110,7 @@ def test_similar_retry_and_late_response_keep_source_and_current_match(
     browser_page, web_environment, similar_catalog
 ):
     page, state, fixture = browser_page, web_environment, similar_catalog
-    page.goto(similar_url(page, fixture.source, other_repositories="true"))
+    page.goto(similar_url(page, fixture.source))
     state.document_status = 403
     page.locator(".skill-link").first.click()
     expect(page.get_by_role("button", name="Retry", exact=True)).to_be_visible()
@@ -110,7 +121,7 @@ def test_similar_retry_and_late_response_keep_source_and_current_match(
     page.route(
         "**/fragments/document?*",
         lambda route: (
-            held.append(route) if "nested%2Fcopy" in route.request.url else route.continue_()
+            held.append(route) if ".agents%2Fskills" in route.request.url else route.continue_()
         ),
     )
     page.locator(".skill-link").first.click()
@@ -124,12 +135,22 @@ def test_similar_retry_and_late_response_keep_source_and_current_match(
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
 
 
-def test_late_similarity_refresh_does_not_overwrite_selection(browser_page, similar_catalog):
+def test_late_similarity_refresh_does_not_overwrite_selection(
+    browser_page, web_environment, similar_catalog
+):
     page, fixture = browser_page, similar_catalog
-    page.goto(similar_url(page, fixture.source, other_repositories="true"))
+    page.goto(similar_url(page, fixture.source))
     held = []
     page.route("**/fragments/similar?*", lambda route: held.append(route))
-    page.get_by_role("button", name="Refresh results").click()
+    updated = tuple(
+        replace(skill, commit_sha="d" * 40)
+        for skill in web_environment.catalog.skills(fixture.source.repository)
+    )
+    web_environment.catalog.replace_repository(
+        ScanResult(fixture.source.repository, "d" * 40, updated)
+    )
+    with page.expect_request("**/fragments/similar?*"):
+        page.locator(".skill-link").first.click()
     page.locator('.skill-link[data-skill-path="alternative/SKILL.md"]').click()
     expect(page.locator(".document-toolbar strong")).to_have_text("patch-audit")
     assert len(held) == 1
@@ -144,7 +165,7 @@ def test_similarity_refreshes_after_a_background_scan(
 ):
     page, state, fixture = browser_page, web_environment, similar_catalog
     state.scan_gate.clear()
-    page.goto(similar_url(page, fixture.source, other_repositories="true"))
+    page.goto(similar_url(page, fixture.source))
     response = page.request.post(
         page.base_url + "/scans",
         form={"repository_url": fixture.remote.repository.url},
@@ -155,5 +176,51 @@ def test_similarity_refreshes_after_a_background_scan(
     expect(page.locator('.job[data-state="running"]')).to_be_visible()
     state.zero = True
     state.scan_gate.set()
-    expect(page.get_by_role("heading", name="No similar skills found")).to_be_visible()
-    expect(page.locator(".similar-result")).to_have_count(0)
+    expect(page.locator(".similar-result")).to_have_count(1)
+    expect(page.get_by_text("other/skills", exact=True)).to_have_count(0)
+    expect(page.locator(".result-repository")).to_have_text("Acme/skills")
+
+
+def test_similarity_bars_show_low_medium_and_high_scores(
+    browser_page, web_environment, similar_catalog
+):
+    page, state, fixture = browser_page, web_environment, similar_catalog
+    medium = replace(
+        fixture.alternative,
+        path="medium/SKILL.md",
+        name="patch-review",
+        description="Review code patches for correctness, bugs, and maintainability.",
+    )
+    low = replace(fixture.remote, path="low/SKILL.md", description="Bake sourdough bread.")
+    state.catalog.replace_repository(
+        ScanResult(
+            fixture.remote.repository,
+            fixture.remote.commit_sha,
+            (*state.catalog.skills(fixture.remote.repository), medium, low),
+        )
+    )
+    page.goto(similar_url(page, fixture.source))
+    for skill, minimum, maximum, colour in (
+        (low, 0, 39, "#a34332"),
+        (medium, 40, 69, "#946200"),
+        (fixture.alternative, 70, 100, "#29634e"),
+    ):
+        card = page.locator(".similar-result").filter(
+            has=page.locator(f'.skill-link[data-skill-path="{skill.path}"]')
+        )
+        meter = card.get_by_role("meter")
+        score = int(meter.get_attribute("value"))
+        assert minimum <= score <= maximum
+        expect(meter).to_have_attribute("min", "0")
+        expect(meter).to_have_attribute("max", "100")
+        expect(card.locator(".score-value")).to_have_text(f"{score}%")
+        assert (
+            meter.evaluate("el => getComputedStyle(el).getPropertyValue('--score-color')") == colour
+        )
+        expect(card.get_by_text(skill.description, exact=True)).to_have_count(0)
+        # The percentage sits inside the meter, including when the fill is short.
+        track = card.locator(".score-track").bounding_box()
+        label = card.locator(".score-value span").bounding_box()
+        assert track["x"] <= label["x"] < label["x"] + label["width"] <= track["x"] + track["width"]
+    page.set_viewport_size({"width": 1360, "height": 1400})
+    page.screenshot(path="test-results/similar-colours.png", full_page=True)

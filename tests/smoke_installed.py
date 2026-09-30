@@ -3,6 +3,7 @@
 import base64
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic, sleep
@@ -13,7 +14,9 @@ from fastapi.testclient import TestClient
 
 import skill_atlas
 from skill_atlas import runtime
+from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
 from skill_atlas.config import Settings
+from skill_atlas.models import ScanResult
 
 SOURCE = "---\nname: installed-skill\ndescription: Installed wheel check.\n---\n# Skill document\n"
 COMMIT = "a" * 40
@@ -95,6 +98,21 @@ with (
             page = client.get(path, params={"repository_url": REPOSITORY, "skill_path": "SKILL.md"})
             assert page.status_code == 200 and "No similar skills found" in page.text
             assert "How similarity scores work" in page.text
+        catalog = SQLiteCatalog(Path(directory) / "catalog.sqlite3")
+        original = catalog.all_skills()[0]
+        catalog.replace_repository(
+            ScanResult(
+                original.repository, COMMIT, (original, replace(original, path="copy/SKILL.md"))
+            )
+        )
+        matches = client.get(
+            "/similar", params={"repository_url": REPOSITORY, "skill_path": "SKILL.md"}
+        )
+        assert (
+            matches.status_code == 200
+            and '<meter class="similarity-meter score-high"' in matches.text
+        )
+        assert 'aria-valuetext="100% similarity"' in matches.text
         assert "acme/skills" in client.get("/fragments/repositories").text
         selection = {"repository_url": REPOSITORY, "skill_path": "SKILL.md", "commit_sha": COMMIT}
         document = client.get("/fragments/document", params=selection)

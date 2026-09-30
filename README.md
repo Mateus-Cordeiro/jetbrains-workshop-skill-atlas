@@ -50,15 +50,17 @@ left pane to read its definition in the right pane. **Preview** renders Markdown
 background while you browse. **Rescan repository** refreshes an existing entry.
 
 Choose **Find similar** beneath a skill to discover alternatives across your
-scanned catalog. Results show **Similarity: N/100**, shared terms, and expandable
-locations with matching metadata. Select a result to read it while keeping the
-starting skill visible. **Other repositories only** narrows the results, and
-**Refresh results** includes changes made by CLI scans.
+scanned catalog. Results show a colour-coded **0–100% similarity bar**, shared
+terms, and expandable locations with matching metadata. Bars are red below 40%,
+amber at 40–69%, and green at 70–100%, with the percentage visible inside the bar.
+Select a result to read it while keeping the starting skill visible. The header
+and result cards omit descriptions. Search always includes all scanned
+repositories; reload the page to include changes made by CLI scans.
 
 Scores compare descriptions (80%) and names (20%) using shared words and phrases;
-they are not probabilities or quality ratings. Even 100/100 does not establish
+they are not probabilities or quality ratings. Even 100% does not establish
 identical instructions. Scores can change as the catalog grows. Search shows up
-to ten groups scoring at least 10/100 and can miss synonyms or misinterpret
+to ten groups scoring at least 10% and can miss synonyms or misinterpret
 exclusions. It works locally from metadata without fetching documents or
 rescanning. See [Similar skills](spec/features/similar-skills.md) for the rules.
 

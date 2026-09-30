@@ -88,9 +88,7 @@ class SimilarSkills:
     def __init__(self, catalog: CatalogReader) -> None:
         self.catalog = catalog
 
-    def search(
-        self, repository: Repository, path: str, *, other_repositories: bool = False
-    ) -> SimilarityResult:
+    def search(self, repository: Repository, path: str) -> SimilarityResult:
         # Resolve the source from the same read transaction as every candidate.
         skills = self.catalog.all_skills()
         source = next(
@@ -115,7 +113,6 @@ class SimilarSkills:
                         skill
                         for skill in groups[key]
                         if (skill.repository.url, skill.path) != (repository.url, path)
-                        and (not other_repositories or skill.repository.url != repository.url)
                     ),
                     key=_order,
                 )

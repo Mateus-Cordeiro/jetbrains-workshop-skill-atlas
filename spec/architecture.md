@@ -153,7 +153,7 @@ late-response handling stay in `web/static/app.js`.
 
 ### Following a similarity search
 
-`web/routes.py` adapts a source identity and repository filter to
+`web/routes.py` adapts a source identity to
 `application/similarity.py`, wired by `runtime.py`. The service reads all catalog
 skills once through `CatalogReader.all_skills()`, resolving the source from the
 same transaction as candidates. It computes TF-IDF scores and groups matching
