@@ -34,6 +34,16 @@ check both DOM uniqueness and shared selection. Keep pytest module basenames
 distinct across test directories; duplicate `test_grouping.py` files caused
 collection to fail when running unit and integration suites together.
 
+After following a full-page navigation link, wait for the destination URL with
+`wait_until="domcontentloaded"` before focusing a control and sending keyboard
+input. The grouping tests reproduced a Linux race where Enter reached the focused
+Generate button while the document was `interactive`, before `DOMContentLoaded`
+initialized HTMX's handlers; the native click fired but no generation request followed.
+Element presence and focus alone do not establish script readiness. Keep the
+keyboard interaction and focus assertion, as in
+[the group browser tests](../tests/browser/test_skill_groups.py), rather than
+substituting a mouse click or adding a fixed delay.
+
 ## Standalone browser demos
 
 When adapting the fixtures for a standalone [PR demo](../.agents/skills/pr-demo/SKILL.md),
@@ -49,6 +59,11 @@ The [Playwright Test pilot](../tests/browser/visual/desktop.spec.ts) and Python
 browser suite share [the Web environment](../tests/web_environment.py). Use the
 [documented container commands](../README.md#desktop-visual-tests) for baseline
 comparisons and recordings; host macOS fonts are not the Linux baseline fonts.
+
+The [Docker image](../tests/browser/visual/Dockerfile) copies source and tests at
+build time. Rebuild it with the documented runner before using it for additional
+Python browser checks; a pre-existing `skill-atlas-visual:local` tag may contain
+older code. Mounting only a changed test does not update the application snapshot.
 
 When pausing Playwright's clock for scan screenshots, advance it until HTMX's
 settling/request classes disappear before interacting with replaced controls.

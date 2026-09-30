@@ -37,8 +37,12 @@ def test_generate_overlapping_groups_select_source_history_and_topics(
     state.grouping_gate.clear()
     page.goto(page.base_url)
     page.get_by_role("link", name="Capabilities", exact=True).click()
+    # The button can be focused before deferred HTMX scripts have initialized.
+    page.wait_for_url(page.base_url + "/groups/capabilities", wait_until="domcontentloaded")
     assert state.grouping_requests == []
-    page.get_by_role("button", name="Generate groups", exact=True).focus()
+    generate = page.get_by_role("button", name="Generate groups", exact=True)
+    generate.focus()
+    expect(generate).to_be_focused()
     page.keyboard.press("Enter")
     expect(page.locator("#group-status")).to_contain_text("Generating capabilities")
     expect(page.get_by_role("button", name="Generate groups", exact=True)).to_be_disabled()
