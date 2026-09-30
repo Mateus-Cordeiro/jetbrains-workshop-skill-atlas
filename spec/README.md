@@ -5,7 +5,7 @@ the shared architecture, then the feature specifications affected by the change.
 
 | Specification | Scope | Status |
 | --- | --- | --- |
-| [Architecture](architecture.md) | Adopted stack, component boundaries, shared domain and catalog contracts, configuration, credentials, and extension patterns. | Accepted and implemented |
+| [Architecture](architecture.md) | Adopted stack, component boundaries, shared domain and catalog contracts, CLI results presentation, configuration, credentials, and extension patterns. | Accepted and implemented |
 | [Scan](features/scan.md) | `scan` command, discovery and extraction rules, repository access strategy, terminal output, and acceptance criteria. | Accepted and implemented |
 | [Filter](features/filter.md) | Shared skill matching rules, `filter` command, output formats, and CLI/Web consistency criteria. | Accepted and implemented |
 | [Similar skills](features/similar-skills.md) | `similar` command, shared catalog-based similarity ranking, scores, grouping, and relevance criteria. | Accepted and implemented |

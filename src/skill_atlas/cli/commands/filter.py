@@ -8,7 +8,9 @@ from rich.console import Console
 from rich.text import Text
 
 from skill_atlas import runtime
-from skill_atlas.cli.output.filter import print_filter_result, write_filter_json
+from skill_atlas.cli.output.filter import write_filter_json
+from skill_atlas.cli.output.presentation import show_results
+from skill_atlas.cli.output.results import filter_view
 from skill_atlas.config import Settings
 from skill_atlas.errors import AtlasError
 from skill_atlas.models import Repository
@@ -22,11 +24,15 @@ def filter_catalog(
         str | None,
         typer.Option("--repository", help="Restrict results to this GitHub repository URL."),
     ] = None,
+    no_interactive: Annotated[
+        bool,
+        typer.Option("--no-interactive", help="Print results and exit without opening the UI."),
+    ] = False,
     json_output: Annotated[
         bool, typer.Option("--json", help="Write a JSON object with matching_count and skills.")
     ] = False,
 ) -> None:
-    """Filter saved skills offline; omit QUERY to list all skills. Prints and exits."""
+    """Filter saved skills offline; omit QUERY to list all skills."""
     try:
         repository = Repository.from_url(repository_url) if repository_url is not None else None
     except ValueError as error:
@@ -42,7 +48,7 @@ def filter_catalog(
     if json_output:
         write_filter_json(result, sys.stdout)
     else:
-        print_filter_result(result, Console(force_terminal=sys.stdout.isatty()))
+        show_results(filter_view(result), no_interactive=no_interactive)
 
 
 def register(app: typer.Typer) -> None:

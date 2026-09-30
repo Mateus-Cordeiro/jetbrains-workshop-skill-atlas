@@ -19,7 +19,8 @@ The editable installation picks up Python source changes in this checkout.
 If your shell cannot find the installed command, run `uv tool update-shell` and
 restart the shell to add uv's executable directory to `PATH`.
 
-The results view shows numbered skills with links to their scanned definitions.
+The `scan`, `filter`, and `similar` commands share a results view with numbered
+skills, descriptions, repository paths, and links to their scanned definitions.
 Click **Hide descriptions**, or press **d**, to toggle descriptions. Press **q**
 to exit. Links open in your default browser.
 
@@ -29,7 +30,10 @@ For ordinary terminal output, use:
 skill-atlas scan https://github.com/owner/repository --no-interactive
 ```
 
-Redirected output automatically uses plain text, including literal URLs.
+All three commands accept `--no-interactive`. They open the interactive view
+when both input and output are attached to a capable terminal; otherwise they
+print and exit. Redirected output automatically uses plain text, including
+literal URLs. Scroll or use Tab to focus links and Enter to open them.
 
 ## Filter saved skills
 
@@ -38,6 +42,7 @@ Search the local catalog without rescanning or starting the Web server:
 ```sh
 skill-atlas filter "code review"
 skill-atlas filter "code review" --repository https://github.com/owner/repository
+skill-atlas filter "code review" --no-interactive
 skill-atlas filter "code review" --json
 skill-atlas filter
 ```
@@ -47,8 +52,9 @@ using Unicode case-insensitive matching. Quote multiword queries; punctuation
 is literal, and paths and document bodies are not searched. Omit the query to
 list all saved skills. `--repository` limits results to one repository.
 
-The command prints names, descriptions, repository paths, and commit-pinned
-links, then exits. `--json` emits an object with `matching_count` and a `skills`
+Results show names, descriptions, repository paths, and commit-pinned links
+in the shared interactive view, or print and exit with `--no-interactive`.
+`--json` always prints and exits, emitting an object with `matching_count` and a `skills`
 array containing each match's metadata, identity, full commit, and URL. Results
 use the same catalog as the Web UI, including `SKILL_ATLAS_DB`, and reflect the
 latest successful scans. Filtering works offline and does not require credentials.
@@ -71,8 +77,9 @@ including case. Quote paths containing spaces or shell metacharacters. Names
 alone cannot select a skill because multiple entries may have the same name.
 Scan the repository first if the starting skill is not yet in the catalog.
 
-The command prints ranked scores, skill names, every grouped repository/path,
-and links to the scanned commits, then exits. It uses the same ranking as the
+Results show ranked scores, skill names, descriptions, every grouped
+repository/path, and links to the scanned commits. Use the shared interactive
+controls or add `--no-interactive` to print and exit. It uses the same ranking as the
 Web UI, searching all scanned repositories, including the starting repository.
 Identical normalized names and descriptions share one result group. Results
 contain at most ten groups scoring at least 10%.
@@ -86,8 +93,8 @@ skill-atlas similar https://github.com/owner/repository \
 
 JSON includes `source` and ordered `matches`. Each match contains the unrounded
 0–100 `score`, rounded `display_score`, and all `locations`, with metadata,
-repository/path identity, commit SHA, and URL for each location. Text output
-omits descriptions; JSON preserves them. Successful output goes to stdout and
+repository/path identity, commit SHA, and URL for each location. JSON always
+prints and exits, including on a terminal. Printed output goes to stdout and
 errors to stderr. Exit codes are `0` for success (including no matches), `1` for
 a missing source or catalog failure, and `2` for invalid usage.
 

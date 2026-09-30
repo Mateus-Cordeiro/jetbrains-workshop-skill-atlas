@@ -11,7 +11,7 @@ Discover AI skills in a GitHub repository and save their metadata to the local
 catalog:
 
 ```sh
-skill-atlas scan <github-repo-url>
+skill-atlas scan <github-repo-url> [--no-interactive]
 ```
 
 `scan` is a subcommand; `<github-repo-url>` is its required positional argument.
@@ -84,46 +84,25 @@ listing. Failed scans leave the previous catalog entries available.
 
 ## Command output
 
-The first line of successful output contains the repository name and skill
-count. Each skill then has a one-based index, its name aligned left, and a
-right-aligned hyperlink whose visible text is the same skill name. When
-descriptions are visible, each description appears below its skill's name row.
+Use the [shared CLI results presentation](../architecture.md#shared-cli-results-presentation)
+for interactive and printed output. The first line contains the repository name
+and skill count. Preserve the shared skill order and present each catalog
+identity separately, including identical metadata at different paths.
 
-Example layout (the right-hand names are hyperlinks):
+Example entry (URLs wrap to terminal width):
 
 ```text
-acme/example — 2 skills
+acme/example — 1 skill
 
-1. code-review                                      code-review
+1. code-review
    Review code changes for correctness and maintainability.
-
-2. release-notes                                  release-notes
-   Draft release notes from a set of changes.
-
-[Hide descriptions]
+   acme/example · .agents/skills/code-review/SKILL.md
+   https://github.com/acme/example/blob/<commit>/.agents/skills/code-review/SKILL.md
 ```
 
-The initial version includes an interactive terminal view with a button to
-show or hide descriptions. This is a terminal user interface (TUI) launched by
-the CLI command after a successful scan.
-
-Presentation and interaction details:
-
-- Open the interactive view when both standard input and standard output are
-  attached to an interactive terminal. Provide `--no-interactive` to print the
-  results and exit instead. Redirected output uses the noninteractive format.
-- Show descriptions by default. The button toggles all descriptions; `d` is an
-  equivalent keyboard shortcut, and `q` exits the view.
-- Use the shared [skill ordering and commit-pinned URLs](../architecture.md#shared-domain-contracts)
-  for deterministic numbering and links. Activating a link in the interactive
-  view opens it in the user's browser.
-- In noninteractive terminal output, use terminal hyperlinks where supported.
-  For redirected output or unsupported terminals, include the literal URL,
-  wrapping onto another line when necessary. Clickable terminal labels depend
-  on the terminal's hyperlink support.
-- Adapt to terminal width and render repository metadata as literal text, not
-  Rich markup or terminal control sequences.
-- Noninteractive output includes descriptions and has no toggle button.
+Zero-skill scans show **No skills found in the repository** beneath the summary.
+The interactive view adds the shared description toggle, scrolling, and keyboard
+controls; `--no-interactive` prints the full results and exits.
 
 Exit codes: `0` for a completed scan (including zero skills), `1` for a
 scan or storage failure, and `2` for invalid command usage. Operational errors

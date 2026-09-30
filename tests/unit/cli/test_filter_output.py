@@ -6,7 +6,8 @@ from rich.console import Console
 from rich.text import Text
 
 from skill_atlas.application.catalog import FilteredSkills
-from skill_atlas.cli.output.filter import print_filter_result
+from skill_atlas.cli.output.console import print_result
+from skill_atlas.cli.output.results import filter_view
 
 
 @pytest.mark.parametrize("width", [40, 160])
@@ -23,8 +24,8 @@ def test_filter_text_is_literal_safe_and_wraps_without_losing_identity(
         path="path [red] #?/SKILL.md\x1b]0;malicious title\x07",
     )
     output = StringIO()
-    print_filter_result(
-        FilteredSkills(1, (skill,)),
+    print_result(
+        filter_view(FilteredSkills(1, (skill,))),
         Console(file=output, width=width, force_terminal=terminal),
     )
     text = Text.from_ansi(output.getvalue()).plain

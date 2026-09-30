@@ -111,7 +111,7 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `adapters/frontmatter.py` | YAML implementation of the metadata parser, with no network or database dependencies. |
 | `adapters/storage/` | SQLite read/write adapter and ordered schema migrations. |
 | `adapters/credentials.py` | Credential resolution from the environment and GitHub CLI. |
-| `cli/output/` | Text and interactive views of completed scans; terminal and JSON presentation of filter and similarity results. |
+| `cli/output/` | Shared result view models, terminal mode selection, Rich/Textual skill lists, and command-specific JSON serialization. |
 | `web/app.py` | Assemble the Web app, mount assets, and manage the worker lifespan. |
 | `web/routes.py` | Catalog pages, HTMX fragments, and HTTP error adaptation. |
 | `web/middleware.py` | Local Host and Origin checks and browser response protections. |
@@ -181,9 +181,9 @@ GitHub, changes the catalog, or retrieves document bodies.
 `runtime.create_catalog_browser()`. This operation reads the selected scope
 once through `CatalogReader.skills()`, returning matches and the scope count
 from that snapshot. It also returns all skills for an empty query, independently
-of the homepage's lazy loading. `cli/output/filter.py` renders safe terminal text
-or lossless JSON. The command does not construct a scanner, HTTP client, or Web
-app, or resolve credentials. Reusing the matching policy keeps CLI and Web
+of the homepage's lazy loading. `cli/output/results.py` adapts the result for the
+shared terminal views; `cli/output/filter.py` serializes lossless JSON. The command
+does not construct a scanner, HTTP client, or Web app, or resolve credentials. Reusing the matching policy keeps CLI and Web
 results consistent without coupling command output to browser view state. See
 the [filter specification](features/filter.md) for command and output contracts.
 
@@ -207,9 +207,9 @@ same transaction as candidates. It computes TF-IDF scores and groups matching
 metadata without document retrieval or catalog writes. The workspace reuses the
 shared skill card with a score fragment, keeping description and selection
 behavior consistent across lists; selecting a match uses the existing document
-service. The CLI passes completed results to `cli/output/similarity.py` for
-terminal or JSON output and exits. Presentation never adds ranking or grouping
-rules.
+service. The CLI adapts completed results through `cli/output/results.py` for the
+shared terminal views, or uses `cli/output/similarity.py` for JSON output.
+Presentation never adds ranking or grouping rules.
 
 Ranking lives in an application service so both interfaces reuse the
 policy. SQLite remains responsible only for consistent reads, and routes only
@@ -219,6 +219,40 @@ dependency. On-demand computation avoids an index invalidation protocol across
 CLI and Web processes, at the cost of recalculation per search. No schema change,
 new persistence, embedding model, or remote service is introduced. See the
 [similar-skills specification](features/similar-skills.md) for ranking rules.
+
+## Shared CLI results presentation
+
+`scan`, `filter`, and `similar` share terminal presentation in `cli/output/`.
+`results.py` adapts their completed service results into immutable `ResultsView`
+and `SkillEntry` values; `presentation.py` selects the output mode, `console.py`
+renders Rich output, and `tui.py` provides the Textual results app. Keeping this
+model in the CLI lets the renderers share layout and interaction without forcing
+scan, filter, and similarity services to return the same domain result. JSON
+serializers retain each command's existing machine-readable schema.
+
+- Open the interactive view only when stdin and stdout are terminals and the
+  terminal is not dumb. Every catalog command accepts `--no-interactive` to
+  print and exit. Redirecting either stream falls back to printed output.
+  Where supported, `--json` always prints and exits, including alongside
+  `--no-interactive`.
+- Both views show the command summary, then numbered entries with name,
+  description, repository/path, and commit-pinned URL in the same order.
+  A similarity percentage follows the name when present. Multiple locations
+  carry a **Same metadata · N locations** label and all location links.
+  Preserve service ordering, grouping, and command-specific empty messages.
+- Descriptions start visible. The interactive view scrolls, supports keyboard
+  focus and link activation, and offers a **Hide descriptions** / **Show
+  descriptions** button, `d` to toggle all descriptions, and `q` to exit.
+  Links open in the default browser. Printed output always includes descriptions.
+- Wrap names, descriptions, paths, and URLs to terminal width. Render metadata
+  literally and strip terminal control sequences. Printed URLs stay visible;
+  capable terminals may also make them hyperlinks. Redirected stdout contains
+  no styling or terminal controls, even when colour is forced by the environment.
+  JSON preserves original values with JSON escaping.
+
+Views perform no I/O beyond presentation and opening a user-activated link;
+scanning, filtering, ranking, and resource cleanup finish before presentation.
+Feature specs own summaries, source context, scores, and empty-state wording.
 
 ## Shared domain contracts
 
