@@ -29,7 +29,10 @@ def test_home_expansion_filter_counts_clear_and_history(browser_page, web_enviro
     page.keyboard.press("Enter")
     expect(toggle).to_have_attribute("aria-expanded", "true")
     expect(page.locator(".catalog-skill:visible")).to_have_count(2)
-    expect(page.locator(".catalog-skill").first).to_contain_text("review/SKILL.md")
+    expect(page.locator(".catalog-skill").first).not_to_contain_text("review/SKILL.md")
+    assert "skill_path=review%2FSKILL.md" in page.locator(".catalog-skill").first.get_attribute(
+        "href"
+    )
     field = page.get_by_role("searchbox", name="Filter skills across repositories")
     history_length = page.evaluate("history.length")
     field.fill("CODE maintain")

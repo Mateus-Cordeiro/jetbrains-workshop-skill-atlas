@@ -1,5 +1,5 @@
 <nav class="repository-skill-list" aria-label="Skills in {{ repository.full_name }}">
 {% for skill in matches %}
-<a class="catalog-skill" href="{{ url('/repository', repository_url=repository.url, skill_path=skill.path, q=q) }}"><strong>{{ skill.name }}</strong><p>{{ skill.description }}</p><code>{{ skill.path }}</code></a>
+{% with document_selection=false %}{% include 'fragments/skill-entry.html' %}{% endwith %}
 {% else %}<p class="filter-empty">{% if q.strip() %}No skills match “{{ q }}”.{% else %}No skills found{% endif %}</p>{% endfor %}
 </nav>

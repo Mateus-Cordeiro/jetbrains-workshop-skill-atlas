@@ -63,6 +63,7 @@
       if (!group.isConnected) return;
       panel.innerHTML = content;
       panel.dataset.loaded = 'true';
+      document.dispatchEvent(new Event('atlas:skills-updated'));
     } catch {
       if (!group.isConnected) return;
       panel.innerHTML = '<p class="filter-empty" role="alert">Could not load skills. <button type="button" data-retry-expansion>Retry</button></p>';
@@ -108,6 +109,7 @@
       htmx.process(target);
       document.querySelector('#filter-error')?.replaceChildren();
       restore();
+      document.dispatchEvent(new Event('atlas:skills-updated'));
     } catch {
       if (current !== revision || !target.isConnected) return;
       document.querySelector('#filter-error').innerHTML = '<p>Could not update skills. Previous results are still shown. <button type="button" data-retry-filter>Retry</button></p>';

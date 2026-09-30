@@ -1,7 +1,7 @@
 <p class="filter-count" role="status">{% if q.strip() %}{{ matches|length }} of {% endif %}{{ skills|length }} skill{% if skills|length != 1 %}s{% endif %}</p>
 <nav class="skills-list" aria-label="Select a skill">
 {% for skill in matches %}
-<a class="skill-link" {% if selected and selected.path == skill.path %}aria-current="true"{% endif %} href="{{ url('/repository', repository_url=repository.url, skill_path=skill.path, q=q) }}" data-skill-path="{{ skill.path }}" hx-get="{{ url('/fragments/document', repository_url=repository.url, skill_path=skill.path, commit_sha=skill.commit_sha) }}" hx-target="#document" hx-sync="#workspace:replace"><strong>{{ skill.name }} <span aria-hidden="true">↗</span></strong><p>{{ skill.description }}</p><code>{{ skill.path }}</code></a>
+{% with document_selection=true %}{% include 'fragments/skill-entry.html' %}{% endwith %}
 {% else %}
 <div class="filter-empty">{% if q.strip() %}<p>No skills match “{{ q }}”.</p><button type="button" data-clear-filter>Clear filter</button>{% else %}<p>No skills found</p>{% endif %}</div>
 {% endfor %}</nav>

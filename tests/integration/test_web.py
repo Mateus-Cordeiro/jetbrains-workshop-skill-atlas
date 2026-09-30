@@ -1,4 +1,5 @@
 from dataclasses import replace
+from re import findall
 from time import monotonic, sleep
 
 import pytest
@@ -86,6 +87,36 @@ def test_scan_rescan_zero_and_failed_scan_preserve_catalog(client, web_environme
     detail = client.get("/repository", params={"repository_url": scan_result.repository.url})
     assert "No skills found" in detail.text
     assert 'id="document"' not in detail.text
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        "/repository",
+        "/fragments/repository",
+        "/fragments/skills",
+        "/fragments/repository-skills",
+        "/",
+        "/fragments/repositories",
+    ],
+)
+def test_skill_list_keeps_full_escaped_descriptions_without_visible_paths(
+    client, web_environment, scan_result, route
+):
+    description = "Long description. " * 30 + "<script>steal()</script>"
+    skill = replace(scan_result.skills[0], description=description)
+    web_environment.catalog.replace_repository(replace(scan_result, skills=(skill,)))
+    response = client.get(route, params={"repository_url": skill.repository.url, "q": "Long"})
+    assert response.status_code == 200
+    listing = response.text.split("<nav ", 1)[1].split("</nav>", 1)[0]
+    assert description.replace("<", "&lt;").replace(">", "&gt;") in listing
+    assert "skill_path=review%2FSKILL.md" in listing
+    assert f"<code>{skill.path}</code>" not in listing
+    assert 'aria-expanded="false"' in listing
+    controls = findall(r'aria-controls="([^"]+)"', listing)
+    assert len(controls) == 1
+    assert f'id="{controls[0]}"' in listing
+    assert not web_environment.requests
 
 
 def test_scan_validation_and_cross_origin_rejection(client):
@@ -220,7 +251,7 @@ def test_catalog_filtering_and_expansion_share_matching_without_upstream_reads(
     assert "2 matching skills across 2 repositories" in home.text
     assert "1 of 2 skills" in home.text and "1 of 1 skill" in home.text
     assert "release-notes" not in home.text
-    assert "a &amp; copy/SKILL.md" in home.text
+    assert "<code>a &amp; copy/SKILL.md</code>" not in home.text
     assert "skill_path=a+%26+copy%2FSKILL.md" in home.text
     assert "q=CODE+maintain" in home.text
     filtered = client.get("/fragments/repositories", params={"q": "release"})

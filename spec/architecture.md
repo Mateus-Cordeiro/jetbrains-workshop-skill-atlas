@@ -165,6 +165,11 @@ and indexed full-text search are not introduced for this metadata-only catalog.
 list requests separately from document loading. No filtering operation reads
 GitHub, changes the catalog, or retrieves document bodies.
 
+Homepage and repository skill lists share `fragments/skill-entry.html` for
+compact descriptions and expansion controls. Description expansion stays in
+`web/static/app.js`, with controls initialized after list updates from
+`web/static/filters.js` as well as page and workspace loads.
+
 ## Shared domain contracts
 
 Accept repository URLs in `https://github.com/owner/repository` form, allowing

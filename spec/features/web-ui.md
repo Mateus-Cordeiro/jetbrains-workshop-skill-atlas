@@ -80,8 +80,10 @@ input receives an inline error and does not start a scan.
 The homepage has a **Filter skills across repositories** field above its
 repository list. Each repository has a separate keyboard-accessible chevron
 button to expand its skills inline; the repository name opens the detail page.
-Expanded entries show skill name, description, and exact path. Selecting one
-opens that repository with the document selected and the filter carried over.
+Expanded entries show skill names and two-line description previews with the
+same independent **Show more** / **Show less** controls as the repository view.
+Paths are omitted from these entries. Selecting one opens that repository with
+the document selected and the filter carried over.
 Unfiltered repositories begin collapsed and load metadata from the local backend
 only when expanded. Loading failures offer **Retry**.
 
@@ -129,13 +131,22 @@ back to the repository list above a two-pane view:
 
 | Left pane: skills | Right pane: selected `SKILL.md` |
 | --- | --- |
-| Skill name, description, and repository-relative path. | Document path, scanned commit, and link to the file on GitHub. |
+| Skill name and a description preview of up to two lines. | Document path, scanned commit, and link to the file on GitHub. |
 | Skills sorted by name, then path. | Rendered Markdown by default, with a **Source** toggle. |
 | A visible selection state. | Loading, content, or a retrieval error with **Retry**. |
 
 Initially show **Select a skill to view its SKILL.md** in the right pane. Select
 skills by `(repository_url, skill_path)`, never by name. Identical definitions
 copied into different directories and same-name skills remain separate entries.
+
+Descriptions in both homepage and repository skill lists start collapsed.
+Show **Show more** only when a description exceeds two lines at the current pane
+width; expanding reveals its full text and offers
+**Show less**. Each description expands independently without selecting a skill,
+changing the URL, or fetching a document. These controls support keyboard use
+and remain available after filtering, inline repository expansion, or scan
+refreshes. Do not display paths beneath skills in the list; the selected document
+still displays its path in the right pane.
 
 The source view displays the complete decoded file, including YAML frontmatter.
 The rendered view displays frontmatter separately as escaped source text and
@@ -340,6 +351,10 @@ Implementation must cover these user-visible outcomes:
    valid scan. Invalid input starts no job.
 2. Existing CLI-populated catalogs display repositories, counts, commits, and
    deterministically sorted skills without rescanning or changing the schema.
+   Homepage and repository skill descriptions use two-line previews with independent
+   expand/collapse controls for overflow, including on narrow screens and after
+   filtering, inline repository expansion, and scan refreshes. Paths
+   appear in the selected document pane rather than beneath skill list entries.
 3. A successful Web scan becomes visible in the shared catalog; a rescan adds,
    updates, and removes entries atomically while leaving other repositories
    unchanged. Same-name and copied skills remain distinct.

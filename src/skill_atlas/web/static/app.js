@@ -10,6 +10,26 @@
     if (Array.isArray(saved)) saved.filter(id => typeof id === 'string').forEach(id => dismissed.add(id));
   } catch { /* Dismissal still works in memory when browser storage is unavailable. */ }
   const workspace = () => document.querySelector('#workspace');
+  function updateDescriptionToggle(button) {
+    const description = document.getElementById(button.getAttribute('aria-controls'));
+    button.hidden = button.getAttribute('aria-expanded') !== 'true'
+      && description.scrollHeight <= description.clientHeight + 1;
+  }
+
+  const descriptionObserver = new ResizeObserver(entries => {
+    entries.forEach(({target}) => {
+      target.querySelectorAll('.description-toggle').forEach(updateDescriptionToggle);
+    });
+  });
+
+  function observeDescriptions() {
+    descriptionObserver.disconnect();
+    document.querySelectorAll('.skills-list, .repository-skill-list').forEach(list => {
+      descriptionObserver.observe(list);
+    });
+  }
+
+  document.addEventListener('atlas:skills-updated', observeDescriptions);
 
   function updateActivityVisibility() {
     const panel = document.querySelector('#jobs');
@@ -55,6 +75,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    observeDescriptions();
     // A fresh page shows active work and unresolved errors, not past successes.
     document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
       completed.add(job.dataset.jobId);
@@ -110,6 +131,7 @@
   document.addEventListener('htmx:afterSwap', event => {
     document.querySelector('#document')?.removeAttribute('aria-busy');
     if (event.detail.target?.id === 'workspace') {
+      observeDescriptions();
       const pane = workspace();
       const params = new URLSearchParams({repository_url: pane.dataset.repository});
       if (atlasFilters.query()) params.set('q', atlasFilters.query());
@@ -136,6 +158,15 @@
     });
   }
   document.addEventListener('click', event => {
+    const descriptionToggle = event.target.closest('.description-toggle');
+    if (descriptionToggle) {
+      const expanded = descriptionToggle.getAttribute('aria-expanded') !== 'true';
+      const description = document.getElementById(descriptionToggle.getAttribute('aria-controls'));
+      description.classList.toggle('expanded', expanded);
+      descriptionToggle.setAttribute('aria-expanded', String(expanded));
+      descriptionToggle.querySelector('span').textContent = expanded ? 'Show less' : 'Show more';
+      updateDescriptionToggle(descriptionToggle);
+    }
     const dismiss = event.target.closest('[data-dismiss-job]');
     if (dismiss) dismissJob(dismiss.closest('.job').dataset.jobId);
     const button = event.target.closest('[data-view]');
