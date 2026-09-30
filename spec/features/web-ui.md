@@ -125,8 +125,20 @@ from the catalog. If the selected path still exists, reload its document using
 the newly stored commit. Otherwise clear the selection. Display the resulting
 skill count, including zero.
 
-After failure, show a useful error and permit retry. Existing successful catalog
-entries remain available. A failed first scan does not create a saved repository.
+Queued and running notices remain visible until the scan finishes. A successful
+notice disappears after five seconds and can also be dismissed immediately.
+Replacing the activity panel must not restart that countdown. Past successes
+are hidden on page load; dismissed notices must not reappear when another scan
+is submitted or the user navigates within the same browser tab. Hide the empty
+activity area once no notices remain.
+
+After failure, show a useful error with **Retry scan** and a dismiss button.
+Failed notices do not expire automatically, so users can read the error and
+retry at their own pace. Remember dismissal using only opaque job IDs in browser
+session storage; it does not alter job execution, the server's bounded job
+registry, or the catalog. Dismissal still works on the current page if browser
+storage is unavailable. Existing successful catalog entries remain available.
+A failed first scan does not create a saved repository.
 Keep the previous successful results visible during a rescan, labelled with
 their stored commit until the new scan succeeds.
 
@@ -291,7 +303,10 @@ Implementation must cover these user-visible outcomes:
    retry, retain catalog metadata, and never substitute another commit.
 7. Browsing remains usable during scans. Duplicate active submissions reuse a
    job; job errors and queue limits have clear outcomes; resource cleanup and
-   process restart follow the documented lifecycle.
+   process restart follow the documented lifecycle. Successful notices expire
+   after five seconds without hiding active scans. Failed notices remain until
+   dismissed, and dismissed notices stay hidden across navigation and further
+   submissions in the same tab.
 8. Failed scans preserve previous catalog entries. Stale selections and late
    document responses cannot overwrite the currently selected document.
 9. Unsafe Markdown, metadata, links, and cross-origin scan requests cannot

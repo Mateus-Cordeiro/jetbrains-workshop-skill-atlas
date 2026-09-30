@@ -506,6 +506,14 @@ input::placeholder{
   font-size:11px;
   color:var(--accent);
 }
+.job-dismiss{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font-size:20px;
+  line-height:1;
+  padding:8px;
+}
 .status-dot{
   width:7px;
   height:7px;
