@@ -11,6 +11,7 @@ from starlette.concurrency import run_in_threadpool
 
 from skill_atlas.application.documents import Documents
 from skill_atlas.application.scan_jobs import ScanJobs
+from skill_atlas.application.similarity import SimilarSkills
 from skill_atlas.ports import CatalogReader
 from skill_atlas.web.middleware import local_requests
 from skill_atlas.web.routes import register_routes, url
@@ -22,6 +23,7 @@ def create_app(
     catalog: CatalogReader,
     jobs: ScanJobs,
     documents: Callable[[], AbstractContextManager[Documents]],
+    similarity: SimilarSkills,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -37,5 +39,5 @@ def create_app(
     app.mount("/static", StaticFiles(directory=ASSETS / "static"), name="static")
 
     app.middleware("http")(local_requests)
-    register_routes(app, catalog, jobs, documents, templates)
+    register_routes(app, catalog, jobs, documents, similarity, templates)
     return app

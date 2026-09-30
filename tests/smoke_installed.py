@@ -91,6 +91,10 @@ with (
         for path in ("/repository", "/fragments/repository"):
             page = client.get(path, params={"repository_url": REPOSITORY})
             assert page.status_code == 200 and "installed-skill" in page.text
+        for path in ("/similar", "/fragments/similar"):
+            page = client.get(path, params={"repository_url": REPOSITORY, "skill_path": "SKILL.md"})
+            assert page.status_code == 200 and "No similar skills found" in page.text
+            assert "How similarity scores work" in page.text
         assert "acme/skills" in client.get("/fragments/repositories").text
         selection = {"repository_url": REPOSITORY, "skill_path": "SKILL.md", "commit_sha": COMMIT}
         document = client.get("/fragments/document", params=selection)

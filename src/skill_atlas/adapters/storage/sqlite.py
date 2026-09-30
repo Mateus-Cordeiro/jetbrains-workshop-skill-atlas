@@ -42,6 +42,14 @@ class SQLiteCatalog:
             row["commit_sha"],
         )
 
+    def all_skills(self) -> tuple[Skill, ...]:
+        return tuple(
+            self._skill(row)
+            for row in self._query(
+                "SELECT * FROM skills ORDER BY skill_name, repository_url, skill_path"
+            )
+        )
+
     def repositories(self) -> tuple[RepositorySummary, ...]:
         return tuple(
             RepositorySummary(

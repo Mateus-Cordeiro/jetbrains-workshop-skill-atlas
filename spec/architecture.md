@@ -92,6 +92,7 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. |
 | `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
+| `application/similarity.py` | Rank catalog metadata with local TF-IDF, group matching metadata, and explain scores. |
 | `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
 | `runtime.py` | Composition root: select adapters and own HTTP, Git, scanner, and Web application resource lifetimes. |
 | `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
@@ -115,7 +116,8 @@ separately. Integration scenarios keep the real components involved together.
 `SnapshotReader` lists and reads files; `RepositoryReader` also resolves a
 repository snapshot. `SkillParser` extracts metadata. `Catalog` exposes
 `replace_repository` to the scanner, while `CatalogReader` exposes repository
-summaries, skill lists, and identity lookup. `DocumentReader` retrieves a file at
+summaries, skill lists, identity lookup, and a complete metadata snapshot for
+similarity search. `DocumentReader` retrieves a file at
 a recorded commit independently of scan discovery. Keep these read and write
 interfaces separate as commands and views are added.
 
@@ -148,6 +150,24 @@ catalog, then retrieves the document through the GitHub adapter configured in
 `runtime.py`. `web/rendering.py` prepares safe Markdown and the document fragment
 renders preview and source together. Selection history, source toggling, and
 late-response handling stay in `web/static/app.js`.
+
+### Following a similarity search
+
+`web/routes.py` adapts a source identity and repository filter to
+`application/similarity.py`, wired by `runtime.py`. The service reads all catalog
+skills once through `CatalogReader.all_skills()`, resolving the source from the
+same transaction as candidates. It computes TF-IDF scores and groups matching
+metadata without document retrieval or catalog writes. Web templates present
+scores and links; selecting a match uses the existing document service.
+
+Ranking lives in an application service so future interfaces can reuse the
+policy. SQLite remains responsible only for consistent reads, and routes only
+adapt parameters and presentation. Standard-library sparse dictionaries and
+math suffice for the initial lexical algorithm, avoiding a numerical runtime
+dependency. On-demand computation avoids an index invalidation protocol across
+CLI and Web processes, at the cost of recalculation per search. No schema change,
+new persistence, embedding model, or remote service is introduced. See the
+[similar-skills specification](features/similar-skills.md) for ranking rules.
 
 ## Shared domain contracts
 
@@ -218,7 +238,10 @@ Use independent, short-lived read-only SQLite connections with a transaction
 per operation. Do not share connections across request and worker threads.
 Readers see either the previous complete repository entries or the new complete
 entries, never a partial replacement. Repository summaries are sorted by
-canonical URL; skill queries follow the shared name/path ordering.
+canonical URL; repository-scoped skill queries follow the shared name/path
+ordering. The complete metadata read orders by name, canonical repository URL, and path; its
+source and candidates come from one transaction. Ranking changes presentation
+order only and must not alter catalog identity or storage.
 
 ### Schema evolution
 

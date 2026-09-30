@@ -113,3 +113,33 @@ def web_environment(tmp_path, monkeypatch, scan_result):
     yield state
     state.scan_gate.set()
     state.document_gate.set()
+
+
+@pytest.fixture
+def similar_catalog(web_environment, scan_result):
+    """Catalog entries with copies, cross-repository alternatives, and encoded paths."""
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    source = scan_result.skills[0]
+    local_copy = replace(source, path=".agents/skills/review/SKILL.md")
+    remote = replace(
+        source,
+        repository=Repository("other", "skills"),
+        path="review #?/SKILL.md",
+        commit_sha="b" * 40,
+    )
+    remote_copy = replace(remote, path="nested/copy/SKILL.md")
+    alternative = replace(
+        remote,
+        path="alternative/SKILL.md",
+        name="patch-audit",
+        description=source.description,
+    )
+    web_environment.catalog.replace_repository(
+        replace(scan_result, skills=(*scan_result.skills, local_copy))
+    )
+    web_environment.catalog.replace_repository(
+        ScanResult(remote.repository, remote.commit_sha, (remote, remote_copy, alternative))
+    )
+    return SimpleNamespace(source=source, remote=remote, alternative=alternative)

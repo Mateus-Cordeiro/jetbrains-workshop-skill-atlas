@@ -12,6 +12,9 @@ the change before changing behavior or component boundaries:
   viewing, HTTP contracts, and background jobs. Read the scan spec as well when
   changing Web scan behavior.
 
+- [Similar skills](spec/features/similar-skills.md) owns similarity ranking, scores,
+  grouping, and relevance criteria. Read the Web UI spec for its presentation.
+
 Follow the shared component boundaries, identity, authentication, snapshot,
 catalog consistency, and migration contracts in the architecture. Changes to a
 shared service require checking all affected features, including the Web UI.
