@@ -1,16 +1,17 @@
 # Similar skills
 
 Status: accepted and implemented. This feature finds alternatives to a catalog
-skill using its stored name and description. The [architecture](../architecture.md) owns catalog
-identity and read consistency; the [Web UI](web-ui.md) owns browser interaction
+skill using its stored name and description. The [architecture](../architecture.md)
+owns catalog identity and read consistency; the [Web UI](web-ui.md) owns browser interaction
 and HTTP contracts.
 
 ## Scope and behavior
 
 Search all scanned repositories, including the starting repository. There is no
 repository filter. Exclude the starting entry by its canonical repository URL
-and exact path, never by name. Searching performs
-no scans, document fetches, writes, migrations, or external model requests.
+and exact path, never by name. A catalog text query carried in the URL is only
+return-navigation context; it does not narrow the candidate set. Searching
+performs no scans, document fetches, writes, migrations, or external model requests.
 
 Read the starting skill and every candidate in one catalog snapshot. A missing
 starting skill is an error, not an empty result. Each fresh search uses current
@@ -27,7 +28,8 @@ candidate.
 
 Use standard-library TF-IDF with separately normalized name and description
 vectors. Compute corpus statistics over distinct metadata pairs, including the
-starting skill, across the complete catalog. Copies must not change scores or consume separate top-result slots.
+starting skill, across the complete catalog. Copies must not change scores or
+consume separate top-result slots.
 
 - Normalize Unicode with NFKC, case-fold, and split hyphens/underscores. Preserve technical suffixes such as `C++` and `C#`.
 - Extract Unicode word tokens and adjacent two-word phrases. Remove a fixed small
@@ -45,8 +47,8 @@ starting skill, across the complete catalog. Copies must not change scores or co
 
 Display the score as a percentage in a colour-coded bar spanning 0–100%, rounded
 to the nearest integer (halves up). The [Web UI](web-ui.md#similar-skills) owns
-bar presentation, colour thresholds, and accessibility. Explain that it measures names and descriptions, not probability, quality, or
-identical instructions. A rounded 100% does not establish identical metadata or
+bar presentation, colour thresholds, and accessibility. Explain that it measures
+names and descriptions, not probability, quality, or identical instructions. A rounded 100% does not establish identical metadata or
 bodies. Scores may change as the catalog grows because IDF depends on the corpus.
 
 The 80/20 weights and cutoff of 10 are initial defaults, covered by a small

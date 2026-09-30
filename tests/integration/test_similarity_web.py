@@ -1,6 +1,7 @@
 import sqlite3
 from dataclasses import replace
 from threading import Event, Thread
+from urllib.parse import urlencode
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,6 +18,20 @@ def client(web_environment):
 
 def selection(skill):
     return {"repository_url": skill.repository.url, "skill_path": skill.path}
+
+
+@pytest.mark.parametrize("route", ["/similar", "/fragments/similar"])
+def test_catalog_query_is_return_context_only(route, client, web_environment, similar_catalog):
+    fixture = similar_catalog
+    query = "unmatched & <query> #?"
+    response = client.get(route, params={**selection(fixture.source), "q": query})
+    assert response.status_code == 200
+    assert "patch-audit" in response.text
+    assert "Same metadata · 3 locations" in response.text
+    assert urlencode({"q": query}) in response.text
+    assert query not in response.text
+    assert 'id="skill-filter"' not in response.text
+    assert not web_environment.requests
 
 
 @pytest.mark.parametrize("route", ["/similar", "/fragments/similar"])
@@ -40,7 +55,7 @@ def test_catalog_similarity_is_read_only_and_does_not_fetch_documents(
     assert response.headers["Cache-Control"] == "no-store"
     assert state.settings.database_path.read_bytes() == before
     assert not state.requests
-    assert len(state.catalog.all_skills()) == 6
+    assert len(state.catalog.skills()) == 6
     legacy = client.get(route, params={**selection(fixture.source), "other_repositories": True})
     assert legacy.text == response.text  # Retired filters no longer change the search scope.
     assert "other_repositories" not in response.text
@@ -150,4 +165,4 @@ def test_similarity_read_sees_complete_snapshot_during_replacement(web_environme
         release.set()
         thread.join(5)
     assert not thread.is_alive() and not failures
-    assert catalog.all_skills() == ()
+    assert catalog.skills() == ()

@@ -1,0 +1,5 @@
+<nav class="repository-skill-list" aria-label="Skills in {{ repository.full_name }}">
+{% for skill in matches %}
+{% with document_selection=false %}{% include 'fragments/skill-entry.html' %}{% endwith %}
+{% else %}<p class="filter-empty">{% if q.strip() %}No skills match “{{ q }}”.{% else %}No skills found{% endif %}</p>{% endfor %}
+</nav>

@@ -14,7 +14,7 @@ def skill(name, description, path="SKILL.md", repository=REPO):
 
 
 def search(source, *candidates):
-    catalog = SimpleNamespace(all_skills=lambda: (source, *candidates))
+    catalog = SimpleNamespace(skills=lambda: (source, *candidates))
     return SimilarSkills(catalog).search(source.repository, source.path).matches
 
 
@@ -108,7 +108,7 @@ def test_display_rounding_and_missing_source():
     candidate = skill("test", "description")
     assert SimilarMatch((candidate,), 82.5).display_score == 83
     with pytest.raises(MissingSimilaritySource, match="starting skill"):
-        SimilarSkills(SimpleNamespace(all_skills=lambda: ())).search(REPO, "missing")
+        SimilarSkills(SimpleNamespace(skills=lambda: ())).search(REPO, "missing")
 
 
 def test_lexical_limitations_remain_explicit():

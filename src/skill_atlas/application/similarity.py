@@ -89,7 +89,7 @@ class SimilarSkills:
 
     def search(self, repository: Repository, path: str) -> SimilarityResult:
         # Resolve the source from the same read transaction as every candidate.
-        skills = self.catalog.all_skills()
+        skills = self.catalog.skills()
         source = next(
             (s for s in skills if s.repository.url == repository.url and s.path == path), None
         )

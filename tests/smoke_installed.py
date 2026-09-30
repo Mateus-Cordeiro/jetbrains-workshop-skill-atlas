@@ -74,7 +74,7 @@ with (
         page = client.get("/")
         assert page.status_code == 200
         assert "Your skill library." in page.text
-        for asset in ("htmx.min.js", "HTMX-LICENSE.txt", "app.js", "app.css"):
+        for asset in ("htmx.min.js", "HTMX-LICENSE.txt", "app.js", "filters.js", "app.css"):
             response = client.get(f"/static/{asset}")
             assert response.status_code == 200 and response.content
         accepted = client.post(
@@ -99,7 +99,7 @@ with (
             assert page.status_code == 200 and "No similar skills found" in page.text
             assert "How similarity scores work" in page.text
         catalog = SQLiteCatalog(Path(directory) / "catalog.sqlite3")
-        original = catalog.all_skills()[0]
+        original = catalog.skills()[0]
         catalog.replace_repository(
             ScanResult(
                 original.repository, COMMIT, (original, replace(original, path="copy/SKILL.md"))
@@ -114,6 +114,11 @@ with (
         )
         assert 'aria-valuetext="100% similarity"' in matches.text
         assert "acme/skills" in client.get("/fragments/repositories").text
+        filtered = client.get("/", params={"q": "installed wheel"})
+        assert "2 matching skills across 1 repository" in filtered.text
+        for path in ("/fragments/skills", "/fragments/repository-skills"):
+            result = client.get(path, params={"repository_url": REPOSITORY, "q": "installed"})
+            assert result.status_code == 200 and "installed-skill" in result.text
         selection = {"repository_url": REPOSITORY, "skill_path": "SKILL.md", "commit_sha": COMMIT}
         document = client.get("/fragments/document", params=selection)
         assert document.status_code == 200 and "<h1>Skill document</h1>" in document.text

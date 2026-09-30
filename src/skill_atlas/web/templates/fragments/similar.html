@@ -1,7 +1,7 @@
 {% set source = result.source %}
 {% macro location_link(skill, primary=false) %}
 <a class="skill-link" {% if selected and selected.repository.url == skill.repository.url and selected.path == skill.path %}aria-current="true"{% endif %}
-   href="{{ url('/similar', repository_url=source.repository.url, skill_path=source.path, selected_repository=skill.repository.url, selected_path=skill.path) }}"
+   href="{{ url('/similar', repository_url=source.repository.url, skill_path=source.path, selected_repository=skill.repository.url, selected_path=skill.path, q=q) }}"
    data-skill-path="{{ skill.path }}" data-skill-repository="{{ skill.repository.url }}"
    hx-get="{{ url('/fragments/document', repository_url=skill.repository.url, skill_path=skill.path, commit_sha=skill.commit_sha) }}" hx-target="#document" hx-sync="#workspace:replace">
   {% if primary %}<strong>{{ skill.name }}</strong>{% endif %}

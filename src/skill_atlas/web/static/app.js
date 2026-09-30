@@ -10,6 +10,26 @@
     if (Array.isArray(saved)) saved.filter(id => typeof id === 'string').forEach(id => dismissed.add(id));
   } catch { /* Dismissal still works in memory when browser storage is unavailable. */ }
   const workspace = () => document.querySelector('#workspace');
+  function updateDescriptionToggle(button) {
+    const description = document.getElementById(button.getAttribute('aria-controls'));
+    button.hidden = button.getAttribute('aria-expanded') !== 'true'
+      && description.scrollHeight <= description.clientHeight + 1;
+  }
+
+  const descriptionObserver = new ResizeObserver(entries => {
+    entries.forEach(({target}) => {
+      target.querySelectorAll('.description-toggle').forEach(updateDescriptionToggle);
+    });
+  });
+
+  function observeDescriptions() {
+    descriptionObserver.disconnect();
+    document.querySelectorAll('.skills-list, .repository-skill-list').forEach(list => {
+      descriptionObserver.observe(list);
+    });
+  }
+
+  document.addEventListener('atlas:skills-updated', observeDescriptions);
 
   function updateActivityVisibility() {
     const panel = document.querySelector('#jobs');
@@ -46,6 +66,7 @@
 
   function workspaceUrl(pane, fragment = false) {
     const params = new URLSearchParams({repository_url: pane.dataset.repository});
+    if (atlasFilters.query()) params.set('q', atlasFilters.query());
     const similar = pane.dataset.mode === 'similar';
     if (similar) {
       params.set('skill_path', pane.dataset.sourcePath);
@@ -66,6 +87,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    observeDescriptions();
     // A fresh page shows active work and unresolved errors, not past successes.
     document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
       completed.add(job.dataset.jobId);
@@ -77,7 +99,10 @@
     const detail = event.detail;
     if (!['document', 'workspace'].includes(detail.target?.id)) return;
     detail.xhr.atlasGeneration = ++generation;
-    if (detail.target.id === 'workspace') return;
+    if (detail.target.id === 'workspace') {
+      detail.xhr.atlasQuery = atlasFilters.query();
+      return;
+    }
     documentRequest = detail.xhr;
     const link = detail.elt.closest('[data-skill-path]');
     if (link) {
@@ -87,7 +112,8 @@
         if (item === link) item.setAttribute('aria-current', 'true');
         else item.removeAttribute('aria-current');
       });
-      if (location.href !== link.href) history.pushState(null, '', link.href);
+      if (location.href !== link.href) history.pushState(history.state, '', link.href);
+      atlasFilters.selection();
     }
     detail.target.setAttribute('aria-busy', 'true');
     detail.target.innerHTML = '<div class="empty"><h2>Loading SKILL.md…</h2><p>Retrieving the scanned version from GitHub.</p></div>';
@@ -98,6 +124,12 @@
       detail.shouldSwap = false;
       return;
     }
+    if (detail.target?.id === 'workspace' && detail.xhr.atlasQuery !== atlasFilters.query()) {
+      detail.shouldSwap = false;
+      refreshWorkspace();
+      return;
+    }
+    if (detail.target?.id === 'workspace') atlasFilters.cancel();
     if ((detail.xhr.status === 409 || (detail.xhr.status === 404 && workspace()?.dataset.mode === 'similar')) && detail.target?.id === 'document') {
       detail.shouldSwap = false;
       refreshWorkspace();
@@ -115,15 +147,17 @@
   document.addEventListener('htmx:afterSwap', event => {
     document.querySelector('#document')?.removeAttribute('aria-busy');
     if (event.detail.target?.id === 'workspace') {
+      observeDescriptions();
       const pane = workspace();
-      if (pane) history.replaceState(null, '', workspaceUrl(pane));
+      if (pane) history.replaceState(history.state, '', workspaceUrl(pane));
       document.querySelector('#scan-feedback').replaceChildren();
+      atlasFilters.restore();
     }
     if (event.detail.target?.id === 'jobs') document.querySelector('#scan-feedback').replaceChildren();
     document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
       if (completed.has(job.dataset.jobId)) return;
       completed.add(job.dataset.jobId);
-      if (document.querySelector('#repositories')) htmx.ajax('GET', '/fragments/repositories', '#repositories');
+      if (document.querySelector('#repositories')) atlasFilters.refresh();
       if (workspace()?.dataset.mode === 'similar' || workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
     });
     updateJobNotices();
@@ -138,6 +172,15 @@
     });
   }
   document.addEventListener('click', event => {
+    const descriptionToggle = event.target.closest('.description-toggle');
+    if (descriptionToggle) {
+      const expanded = descriptionToggle.getAttribute('aria-expanded') !== 'true';
+      const description = document.getElementById(descriptionToggle.getAttribute('aria-controls'));
+      description.classList.toggle('expanded', expanded);
+      descriptionToggle.setAttribute('aria-expanded', String(expanded));
+      descriptionToggle.querySelector('span').textContent = expanded ? 'Show less' : 'Show more';
+      updateDescriptionToggle(descriptionToggle);
+    }
     const dismiss = event.target.closest('[data-dismiss-job]');
     if (dismiss) dismissJob(dismiss.closest('.job').dataset.jobId);
     const button = event.target.closest('[data-view]');

@@ -1,4 +1,5 @@
 from dataclasses import replace
+from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest
@@ -13,6 +14,97 @@ def detail_url(page, result, path=""):
         + "/repository?"
         + urlencode({"repository_url": result.repository.url, "skill_path": path})
     )
+
+
+@pytest.mark.parametrize("width", [1360, 390], ids=["desktop", "mobile"])
+def test_descriptions_expand_independently_without_selecting_or_fetching(
+    browser_page, web_environment, scan_result, width
+):
+    page, state = browser_page, web_environment
+    description = "Review changes carefully for correctness and maintainability. " * 12
+    description += "<img src=x onerror=window.pwned=true> Final description text."
+    first = replace(scan_result.skills[0], description=description)
+    duplicate = replace(first, path="z-copy/SKILL.md")
+    short = replace(scan_result.skills[1], description="Short description.")
+    state.catalog.replace_repository(replace(scan_result, skills=(first, duplicate, short)))
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.goto(detail_url(page, scan_result))
+    cards = page.locator(".skill-item")
+    text = cards.nth(0).locator(".skill-description")
+    toggle = cards.nth(0).get_by_role("button", name="Show more description for code-review")
+    expect(toggle).to_have_attribute("aria-expanded", "false")
+    expect(cards.nth(2).get_by_role("button")).to_have_count(0)
+    expect(page.locator(".skills-list code, .skills-list img")).to_have_count(0)
+    assert first.path not in page.locator(".skills-list").inner_text()
+    assert text.evaluate(
+        "el => el.clientHeight === 2 * parseFloat(getComputedStyle(el).lineHeight)"
+    )
+    assert text.evaluate("el => el.scrollHeight > el.clientHeight")
+    original_url = page.url
+    Path("test-results").mkdir(exist_ok=True)
+    page.screenshot(path=f"test-results/descriptions-collapsed-{width}.png", full_page=True)
+
+    toggle.focus()
+    page.keyboard.press("Enter")
+    toggle = cards.nth(0).get_by_role("button", name="Show less description for code-review")
+    expect(toggle).to_have_attribute("aria-expanded", "true")
+    expect(text).to_have_text(description)
+    assert text.evaluate("el => el.scrollHeight === el.clientHeight")
+    expect(cards.nth(1).get_by_role("button")).to_have_attribute("aria-expanded", "false")
+    expect(page.get_by_text("Select a skill to view its SKILL.md")).to_be_visible()
+    assert page.url == original_url
+    assert not state.requests
+    assert page.evaluate("window.pwned") is None
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    page.screenshot(path=f"test-results/descriptions-expanded-{width}.png", full_page=True)
+
+    # Space collapses the focused control without navigating or selecting a skill.
+    page.keyboard.press("Space")
+    expect(cards.nth(0).get_by_role("button")).to_have_attribute("aria-expanded", "false")
+    assert text.evaluate("el => el.scrollHeight > el.clientHeight")
+    cards.nth(1).locator(".skill-link").click()
+    expect(page.locator(".document-toolbar code")).to_have_text(duplicate.path)
+    expect(cards.nth(1).locator(".skill-link")).to_have_attribute("aria-current", "true")
+    reads = len(state.requests)
+    cards.nth(0).get_by_role("button").click()
+    expect(cards.nth(1).locator(".skill-link")).to_have_attribute("aria-current", "true")
+    assert len(state.requests) == reads
+
+
+def test_description_controls_follow_pane_width_and_refreshed_skill_lists(
+    browser_page, web_environment, scan_result
+):
+    page, state = browser_page, web_environment
+    description = (
+        "Review code changes for correctness, maintainability, tests, and documentation. " * 2
+    ).strip()
+    state.catalog.replace_repository(
+        replace(scan_result, skills=(replace(scan_result.skills[0], description=description),))
+    )
+    page.goto(detail_url(page, scan_result))
+    toggle = page.locator(".description-toggle").first
+    expect(toggle).to_be_visible()
+    page.set_viewport_size({"width": 600, "height": 1000})
+    expect(toggle).to_be_hidden()
+    page.set_viewport_size({"width": 1360, "height": 1000})
+    expect(toggle).to_be_visible()
+    toggle.click()
+    expect(toggle).to_have_attribute("aria-expanded", "true")
+
+    state.source = f"---\nname: refreshed\ndescription: {description}\n---\n# Refreshed\n"
+    page.get_by_role("button", name="Rescan repository").click()
+    expect(page.locator(".skill-link").first).to_contain_text("refreshed")
+    expect(toggle).to_be_visible()
+    expect(toggle).to_have_attribute("aria-expanded", "false")
+    reads = len(state.requests)
+    toggle.click()
+    expect(toggle).to_have_attribute("aria-expanded", "true")
+    assert page.locator(".skill-description").first.evaluate(
+        "el => el.scrollHeight === el.clientHeight"
+    )
+    assert len(state.requests) == reads
+    page.reload()
+    expect(toggle).to_have_attribute("aria-expanded", "false")
 
 
 def test_selection_source_keyboard_history_and_mobile(browser_page, web_environment, scan_result):

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
+from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents
 from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
@@ -39,5 +40,5 @@ def create_app(
     app.mount("/static", StaticFiles(directory=ASSETS / "static"), name="static")
 
     app.middleware("http")(local_requests)
-    register_routes(app, catalog, jobs, documents, similarity, templates)
+    register_routes(app, BrowseCatalog(catalog), jobs, documents, similarity, templates)
     return app

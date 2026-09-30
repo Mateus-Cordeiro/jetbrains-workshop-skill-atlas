@@ -17,6 +17,93 @@ def similar_url(page, source, **params):
     )
 
 
+@pytest.mark.parametrize("entry_page", ["home", "repository"])
+def test_similarity_from_filtered_catalog_preserves_return_context(
+    browser_page, web_environment, similar_catalog, entry_page
+):
+    page, fixture = browser_page, similar_catalog
+    start = page.base_url
+    if entry_page == "repository":
+        start += "/repository?" + urlencode({"repository_url": fixture.source.repository.url})
+    page.goto(start)
+    page.get_by_role("searchbox").fill("code-review")
+    expect(page.get_by_role("status")).to_have_text(
+        "4 matching skills across 2 repositories" if entry_page == "home" else "2 of 3 skills"
+    )
+    expect(page.get_by_text("patch-audit", exact=True)).to_have_count(0)
+    assert not web_environment.requests
+    page.locator('.similar-link[href*="skill_path=review%2FSKILL.md"]').click()
+    expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
+    expect(page.get_by_role("searchbox")).to_have_count(0)
+    expect(page.locator(".description-toggle")).to_have_count(0)
+    # The catalog query is return context, never a restriction on candidates.
+    page.get_by_role("link", name="patch-audit", exact=False).click()
+    expect(page.locator(".document-toolbar strong")).to_have_text("patch-audit")
+    assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
+    page.reload()
+    expect(page.locator('.skill-link[aria-current="true"]')).to_contain_text("patch-audit")
+    page.get_by_role("link", name="Starting skill", exact=False).click()
+    expect(page.get_by_role("searchbox")).to_have_value("code-review")
+    expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
+    expect(page.get_by_role("status")).to_have_text("2 of 3 skills")
+    page.go_back()
+    expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
+    expect(page.locator('.skill-link[aria-current="true"]')).to_contain_text("patch-audit")
+
+
+def test_similarity_selection_distinguishes_repositories_with_the_same_path(
+    browser_page, web_environment, similar_catalog
+):
+    page, state, fixture = browser_page, web_environment, similar_catalog
+    shared_path = ".agents/skills/review/SKILL.md"
+    remote = replace(fixture.remote, path=shared_path)
+    state.catalog.replace_repository(
+        ScanResult(remote.repository, remote.commit_sha, (remote, fixture.alternative))
+    )
+    page.goto(similar_url(page, fixture.source, q="code-review"))
+    page.get_by_text("Same metadata · 2 locations").click()
+    link = page.locator(
+        f'.skill-link[data-skill-path="{shared_path}"]'
+        f'[data-skill-repository="{remote.repository.url}"]'
+    )
+    link.click()
+    expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
+    selected = page.locator('.skill-link[aria-current="true"]')
+    expect(selected).to_have_count(1)
+    expect(selected).to_have_attribute("data-skill-repository", remote.repository.url)
+    local = page.locator(
+        f'.skill-link[data-skill-path="{shared_path}"]'
+        f'[data-skill-repository="{fixture.source.repository.url}"]'
+    )
+    background = "el => getComputedStyle(el).backgroundColor"
+    assert selected.evaluate(background) != local.evaluate(background)
+    assert state.requests[-1].url.path.startswith("/repos/other/skills/contents/")
+    assert state.requests[-1].url.params["ref"] == remote.commit_sha
+    page.reload()
+    expect(selected).to_have_count(1)
+    expect(selected).to_have_attribute("data-skill-repository", remote.repository.url)
+    expect(link).to_be_visible()
+
+
+def test_similarity_link_keeps_query_while_filter_response_is_pending(
+    browser_page, similar_catalog
+):
+    page, source = browser_page, similar_catalog.source
+    page.goto(page.base_url + "/repository?" + urlencode({"repository_url": source.repository.url}))
+    held = []
+    page.route("**/fragments/skills?*", lambda route: held.append(route))
+    with page.expect_request("**/fragments/skills?*"):
+        page.get_by_role("searchbox").fill("code-review")
+    expect(page.locator("#skill-results")).to_have_attribute("aria-busy", "true")
+    page.locator('.similar-link[href*="skill_path=review%2FSKILL.md"]').click()
+    expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
+    assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
+    assert len(held) == 1
+    page.get_by_role("link", name="Starting skill", exact=False).click()
+    expect(page.get_by_role("searchbox")).to_have_value("code-review")
+    expect(page.get_by_role("status")).to_have_text("2 of 3 skills")
+
+
 def test_find_similar_from_metadata_score_bars_grouping_and_history(
     browser_page, web_environment, similar_catalog
 ):
@@ -30,9 +117,7 @@ def test_find_similar_from_metadata_score_bars_grouping_and_history(
         )
     )
     expect(page.get_by_role("heading", name="Could not load this skill")).to_be_visible()
-    entry = page.locator(".skill-entry").filter(
-        has=page.locator('.skill-link[aria-current="true"]')
-    )
+    entry = page.locator(".skill-item").filter(has=page.locator('.skill-link[aria-current="true"]'))
     entry.get_by_role("link", name="Find similar", exact=False).click()
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
     expect(page.get_by_role("meter").first).to_have_attribute("value", "100")
@@ -81,7 +166,7 @@ def test_similar_refresh_stale_commit_and_removed_selection(
     state.catalog.replace_repository(
         ScanResult(fixture.source.repository, fixture.source.commit_sha, (fixture.source,))
     )
-    page.goto(similar_url(page, fixture.source))
+    page.goto(similar_url(page, fixture.source, q="code-review"))
     updated = replace(fixture.alternative, commit_sha="d" * 40)
     state.catalog.replace_repository(ScanResult(updated.repository, updated.commit_sha, (updated,)))
     page.locator('.skill-link[data-skill-path="alternative/SKILL.md"]').click()
@@ -89,6 +174,7 @@ def test_similar_refresh_stale_commit_and_removed_selection(
     expect(page.locator(".document-options code")).to_have_text("dddddddd")
     assert urlsplit(page.url).path == "/similar"
     assert parse_qs(urlsplit(page.url).query)["skill_path"] == [fixture.source.path]
+    assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
     state.catalog.replace_repository(ScanResult(updated.repository, "e" * 40, ()))
     # Selecting a now-missing candidate refreshes the matches and clears selection.
     page.locator('.skill-link[data-skill-path="alternative/SKILL.md"]').click()
@@ -166,7 +252,7 @@ def test_similarity_refreshes_after_a_background_scan(
 ):
     page, state, fixture = browser_page, web_environment, similar_catalog
     state.scan_gate.clear()
-    page.goto(similar_url(page, fixture.source))
+    page.goto(similar_url(page, fixture.source, q="code-review"))
     response = page.request.post(
         page.base_url + "/scans",
         form={"repository_url": fixture.remote.repository.url},
@@ -180,6 +266,8 @@ def test_similarity_refreshes_after_a_background_scan(
     expect(page.locator(".similar-result")).to_have_count(1)
     expect(page.get_by_text("other/skills", exact=True)).to_have_count(0)
     expect(page.locator(".result-repository")).to_have_text("Acme/skills")
+    assert urlsplit(page.url).path == "/similar"
+    assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
 
 
 def test_similarity_bars_show_low_medium_and_high_scores(
