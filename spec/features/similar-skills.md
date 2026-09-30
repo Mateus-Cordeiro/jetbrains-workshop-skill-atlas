@@ -47,10 +47,11 @@ consume separate top-result slots.
   repository URL, and exact path. Sort locations by that same identity order.
 
 Display the score as a percentage rounded to the nearest integer (halves up).
-The [Web UI](web-ui.md#similar-skills) owns
-bar presentation, colour thresholds, and accessibility. Explain that it measures
-names and descriptions, not probability, quality, or identical instructions. A rounded 100% does not establish identical metadata or
-bodies. Scores may change as the catalog grows because IDF depends on the corpus.
+The [Web UI](web-ui.md#similar-skills) owns bar presentation, colour thresholds,
+and accessibility. Scores measure names and descriptions, not probability,
+quality, or identical instructions. A rounded 100% does not establish identical
+metadata or bodies. Scores may change as the catalog grows because IDF depends
+on the corpus.
 
 The 80/20 weights and cutoff of 10 are initial defaults, covered by a small
 relevance regression set. They are not calibrated probabilities. Lexical ranking
@@ -121,9 +122,10 @@ ranking, grouping, cutoffs, and snapshot consistency remain shared with the Web 
    the shared read and error contracts. Search does not persist data.
 5. Browser tests cover entry from metadata even after document failure, result
    selection without losing the source, grouping, percentage bars and colour bands,
-   score guidance, absence of metadata descriptions, shared-term lists, and retired
-   controls, keyboard/mobile behavior, refresh/back, stale/deleted selections, and late
-   responses. Documents retain commit-pinned retrieval and safe rendering.
+   shared skill cards with expandable description previews, absence
+   of shared-term lists and retired controls, keyboard/mobile behavior, refresh/back,
+   stale/deleted selections, and late responses. Documents retain commit-pinned
+   retrieval and safe rendering.
 6. Installed-wheel checks exercise the new page and fragment. Benchmark a
    synthetic catalog of thousands of skills to check on-demand ranking latency;
    avoid timing assertions in CI. Follow [AGENTS.md](../../AGENTS.md) for delivery.

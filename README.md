@@ -89,10 +89,9 @@ left pane to read its definition in the right pane. **Preview** renders Markdown
 **Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
 background while you browse. **Rescan repository** refreshes an existing entry.
 
-Skill descriptions on homepage and repository lists show up to two lines by
-default. Use **Show more** or **Show less** to expand or collapse an individual
-description.
-The skill's path appears in the document pane when selected.
+Skill descriptions on homepage, repository, and similarity lists show up to two
+lines by default. Use **Show more** or **Show less** to expand or collapse an
+individual description. The skill's path appears in the document pane when selected.
 
 Expand a repository with its chevron to browse skills inline, or use **Filter
 skills across repositories** to find matches throughout the catalog. Names and
@@ -104,10 +103,11 @@ visible. Clear the field or press Escape while focused to show all skills again.
 Choose **Find similar** beneath a skill to discover alternatives across your
 scanned catalog. Results show a colour-coded **0–100% similarity bar** and
 expandable locations with matching metadata. Bars are red below 40%,
-amber at 40–69%, and green at 70–100%, with the percentage visible inside the bar.
-Select a result to read it while keeping the starting skill visible. The header
-and result cards omit descriptions. Search always includes all scanned
-repositories, even when opened from a filtered list. **Starting skill** returns
+amber at 40–69%, and green at 70–100%, with a clear percentage above a slim,
+rounded track. Results use the same skill cards and expandable descriptions as
+the catalog. Select a result to read it while keeping the starting skill visible.
+Search always includes all scanned repositories, even when opened from a filtered
+list. **Starting skill** returns
 to that repository with your filter preserved. Reload the page to include
 changes made by CLI scans.
 

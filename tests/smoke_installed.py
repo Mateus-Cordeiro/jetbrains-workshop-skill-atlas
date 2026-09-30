@@ -107,7 +107,6 @@ with (
         for path in ("/similar", "/fragments/similar"):
             page = client.get(path, params={"repository_url": REPOSITORY, "skill_path": "SKILL.md"})
             assert page.status_code == 200 and "No similar skills found" in page.text
-            assert "How similarity scores work" in page.text
         catalog = SQLiteCatalog(Path(directory) / "catalog.sqlite3")
         original = catalog.skills()[0]
         catalog.replace_repository(
@@ -146,6 +145,9 @@ with (
             and '<meter class="similarity-meter score-high"' in matches.text
         )
         assert 'aria-valuetext="100% similarity"' in matches.text
+        assert 'class="skill-description"' in matches.text
+        assert original.description in matches.text
+        assert 'class="description-toggle"' in matches.text
         assert "acme/skills" in client.get("/fragments/repositories").text
         filtered = client.get("/", params={"q": "installed wheel"})
         assert "2 matching skills across 1 repository" in filtered.text
