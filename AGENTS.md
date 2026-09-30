@@ -161,6 +161,11 @@ and uploads screenshots and JUnit results from `test-results/`.
 ## GitHub Actions rules
 
 `.github/workflows/test.yml` runs on pushes, pull requests, and manual dispatch.
+Scope concurrency groups by workflow, event type, and PR number (or Git ref
+for non-PR events). New runs may cancel older runs only within that group.
+Keep PR validation separate from branch validation even when a PR event uses
+the base branch ref after merging; neither may cancel the other.
+
 It must keep these gates:
 
 1. Ruff lint, formatting, strict mypy, a distribution build, and an installed-wheel

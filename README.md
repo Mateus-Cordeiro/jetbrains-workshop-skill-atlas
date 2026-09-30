@@ -128,6 +128,10 @@ and branch measurement enabled. JUnit and coverage reports are available as
 workflow artifacts. The stable aggregate status check is **CI required**; select
 it in GitHub branch protection or a ruleset to require passing CI before merging.
 
+Push, pull-request, and manual runs use separate concurrency groups. Newer runs
+cancel older runs for the same event type and branch or PR; a PR run cannot
+cancel the checks for a merge pushed to the default branch.
+
 Integration tests exercise both the API and partial Git paths against local
 fixtures, including copies of skills under `.claude` and `.agents`, rescans,
 removals, failures, and cleanup. Copies at different paths remain distinct
