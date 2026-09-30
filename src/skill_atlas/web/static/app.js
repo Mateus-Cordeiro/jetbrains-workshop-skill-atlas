@@ -70,6 +70,7 @@
     const similar = pane.dataset.mode === 'similar';
     if (similar) {
       params.set('skill_path', pane.dataset.sourcePath);
+      params.set('return_to', pane.dataset.returnTo);
       if (pane.dataset.selectedPath) {
         params.set('selected_repository', pane.dataset.selectedRepository);
         params.set('selected_path', pane.dataset.selectedPath);

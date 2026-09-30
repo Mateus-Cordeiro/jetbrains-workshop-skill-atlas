@@ -32,10 +32,12 @@
 
   function selection() {
     const pane = document.querySelector('#workspace');
-    if (pane?.dataset.mode === 'similar') return;
     document.querySelectorAll('.similar-link').forEach(link => {
-      link.href = setQuery(new URL(link.href), query());
+      const url = setQuery(new URL(link.href), query());
+      url.searchParams.set('return_to', location.pathname + location.search);
+      link.href = url;
     });
+    if (pane?.dataset.mode === 'similar') return;
     if (!pane) return;
     let visible = false;
     document.querySelectorAll('.skill-link').forEach(link => {
@@ -92,6 +94,9 @@
     const results = document.querySelector('.repository-results');
     const count = document.querySelector('#repository-count');
     if (count && results) count.textContent = results.dataset.repositoryCount;
+    const skillCount = document.querySelector('#skill-count');
+    const skills = document.querySelector('#skill-results [data-skill-count]');
+    if (skillCount && skills) skillCount.textContent = skills.dataset.skillCount;
     if (results?.dataset.catalogEmpty === 'true') {
       document.querySelector('#repository-form').hidden = false;
       document.querySelector('#add-repository').setAttribute('aria-expanded', 'true');
@@ -201,5 +206,6 @@
     if (retry) expand(retry.closest('.repository-group'), true);
   });
   document.addEventListener('DOMContentLoaded', restore);
+  document.addEventListener('atlas:skills-updated', selection);
   window.atlasFilters = {query, refresh, restore, selection, cancel};
 })();

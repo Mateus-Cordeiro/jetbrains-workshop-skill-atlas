@@ -1,13 +1,13 @@
 {% set source = result.source %}
 {% macro location_link(skill) %}
 <a class="skill-link location-link" {% if selected and selected.repository.url == skill.repository.url and selected.path == skill.path %}aria-current="true"{% endif %}
-   href="{{ url('/similar', repository_url=source.repository.url, skill_path=source.path, selected_repository=skill.repository.url, selected_path=skill.path, q=q) }}"
+   href="{{ url('/similar', repository_url=source.repository.url, skill_path=source.path, selected_repository=skill.repository.url, selected_path=skill.path, q=q, return_to=return_to) }}"
    data-skill-path="{{ skill.path }}" data-skill-repository="{{ skill.repository.url }}"
    hx-get="{{ url('/fragments/document', repository_url=skill.repository.url, skill_path=skill.path, commit_sha=skill.commit_sha) }}" hx-target="#document" hx-sync="#workspace:replace">
   <span class="result-repository">{{ skill.repository.full_name }}</span><code>{{ skill.path }}</code>
 </a>
 {% endmacro %}
-<section id="workspace" data-mode="similar" data-repository="{{ source.repository.url }}" data-source-path="{{ source.path }}" data-selected-repository="{{ selected.repository.url if selected else '' }}" data-selected-path="{{ selected.path if selected else '' }}">
+<section id="workspace" data-mode="similar" data-return-to="{{ return_to }}" data-repository="{{ source.repository.url }}" data-source-path="{{ source.path }}" data-selected-repository="{{ selected.repository.url if selected else '' }}" data-selected-path="{{ selected.path if selected else '' }}">
   <div class="repository-heading similarity-heading">
     <div><p class="eyebrow">SIMILAR SKILLS</p><h1>Similar to “{{ source.name }}”</h1>
       <p class="muted">{{ source.repository.full_name }} · <code>{{ source.path }}</code></p>
@@ -18,7 +18,7 @@
       <nav class="skills-list" aria-label="Select a similar skill">
         {% for match in result.matches %}
         <article class="similar-result">
-          {% with skill=match.skill, document_selection=true, show_repository=true, similarity_score=match.display_score, skill_href=url('/similar', repository_url=source.repository.url, skill_path=source.path, selected_repository=match.skill.repository.url, selected_path=match.skill.path, q=q) %}
+          {% with skill=match.skill, document_selection=true, show_repository=true, similarity_score=match.display_score, skill_href=url('/similar', repository_url=source.repository.url, skill_path=source.path, selected_repository=match.skill.repository.url, selected_path=match.skill.path, q=q, return_to=return_to) %}
           {% include 'fragments/skill-entry.html' %}
           {% endwith %}
           {% if match.locations|length > 1 %}

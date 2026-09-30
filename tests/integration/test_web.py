@@ -326,3 +326,21 @@ def test_filter_empty_literal_queries_errors_and_scan_refresh(client, web_enviro
         response = client.get(route, params=params, headers={"HX-Request": "true"})
         assert response.status_code == 500 and "catalog_error" in response.text
         assert "No skills match" not in response.text
+
+
+@pytest.mark.parametrize("route", ["/repository", "/fragments/repository", "/fragments/skills"])
+@pytest.mark.parametrize(
+    "query, count", [("", "2 skills"), ("review", "1 of 2 skills"), ("absent", "0 of 2 skills")]
+)
+def test_repository_count_uses_same_filtered_snapshot(
+    client, web_environment, scan_result, route, query, count
+):
+    web_environment.catalog.replace_repository(scan_result)
+    response = client.get(route, params={"repository_url": scan_result.repository.url, "q": query})
+    assert response.status_code == 200
+    assert f'data-skill-count="{count}"' in response.text
+    assert 'class="filter-count"' not in response.text
+    if route != "/fragments/skills":
+        assert f'id="skill-count" role="status">{count}</span>' in response.text
+        assert response.text.index('id="skill-count"') < response.text.index('id="skill-filter"')
+    assert not web_environment.requests

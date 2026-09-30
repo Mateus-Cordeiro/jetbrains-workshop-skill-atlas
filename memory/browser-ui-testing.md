@@ -17,3 +17,12 @@ interaction, perform that interaction after the helper returns and hold the
 relevant fragment response, as in
 [the filter tests](../tests/browser/test_filters.py). Keep GitHub transport and
 credential substitution in [the shared fixtures](../tests/conftest.py).
+
+## Standalone browser demos
+
+When adapting the fixtures for a standalone [PR demo](../.agents/skills/pr-demo/SKILL.md),
+use `pytest_socket.socket_allow_hosts(["127.0.0.1"], allow_unix_socket=True)`
+alongside the browser's loopback-only route guard. Calling `disable_socket()`
+first blocks the server's socket creation even after allowing hosts. The browser
+tests avoid that combination through their `allow_hosts` marker. Continue to
+substitute both GitHub transport and credential lookup with the shared fixtures.

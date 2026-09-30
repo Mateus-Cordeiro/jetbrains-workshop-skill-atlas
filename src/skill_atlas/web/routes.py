@@ -129,6 +129,7 @@ def register_routes(
         selected_repository: str = "",
         selected_path: str = "",
         q: str = "",
+        return_to: str = "",
     ) -> Response:
         repository = Repository.from_url(repository_url)
         candidate_repository = (
@@ -138,6 +139,13 @@ def register_routes(
             result = similarity.search(repository, skill_path)
         except MissingSimilaritySource as exc:
             return error(request, str(exc), 404, "missing_similarity_source")
+        # Return navigation is limited to application pages, including nested searches.
+        if return_to.partition("?")[0] not in {"/", "/repository", "/similar"} or any(
+            ord(char) < 32 or char == "\\" for char in return_to
+        ):
+            return_to = url(
+                "/repository", repository_url=repository.url, skill_path=skill_path, q=q
+            )
         selected = next(
             (
                 skill
@@ -156,6 +164,7 @@ def register_routes(
             else "pages/similar.html",
             result=result,
             q=q,
+            return_to=return_to,
             selected=selected,
             jobs=jobs.recent(),
         )

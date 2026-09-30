@@ -114,8 +114,10 @@ editing the query. Clearing the query restores the expansion choices from
 before filtering. A page URL containing a query initially reveals matches.
 
 The repository view has a **Filter skills in this repository** field in its
-sticky left-pane heading. It updates only the skill list and shows the matching
-and total counts. Keep the current document, scroll position, and source/preview
+sticky left-pane heading. It updates the skill list and the single count above
+the search field: **24 skills** unfiltered, or **3 of 24 skills** while filtering.
+Keep this count in the sticky heading; do not repeat it below the search field or
+beside the repository name. Keep the current document, scroll position, and source/preview
 mode even when its skill no longer matches; display **The open skill is hidden
 by the filter.** Never automatically select another match. Clearing the filter
 restores the selected entry's visible state.
@@ -137,8 +139,9 @@ expansion responses, independently of document selection requests.
 
 ### Repository detail
 
-Show the repository name, skill count, and navigation back to the repository
-list above a two-pane view. Do not display a snapshot hash, scan/rescan button,
+Show the repository name and navigation back to the repository list above a
+two-pane view. Show the skill count once, in the left-pane heading above search.
+Do not display a snapshot hash, scan/rescan button,
 or a replacement rescan menu action. Scanning remains available through the
 homepage URL form, including repeated submissions of an existing repository.
 
@@ -184,15 +187,20 @@ current catalog; it does not retain older catalog snapshots.
 
 Each catalog skill card has a **Similar skills** link, available without loading its
 document. It opens a dedicated two-pane workspace with the starting skill's
-name, repository, and path above the results. A **Starting skill** link
-returns to its repository selection. Links from expanded homepage repositories
-and repository lists preserve the catalog query in `q` as return-navigation
-context. Candidate selection, reload, and automatic refresh retain this context;
-it never filters similarity candidates. Omit descriptions from this header.
+name, repository, and path above the results. A **Back** link returns to the page
+that opened the search, including the homepage, repository selection, or previous
+similarity search. Links carry that page's URL in `return_to`, preserving its filter
+and selection. Only local homepage, repository, and similarity URLs are accepted;
+a direct link without valid return context falls back to the starting skill's
+repository selection. Candidate selection, reload, and automatic refresh retain
+this destination, so Back leaves the workspace rather than stepping through its
+candidate selections. Preserve the catalog query in `q` as return-navigation
+context; it never filters similarity candidates. Omit descriptions from this header.
 Result cards reuse the same skill entry component as homepage and repository
 lists, including two-line descriptions, independent **Show more** / **Show less**
 controls, selection styling, and **Similar skills** links. A result's **Similar skills**
-link starts a new search from that skill while preserving `q`. Fetched SKILL.md
+link starts a new search from that skill while preserving `q` and setting the
+current similarity page as its return destination. Fetched SKILL.md
 documents retain their complete Preview/Source content.
 
 The left pane lists up to ten ranked groups. Each shared skill card adds its
@@ -385,7 +393,7 @@ into URLs.
 | `GET /fragments/repository?repository_url=...&skill_path=...&q=...` | Refresh the two-pane workspace; skill selection is optional. |
 | `GET /fragments/repository-skills?repository_url=...&q=...` | Inline skill metadata for an expanded homepage repository. |
 | `GET /fragments/skills?repository_url=...&skill_path=...&q=...` | Filtered repository skill list and counts without replacing the document. |
-| `GET /similar?repository_url=...&skill_path=...` | Similarity workspace; optional `selected_repository`, `selected_path`, and return-context `q`. |
+| `GET /similar?repository_url=...&skill_path=...` | Similarity workspace; optional `selected_repository`, `selected_path`, and return-context `q` and `return_to`. |
 | `GET /fragments/similar?repository_url=...&skill_path=...` | Refresh similarity workspace with the same optional parameters. |
 | `GET /fragments/document?repository_url=...&skill_path=...&commit_sha=...` | Document fragment containing escaped source and safe rendered content. |
 | `POST /scans` | Validate form-encoded `repository_url`; return `202` with scan activity fragments and a job status URL in `Location`. |
@@ -469,7 +477,9 @@ Implementation must cover these user-visible outcomes:
     shows it for an empty catalog, and keeps it stable during filtering/scans.
     Search is visible on desktop and expandable on mobile; active queries remain
     visible across navigation, refresh, and resizing. Repository counts update
-    with results. No repository scan/rescan controls or visible snapshot hashes
+    with results. The repository skill count appears once above search and updates
+    with filtered results, including zero matches, clearing, and refresh.
+    No repository scan/rescan controls or visible snapshot hashes
     remain; document links and fetches stay commit-pinned. Skill headings separate
     **Similar skills** from the description's **Show more** control.
     Keyboard navigation, narrow layouts, refresh/back navigation, loading
@@ -480,7 +490,8 @@ Implementation must cover these user-visible outcomes:
     bars and grouped locations, reuses shared skill cards and description controls,
     omits shared-term lists and retired controls, and handles reload, Back, stale
     responses, keyboard selection, document errors, and narrow layouts.
-    Catalog filters survive returning to the starting skill;
+    Back returns to the originating homepage, repository, or similarity page with
+    its filter and selection, including after candidate selection and reload;
     similarity still searches all entries. Selections distinguish equal paths in
     different repositories.
 
