@@ -64,7 +64,15 @@ module_help = subprocess.run(
     text=True,
     check=True,
 )
-assert all(command in module_help.stdout for command in ("scan", "serve", "similar"))
+assert all(command in module_help.stdout for command in ("scan", "serve", "filter", "similar"))
+filter_help = subprocess.run(
+    [str(Path(sys.executable).with_name("skill-atlas")), "filter", "--help"],
+    capture_output=True,
+    text=True,
+    check=True,
+)
+filter_help_text = Text.from_ansi(filter_help.stdout).plain
+assert "--repository" in filter_help_text and "--json" in filter_help_text
 similar_help = subprocess.run(
     [str(Path(sys.executable).with_name("skill-atlas")), "similar", "--help"],
     capture_output=True,
@@ -151,6 +159,25 @@ with (
         assert "acme/skills" in client.get("/fragments/repositories").text
         filtered = client.get("/", params={"q": "installed wheel"})
         assert "2 matching skills across 1 repository" in filtered.text
+        cli_filtered = subprocess.run(
+            [
+                str(Path(sys.executable).with_name("skill-atlas")),
+                "filter",
+                "installed wheel",
+                "--repository",
+                REPOSITORY,
+                "--json",
+            ],
+            env=dict(os.environ, SKILL_ATLAS_DB=str(catalog.path)),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        payload = json.loads(cli_filtered.stdout)
+        assert payload["matching_count"] == 2
+        assert [skill["skill_path"] for skill in payload["skills"]] == ["SKILL.md", "copy/SKILL.md"]
+        assert all(skill["commit_sha"] == COMMIT for skill in payload["skills"])
+        assert cli_filtered.stderr == ""
         for path in ("/fragments/skills", "/fragments/repository-skills"):
             result = client.get(path, params={"repository_url": REPOSITORY, "q": "installed"})
             assert result.status_code == 200 and "installed-skill" in result.text

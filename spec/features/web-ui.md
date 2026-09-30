@@ -88,13 +88,9 @@ the document selected and the filter carried over.
 Unfiltered repositories begin collapsed and load metadata from the local backend
 only when expanded. Loading failures offer **Retry**.
 
-Both views use the same server-side matching policy: split the query on
-whitespace, case-fold Unicode text, and require every term to occur as a literal
-substring in either the name or description. Terms may match different fields;
-paths, repository names, and document bodies are not searched. Empty or
-whitespace-only queries show all entries. Wildcards and regular expressions
-have no special meaning. Preserve repository and skill ordering and keep
-same-name entries at different paths separate.
+Both views use the server-side [shared filter matching rules](filter.md#shared-matching-rules).
+The CLI uses the same policy. This section owns browser interaction and
+presentation.
 
 The homepage displays only repositories with matches and reveals matching
 skills automatically, including previously collapsed repositories. Show the
@@ -437,9 +433,10 @@ Implementation must cover these user-visible outcomes:
 9. Unsafe Markdown, metadata, links, and cross-origin scan requests cannot
    execute content or expose credentials. No document content is persisted.
 10. Homepage repository expansion loads only catalog metadata. Both filter scopes
-    apply identical matching, counts, and ordering, including Unicode, multiple
-    terms across fields, literal punctuation, duplicate names, and empty queries.
-    Nonmatches and query failures have distinct, recoverable states.
+    follow the [shared matching rules](filter.md#shared-matching-rules), covering
+    the matching cases in the [filter acceptance criteria](filter.md#acceptance-and-verification)
+    with consistent counts and ordering. Nonmatches and query failures have
+    distinct, recoverable states.
 11. Filtering preserves document content and source mode, even for a hidden
     selection. Queries and homepage expansions survive refresh and back/forward;
     clearing restores earlier expansions. Successful rescans reapply filters and

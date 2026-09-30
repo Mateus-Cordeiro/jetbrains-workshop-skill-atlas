@@ -8,9 +8,10 @@ feature behavior and [AGENTS.md](../AGENTS.md) for contribution and CI rules.
 
 skill-atlas discovers AI skills in GitHub repositories and stores their metadata
 in a local catalog on each user's machine. One Python application exposes the
-[`scan` command](features/scan.md), [`similar` command](features/similar-skills.md),
-and local [`serve` Web UI](features/web-ui.md). These interfaces share the same
-catalog and application services for scanning and similarity search.
+[`scan` command](features/scan.md), [`filter` command](features/filter.md),
+[`similar` command](features/similar-skills.md), and local
+[`serve` Web UI](features/web-ui.md). These interfaces share the same catalog
+and application services for scanning, filtering, and similarity search.
 Public and private GitHub repositories are supported, subject to user access.
 
 The catalog holds each repository's latest successfully scanned state. It is
@@ -92,17 +93,17 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `errors.py` | Shared operational error types translated by adapters and presented by interfaces. |
 | `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. |
 | `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
-| `application/catalog.py` | Read-only catalog browsing, shared name/description matching, and repository grouping with consistent counts. |
+| `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, and repository grouping with consistent counts. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
 | `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
 | `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
-| `runtime.py` | Composition root: wire catalog similarity queries, select adapters, and own HTTP, Git, scanner, and Web application resource lifetimes. |
+| `runtime.py` | Composition root: wire catalog filtering and similarity queries, select adapters, and own HTTP, Git, scanner, and Web application resource lifetimes. |
 | `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
 | `adapters/git.py` | Temporary partial Git snapshots, authenticated subprocesses, and cleanup. |
 | `adapters/frontmatter.py` | YAML implementation of the metadata parser, with no network or database dependencies. |
 | `adapters/storage/` | SQLite read/write adapter and ordered schema migrations. |
 | `adapters/credentials.py` | Credential resolution from the environment and GitHub CLI. |
-| `cli/output/` | Text and interactive views of completed scans; terminal and JSON presentation of similarity results. |
+| `cli/output/` | Text and interactive views of completed scans; terminal and JSON presentation of filter and similarity results. |
 | `web/app.py` | Assemble the Web app, mount assets, and manage the worker lifespan. |
 | `web/routes.py` | Catalog pages, HTMX fragments, and HTTP error adaptation. |
 | `web/middleware.py` | Local Host and Origin checks and browser response protections. |
@@ -156,7 +157,8 @@ late document response handling stay in `web/static/app.js`.
 ### Following a catalog filter
 
 `web/routes.py` adapts queries to `application/catalog.py`. Both scopes use the
-same matching policy there, keeping rules out of routes, SQL, and JavaScript.
+same [filter matching policy](features/filter.md#shared-matching-rules) there,
+keeping rules out of routes, SQL, and JavaScript.
 An unfiltered homepage requests repository summaries; expanding one requests
 its metadata. A filtered homepage requests all skill metadata in one read
 snapshot, groups matches and counts on the server, and renders only matches.
@@ -166,6 +168,16 @@ and indexed full-text search are not introduced for this metadata-only catalog.
 `web/static/filters.js` handles query history, expansion state, and cancellable
 list requests separately from document loading. No filtering operation reads
 GitHub, changes the catalog, or retrieves document bodies.
+
+`cli/commands/filter.py` invokes `BrowseCatalog.filter()` through
+`runtime.create_catalog_browser()`. This operation reads the selected scope
+once through `CatalogReader.skills()`, returning matches and the scope count
+from that snapshot. It also returns all skills for an empty query, independently
+of the homepage's lazy loading. `cli/output/filter.py` renders safe terminal text
+or lossless JSON. The command does not construct a scanner, HTTP client, or Web
+app, or resolve credentials. Reusing the matching policy keeps CLI and Web
+results consistent without coupling command output to browser view state. See
+the [filter specification](features/filter.md) for command and output contracts.
 
 Homepage, repository, and similarity skill lists share `fragments/skill-entry.html`
 for compact descriptions, expansion controls, and links to similarity search.

@@ -11,6 +11,7 @@ from skill_atlas.adapters.frontmatter import FrontmatterParser
 from skill_atlas.adapters.git import GitSnapshotReader
 from skill_atlas.adapters.github import GitHubReader
 from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
+from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents
 from skill_atlas.application.reader_fallback import FallbackReader
 from skill_atlas.application.scan import Scanner
@@ -18,6 +19,10 @@ from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
 from skill_atlas.config import Settings
 from skill_atlas.models import Repository, ScanResult
+
+
+def create_catalog_browser(settings: Settings) -> BrowseCatalog:
+    return BrowseCatalog(SQLiteCatalog(settings.database_path))
 
 
 @contextmanager

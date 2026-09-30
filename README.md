@@ -31,6 +31,32 @@ skill-atlas scan https://github.com/owner/repository --no-interactive
 
 Redirected output automatically uses plain text, including literal URLs.
 
+## Filter saved skills
+
+Search the local catalog without rescanning or starting the Web server:
+
+```sh
+skill-atlas filter "code review"
+skill-atlas filter "code review" --repository https://github.com/owner/repository
+skill-atlas filter "code review" --json
+skill-atlas filter
+```
+
+Every whitespace-separated term must occur in the skill's name or description,
+using Unicode case-insensitive matching. Quote multiword queries; punctuation
+is literal, and paths and document bodies are not searched. Omit the query to
+list all saved skills. `--repository` limits results to one repository.
+
+The command prints names, descriptions, repository paths, and commit-pinned
+links, then exits. `--json` emits an object with `matching_count` and a `skills`
+array containing each match's metadata, identity, full commit, and URL. Results
+use the same catalog as the Web UI, including `SKILL_ATLAS_DB`, and reflect the
+latest successful scans. Filtering works offline and does not require credentials.
+
+No matches is a successful query (exit `0`). Catalog failures exit `1`; invalid
+usage exits `2`. Errors go to stderr. See the [Filter specification](spec/features/filter.md)
+for matching and output contracts.
+
 ## Similar skills from the CLI
 
 Find alternatives to a skill already in the catalog:
@@ -99,6 +125,7 @@ descriptions match case-insensitively; every search word must appear in either
 field. The repository view has its own filter above the skill list. Filters stay
 in the URL through navigation and refresh, and filtering keeps the open document
 visible. Clear the field or press Escape while focused to show all skills again.
+The same matching rules apply to the `filter` subcommand.
 
 Choose **Find similar** beneath a skill to discover alternatives across your
 scanned catalog. Results show a colour-coded **0–100% similarity bar** and
@@ -189,7 +216,9 @@ or specify the checkout with `uv run --project /path/to/checkout skill-atlas ...
 Start with the [specification index](spec/README.md). The
 [shared architecture](spec/architecture.md) records the adopted stack, component
 boundaries, catalog contracts, and extension patterns. Feature specs describe
-scan, Web UI, and similarity-search behavior and their acceptance criteria.
+scan, filtering, Web UI, and similarity-search behavior and their acceptance
+criteria. The [Filter specification](spec/features/filter.md) owns matching rules
+shared by the CLI and Web UI.
 
 The source package groups workflows in `application/`, concrete integrations
 in `adapters/`, terminal commands and output in `cli/`, and the browser interface
@@ -241,6 +270,6 @@ Screenshots are written to the ignored `test-results/` directory.
 
 After `uv build`, install the wheel into a temporary virtual environment and
 run `tests/smoke_installed.py` with that environment's Python from outside the
-checkout. It verifies the `similar` command's help, text and JSON results, and
-the packaged templates and static assets. CI also checks
+checkout. It verifies the installed `filter` and `similar` commands, including
+help and catalog queries, plus packaged templates and static assets. CI also checks
 `skill-atlas serve --help` in that installed environment.

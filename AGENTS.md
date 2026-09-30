@@ -7,10 +7,13 @@ Start with the [specification index](spec/README.md), then read the
 the change before changing behavior or component boundaries:
 
 - [Scan](spec/features/scan.md) owns discovery, metadata extraction, repository
-  access, and terminal behavior.
-- [Web UI](spec/features/web-ui.md) owns `serve`, catalog browsing, document
-  viewing, HTTP contracts, and background jobs. Read the scan spec as well when
-  changing Web scan behavior.
+  access, and scan terminal behavior.
+- [Filter](spec/features/filter.md) owns shared matching rules and the
+  `filter` command. Read the Web UI spec as well when changing shared filtering.
+- [Web UI](spec/features/web-ui.md) owns `serve`, catalog browsing and filter
+  interactions, document viewing, HTTP contracts, and background jobs. Read the
+  scan spec as well when changing Web scan behavior and the filter spec when
+  changing Web filtering.
 - [Similar skills](spec/features/similar-skills.md) owns the `similar` command,
   similarity ranking, scores, grouping, and relevance criteria. Read the Web UI
   spec for its browser presentation.

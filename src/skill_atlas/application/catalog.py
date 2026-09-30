@@ -19,6 +19,12 @@ def filter_skills(skills: tuple[Skill, ...], query: str) -> tuple[Skill, ...]:
 
 
 @dataclass(frozen=True)
+class FilteredSkills:
+    total_count: int
+    matches: tuple[Skill, ...]
+
+
+@dataclass(frozen=True)
 class RepositoryMatches:
     summary: RepositorySummary
     skills: tuple[Skill, ...]
@@ -41,6 +47,10 @@ class RepositoryView:
 class BrowseCatalog:
     def __init__(self, catalog: CatalogReader) -> None:
         self.catalog = catalog
+
+    def filter(self, query: str = "", repository: Repository | None = None) -> FilteredSkills:
+        skills = self.catalog.skills(repository)
+        return FilteredSkills(len(skills), filter_skills(skills, query))
 
     def home(self, query: str = "") -> CatalogView:
         if not query.strip():
