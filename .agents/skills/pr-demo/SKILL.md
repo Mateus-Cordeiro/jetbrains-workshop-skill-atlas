@@ -83,13 +83,13 @@ interaction it cannot show.
    is needed, use available tooling and convert the media rather than renaming its
    extension. Use descriptive filenames and a caption for each clip or screenshot
    explaining the action and expected result, including any simulated conditions.
-4. When PR editing is authorized, attach the media through a supported upload
-   mechanism, such as GitHub's PR editor, and place it in the Demo section. Preview
-   the saved PR and verify every attachment opens or plays. Do not assume an API
-   that edits PR text can upload binary attachments, or use a local path as a
-   reviewer-accessible URL. Otherwise, hand off the media paths and captions with
-   instructions to upload through the PR editor and verify the preview; state any
-   capture, playback, or attachment limitation explicitly.
+4. When PR editing and media upload are authorized, use the
+   [github-pr-media skill](../github-pr-media/SKILL.md) to attach the reviewed files
+   in the Demo section and verify the saved attachments. Read that skill directly
+   if it is not discovered automatically; it owns browser upload methods, native
+   picker fallback, and upload verification. If upload is deferred or blocked,
+   hand off the media paths and captions with the precise limitation and any
+   remaining verification steps. State capture or playback limitations as well.
 
 Do not substitute a demo for the validation required by AGENTS.md. Add reusable
 helpers only when repeated setup or capture work justifies maintaining them.
