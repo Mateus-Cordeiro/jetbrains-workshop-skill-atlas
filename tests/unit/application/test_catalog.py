@@ -50,3 +50,17 @@ def test_unfiltered_home_only_reads_summaries(scan_result):
     view = BrowseCatalog(Catalog()).home("  ")
     assert view.repositories[0].summary == summary
     assert view.repositories[0].skills == ()
+
+
+@pytest.mark.parametrize("query, count", [("", 2), (" \t ", 2), ("CODE maintain", 1), ("none", 0)])
+def test_filter_returns_matches_and_scope_count(scan_result, query, count):
+    class Catalog:
+        def skills(self, repository=None):
+            return scan_result.skills if repository == scan_result.repository else ()
+
+    browser = BrowseCatalog(Catalog())
+    result = browser.filter(query, scan_result.repository)
+    assert result.total_count == 2
+    assert result.matches == scan_result.skills[:count]
+    assert browser.filter(query).total_count == 0
+    assert browser.filter(query).matches == ()

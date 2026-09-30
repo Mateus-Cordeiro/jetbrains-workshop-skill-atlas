@@ -89,9 +89,8 @@ Unfiltered repositories begin collapsed and load metadata from the local backend
 only when expanded. Loading failures offer **Retry**.
 
 Both views use the server-side [shared filter matching rules](filter.md#shared-matching-rules).
-Those rules preserve the existing Web behavior; the proposed CLI extension is
-specified separately in the same feature document. This section owns browser
-interaction and presentation.
+The CLI uses the same policy. This section owns browser interaction and
+presentation.
 
 The homepage displays only repositories with matches and reveals matching
 skills automatically, including previously collapsed repositories. Show the

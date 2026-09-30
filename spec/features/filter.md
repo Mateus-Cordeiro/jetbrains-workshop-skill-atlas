@@ -1,7 +1,6 @@
 # skill-atlas filter
 
-Status: proposed CLI extension. The shared matching rules below are accepted
-and implemented in the Web UI; the `filter` subcommand is not yet implemented.
+Status: accepted and implemented in the CLI and Web UI.
 This document owns filter matching, command behavior, and acceptance criteria
 across interfaces. The [Web UI specification](web-ui.md#skill-filtering-and-expandable-repositories)
 owns browser interactions and HTTP presentation. The [shared architecture](../architecture.md)
@@ -40,7 +39,7 @@ For example, `CODE maintain` matches a skill named `code-review` whose
 description contains `maintainability`. `STRASSE` matches `Straße` through
 Unicode case folding. `%`, `_`, and `.*` match only those literal substrings.
 
-## Proposed command
+## Command
 
 ```sh
 skill-atlas filter [QUERY] [--repository GITHUB_REPO_URL] [--json]
@@ -113,20 +112,20 @@ for missing, unreadable, corrupt, and unsupported databases.
 Follow the existing [component map](../architecture.md#components-and-dependency-boundaries).
 Keep matching and query coordination in `application/catalog.py`, reuse
 `CatalogReader`, and wire the read-only service through `runtime.py`. The CLI
-adapter in `cli/commands/filter.py` should handle arguments, exit codes, and
-output through `cli/output/`; it must not call Web routes or duplicate matching
+adapter in `cli/commands/filter.py` handles arguments, exit codes, and
+output through `cli/output/filter.py`; it must not call Web routes or duplicate matching
 in a command handler or SQL query.
 
-The current unfiltered homepage reads repository summaries and loads skills
-only on expansion. Preserve that Web optimization. Provide a shared query
-operation that returns actual skill matches for the command, including empty
-queries, rather than interpreting the homepage's unloaded groups as results.
+The unfiltered homepage reads repository summaries and loads skills only on
+expansion. `BrowseCatalog.filter()` returns a `FilteredSkills` value containing
+actual matches and the total number of skills in scope, including for empty
+queries. The CLI uses this operation independently of the homepage's unloaded
+groups, preserving the Web optimization.
 Use the existing [read snapshot contract](../architecture.md#catalog-reads) for
 matches and any counts derived from them, including during concurrent scans.
 
-This proposal extends the existing catalog service without changing dependency
-direction. Update the architecture component map and walkthrough to describe
-the CLI path when it is implemented.
+This extends the existing catalog service without changing dependency direction;
+see the [filter walkthrough](../architecture.md#following-a-catalog-filter).
 
 ## Outside this version
 
@@ -139,8 +138,7 @@ the CLI path when it is implemented.
 
 ## Acceptance and verification
 
-The matching rules already apply to Web filtering. The proposed command must
-add these outcomes without changing existing browser behavior:
+The CLI and Web filters must preserve these outcomes:
 
 1. The same catalog, query, and repository scope produce the same ordered skill
    identities in CLI and Web results. Cover Unicode case folding, terms across

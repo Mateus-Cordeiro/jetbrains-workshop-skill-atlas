@@ -2,7 +2,7 @@
 
 import typer
 
-from skill_atlas.cli.commands import scan, serve
+from skill_atlas.cli.commands import filter, scan, serve
 
 
 def create_app() -> typer.Typer:
@@ -13,6 +13,7 @@ def create_app() -> typer.Typer:
         """Discover AI skills and maintain a local catalog."""
 
     scan.register(app)
+    filter.register(app)
     serve.register(app)
     return app
 
