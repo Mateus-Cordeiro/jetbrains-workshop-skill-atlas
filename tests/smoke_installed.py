@@ -1,6 +1,8 @@
 """Exercise installed entry points and Web assets without external I/O."""
 
 import base64
+import json
+import os
 import subprocess
 import sys
 from dataclasses import replace
@@ -11,6 +13,7 @@ from unittest.mock import patch
 
 import httpx
 from fastapi.testclient import TestClient
+from rich.text import Text
 
 import skill_atlas
 from skill_atlas import runtime
@@ -61,7 +64,14 @@ module_help = subprocess.run(
     text=True,
     check=True,
 )
-assert "scan" in module_help.stdout and "serve" in module_help.stdout
+assert all(command in module_help.stdout for command in ("scan", "serve", "similar"))
+similar_help = subprocess.run(
+    [str(Path(sys.executable).with_name("skill-atlas")), "similar", "--help"],
+    capture_output=True,
+    text=True,
+    check=True,
+)
+assert "--json" in Text.from_ansi(similar_help.stdout).plain
 with (
     TemporaryDirectory() as directory,
     patch.object(runtime, "github_token", return_value=None),
@@ -104,6 +114,29 @@ with (
                 original.repository, COMMIT, (original, replace(original, path="copy/SKILL.md"))
             )
         )
+        environment = dict(os.environ, SKILL_ATLAS_DB=str(catalog.path))
+        for options in ([], ["--json"]):
+            command = subprocess.run(
+                [
+                    str(Path(sys.executable).with_name("skill-atlas")),
+                    "similar",
+                    REPOSITORY,
+                    "SKILL.md",
+                    *options,
+                ],
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            assert command.stderr == ""
+            if options:
+                data = json.loads(command.stdout)
+                assert data["source"]["commit_sha"] == COMMIT
+                assert data["matches"][0]["display_score"] == 100
+                assert data["matches"][0]["locations"][0]["skill_path"] == "copy/SKILL.md"
+            else:
+                assert "100%" in command.stdout and "copy/SKILL.md" in command.stdout
         matches = client.get(
             "/similar", params={"repository_url": REPOSITORY, "skill_path": "SKILL.md"}
         )
@@ -130,4 +163,6 @@ with (
         for headers in ({}, {"HX-Request": "true"}):
             error = client.get("/repository", headers=headers)
             assert error.status_code == 400 and "invalid_input" in error.text
-print("Installed wheel runs the CLI, scan jobs, catalog pages, document views, and static assets.")
+print(
+    "Installed wheel runs similarity CLI, scan jobs, catalog pages, documents, and static assets."
+)

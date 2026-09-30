@@ -11,8 +11,9 @@ the change before changing behavior or component boundaries:
 - [Web UI](spec/features/web-ui.md) owns `serve`, catalog browsing, document
   viewing, HTTP contracts, and background jobs. Read the scan spec as well when
   changing Web scan behavior.
-- [Similar skills](spec/features/similar-skills.md) owns similarity ranking, scores,
-  grouping, and relevance criteria. Read the Web UI spec for its presentation.
+- [Similar skills](spec/features/similar-skills.md) owns the `similar` command,
+  similarity ranking, scores, grouping, and relevance criteria. Read the Web UI
+  spec for its browser presentation.
 
 Follow the shared component boundaries, identity, authentication, snapshot,
 catalog consistency, and migration contracts in the architecture. Changes to a
