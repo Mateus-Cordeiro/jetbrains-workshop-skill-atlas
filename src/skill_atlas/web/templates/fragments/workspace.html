@@ -1,6 +1,5 @@
 <section id="workspace" data-repository="{{ repository.url }}" data-selected-path="{{ selected.path if selected else '' }}">
-<div class="repository-heading"><div><p class="eyebrow">REPOSITORY</p><h1>{{ repository.full_name }}</h1><p class="muted">{{ skills|length }} skill{% if skills|length != 1 %}s{% endif %}{% if skills %} <span class="separator">/</span> Snapshot <code title="{{ skills[0].commit_sha }}">{{ skills[0].commit_sha[:8] }}</code>{% endif %}</p></div>
-<form hx-post="/scans" hx-target="#jobs" hx-disabled-elt="find button"><input type="hidden" name="repository_url" value="{{ repository.url }}"><button type="submit">{% if skills %}Rescan{% else %}Scan{% endif %} repository <span aria-hidden="true">↻</span></button></form></div>
+<div class="repository-heading"><div><p class="eyebrow">REPOSITORY</p><h1>{{ repository.full_name }}</h1><p class="muted">{{ skills|length }} skill{% if skills|length != 1 %}s{% endif %}</p></div></div>
 {% if skills %}
 <div class="split-view"><aside class="skills-pane" aria-label="Skills">
 <div class="pane-heading">SKILLS

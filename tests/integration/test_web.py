@@ -62,6 +62,25 @@ def test_pages_and_packaged_assets(client, web_environment, scan_result):
     assert client.get("/scans/unknown", headers={"HX-Request": "true"}).status_code == 404
 
 
+def test_catalog_controls_and_commit_metadata(client, web_environment, scan_result):
+    empty = client.get("/").text
+    assert 'id="add-repository" type="button" aria-expanded="true"' in empty
+    web_environment.catalog.replace_repository(scan_result)
+    home = client.get("/").text
+    assert 'id="add-repository" type="button" aria-expanded="false"' in home
+    assert 'class="scan-form" hidden' in home
+    assert "COMMIT" not in home and scan_result.commit_sha[:8] not in home
+    assert "Your skill library" not in home
+    for skills in (scan_result.skills, ()):
+        web_environment.catalog.replace_repository(replace(scan_result, skills=skills))
+        for route in ("/repository", "/fragments/repository"):
+            detail = client.get(route, params={"repository_url": scan_result.repository.url}).text
+            assert 'hx-post="/scans"' not in detail
+            assert "Snapshot" not in detail
+            assert "Rescan" not in detail
+    assert not web_environment.requests
+
+
 def test_scan_rescan_zero_and_failed_scan_preserve_catalog(client, web_environment, scan_result):
     state = web_environment
     first = submit(client)

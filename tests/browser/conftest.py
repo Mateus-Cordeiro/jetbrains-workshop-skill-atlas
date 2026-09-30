@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 import pytest
 import uvicorn
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 
 @pytest.fixture
@@ -55,3 +55,26 @@ def browser_page(web_environment):
         thread.join(timeout=10)
         sock.close()
         assert not thread.is_alive()
+
+
+@pytest.fixture
+def scan_from_home(browser_page, web_environment):
+    """Start a real scan, then return to the workspace before it completes."""
+
+    def submit(repository):
+        page, state = browser_page, web_environment
+        return_url = page.url
+        state.scan_gate.clear()
+        try:
+            page.goto(page.base_url)
+            field = page.get_by_role("textbox", name="GitHub repository URL")
+            if not field.is_visible():
+                page.get_by_role("button", name="Add repository").click()
+            field.fill(repository)
+            page.get_by_role("button", name="Scan repository").click()
+            expect(page.locator('.job[data-state="running"]')).to_be_visible()
+            page.goto(return_url)
+        finally:
+            state.scan_gate.set()
+
+    return submit

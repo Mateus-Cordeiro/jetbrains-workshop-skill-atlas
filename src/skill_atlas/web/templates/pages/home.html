@@ -1,11 +1,16 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="hero"><p class="eyebrow">YOUR REPOSITORIES, MAPPED</p><h1>Your skill library.</h1><p>Find the skills in your repositories. Read their definitions in one place.</p></section>
-<section class="scan-card" aria-labelledby="scan-heading"><div><h2 id="scan-heading">Add a repository</h2><p>Scan a GitHub repository to discover its skills.</p></div>
-<form hx-post="/scans" hx-target="#jobs" hx-disabled-elt="find button" class="scan-form">
-<label class="sr-only" for="repository-url">GitHub repository URL</label><input id="repository-url" type="url" name="repository_url" placeholder="https://github.com/owner/repository" required autocomplete="off"><button type="submit" class="primary">Scan repository <span aria-hidden="true">↗</span></button>
-</form></section>
+{% set empty_catalog = not view.repositories and not q.strip() %}
+<div class="catalog-heading">
+<h1>Repositories <span id="repository-count" class="count">{{ view.repositories|length }}</span></h1>
+<div class="catalog-tools">
 {% set filter_label = 'Filter skills across repositories' %}
-<div class="catalog-filter">{% include 'fragments/filter.html' %}</div>
+{% include 'fragments/filter.html' %}
+<button id="add-repository" type="button" aria-expanded="{{ 'true' if empty_catalog else 'false' }}" aria-controls="repository-form"><span aria-hidden="true">+</span> Add repository</button>
+</div>
+</div>
+<form id="repository-form" hx-post="/scans" hx-target="#jobs" hx-disabled-elt="find button" class="scan-form" {% if not empty_catalog %}hidden{% endif %}>
+<label class="sr-only" for="repository-url">GitHub repository URL</label><input id="repository-url" type="url" name="repository_url" placeholder="https://github.com/owner/repository" required autocomplete="off"><button type="submit" class="primary">Scan repository <span aria-hidden="true">↗</span></button>
+</form>
 <section id="repositories">{% include 'fragments/repositories.html' %}</section>
 {% endblock %}

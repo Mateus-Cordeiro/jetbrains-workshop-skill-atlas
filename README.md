@@ -116,25 +116,30 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000), or use
 `skill-atlas serve --port 8123` to select another port. Press Ctrl+C to stop.
 From a development checkout, use `uv run --locked skill-atlas serve`.
 
-The page lists repositories in the same catalog used by CLI scans. Submit a
-GitHub repository URL to scan it, open a repository, and select a skill in the
-left pane to read its definition in the right pane. **Preview** renders Markdown;
+The homepage opens directly onto repositories in the same catalog used by CLI
+scans. Choose **+ Add repository** to reveal the URL field and **Scan repository**
+button; the form starts open when the catalog is empty. Submit a GitHub repository
+URL to scan it, open a repository, and select a skill in the left pane to read its definition in the right pane. **Preview** renders Markdown;
 **Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
-background while you browse. **Rescan repository** refreshes an existing entry.
+background while you browse. To update an existing entry, submit its URL again
+through the homepage form or run the CLI `scan` command. Repository pages have
+no scan/rescan control. Commit hashes are omitted from the lists and document
+viewer; **View on GitHub** still opens the exact scanned version.
 
 Skill descriptions on homepage, repository, and similarity lists show up to two
 lines by default. Use **Show more** or **Show less** to expand or collapse an
 individual description. The skill's path appears in the document pane when selected.
 
-Expand a repository with its chevron to browse skills inline, or use **Filter
-skills across repositories** to find matches throughout the catalog. Names and
+Expand a repository with its chevron to browse skills inline, or use **Search skills…**
+in the toolbar to find matches throughout the catalog. Names and
 descriptions match case-insensitively; every search word must appear in either
-field. The repository view has its own filter above the skill list. Filters stay
-in the URL through navigation and refresh, and filtering keeps the open document
-visible. Clear the field or press Escape while focused to show all skills again.
+field. The repository view has its own search above the skill list. On narrow
+screens, use the magnifying-glass button to reveal search; an active query stays
+visible. Filters stay in the URL through navigation and refresh, and filtering
+keeps the open document visible. Clear the field or press Escape while focused to show all skills again.
 The same matching rules apply to the `filter` subcommand.
 
-Choose **Find similar** beneath a skill to discover alternatives across your
+Choose **Similar skills** beside a skill name to discover alternatives across your
 scanned catalog. Results show a colour-coded **0–100% similarity bar** and
 expandable locations with matching metadata. Bars are red below 40%,
 amber at 40–69%, and green at 70–100%, with a clear percentage above a slim,

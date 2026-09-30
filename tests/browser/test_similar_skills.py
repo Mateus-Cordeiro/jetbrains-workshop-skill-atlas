@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -118,7 +119,7 @@ def test_find_similar_from_metadata_score_bars_grouping_and_history(
     )
     expect(page.get_by_role("heading", name="Could not load this skill")).to_be_visible()
     entry = page.locator(".skill-item").filter(has=page.locator('.skill-link[aria-current="true"]'))
-    entry.get_by_role("link", name="Find similar", exact=False).click()
+    entry.get_by_role("link", name="Similar skills", exact=False).click()
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
     expect(page.get_by_role("meter").first).to_have_attribute("value", "100")
     expect(page.get_by_role("meter").first).to_have_attribute("aria-valuetext", "100% similarity")
@@ -169,7 +170,9 @@ def test_similar_refresh_stale_commit_and_removed_selection(
     state.catalog.replace_repository(ScanResult(updated.repository, updated.commit_sha, (updated,)))
     page.locator('.skill-link[data-skill-path="alternative/SKILL.md"]').click()
     expect(page.locator(".document-toolbar strong")).to_have_text("patch-audit")
-    expect(page.locator(".document-options code")).to_have_text("dddddddd")
+    expect(page.get_by_role("link", name="View on GitHub")).to_have_attribute(
+        "href", re.compile("/blob/" + "d" * 40 + "/")
+    )
     assert urlsplit(page.url).path == "/similar"
     assert parse_qs(urlsplit(page.url).query)["skill_path"] == [fixture.source.path]
     assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
