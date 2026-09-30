@@ -262,6 +262,11 @@ Omit the section when no visual demonstration is useful. If capture or attachmen
 is unavailable, state the limitation and provide any usable artifact and handoff
 instructions. A demonstration supplements the required checks.
 
+When attaching videos or images to a pull request, use the
+[github-pr-media skill](.agents/skills/github-pr-media/SKILL.md). If it is not
+discovered automatically, read `.agents/skills/github-pr-media/SKILL.md` directly.
+It owns upload methods, fallbacks, and verification of saved attachments.
+
 ## Delivery and CI status
 
 For tasks that change repository files, delivery includes committing the task's
