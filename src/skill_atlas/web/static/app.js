@@ -2,7 +2,47 @@
   let generation = 0;
   let documentRequest;
   const completed = new Set();
+  const successTimers = new Map();
+  const dismissedKey = 'skill-atlas.dismissed-jobs';
+  const dismissed = new Set();
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(dismissedKey) || '[]');
+    if (Array.isArray(saved)) saved.filter(id => typeof id === 'string').forEach(id => dismissed.add(id));
+  } catch { /* Dismissal still works in memory when browser storage is unavailable. */ }
   const workspace = () => document.querySelector('#workspace');
+
+  function updateActivityVisibility() {
+    const panel = document.querySelector('#jobs');
+    if (panel) panel.hidden = !panel.querySelector('.job');
+  }
+
+  function dismissJob(id) {
+    const job = document.getElementById('job-' + id);
+    if (job && ['queued', 'running'].includes(job.dataset.state)) return;
+    dismissed.add(id);
+    try {
+      // Only opaque notification IDs, never repository metadata or document content.
+      sessionStorage.setItem(dismissedKey, JSON.stringify([...dismissed].slice(-128)));
+    } catch { /* Storage is optional for the current page. */ }
+    clearTimeout(successTimers.get(id));
+    successTimers.delete(id);
+    job?.remove();
+    updateActivityVisibility();
+  }
+
+  function updateJobNotices() {
+    document.querySelectorAll('.job').forEach(job => {
+      const {jobId, state} = job.dataset;
+      if (['queued', 'running'].includes(state)) return;
+      if (dismissed.has(jobId)) {
+        job.remove();
+      } else if (state === 'succeeded' && !successTimers.has(jobId)) {
+        // Keep the same timer when another submission replaces the activity panel.
+        successTimers.set(jobId, setTimeout(() => dismissJob(jobId), 5000));
+      }
+    });
+    updateActivityVisibility();
+  }
 
   function refreshWorkspace() {
     const pane = workspace();
@@ -15,7 +55,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => completed.add(job.dataset.jobId));
+    // A fresh page shows active work and unresolved errors, not past successes.
+    document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
+      completed.add(job.dataset.jobId);
+      dismissJob(job.dataset.jobId);
+    });
+    updateJobNotices();
   });
   document.addEventListener('htmx:beforeRequest', event => {
     const detail = event.detail;
@@ -67,6 +112,7 @@
       if (document.querySelector('#repositories')) htmx.ajax('GET', '/fragments/repositories', '#repositories');
       if (workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
     });
+    updateJobNotices();
   });
   for (const name of ['htmx:sendError', 'htmx:timeout']) {
     document.addEventListener(name, event => {
@@ -78,6 +124,8 @@
     });
   }
   document.addEventListener('click', event => {
+    const dismiss = event.target.closest('[data-dismiss-job]');
+    if (dismiss) dismissJob(dismiss.closest('.job').dataset.jobId);
     const button = event.target.closest('[data-view]');
     if (button) {
       const source = button.dataset.view === 'source';

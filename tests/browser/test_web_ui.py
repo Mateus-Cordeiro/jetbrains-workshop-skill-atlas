@@ -147,3 +147,62 @@ def test_delayed_workspace_refresh_preserves_new_selection(
     held[0].fulfill(status=200, content_type="text/html", body="<h2>Obsolete workspace</h2>")
     expect(page.locator(".document-toolbar strong")).to_have_text("release-notes")
     expect(page.get_by_text("Obsolete workspace")).to_have_count(0)
+
+
+def submit_repository(page, repository):
+    page.get_by_role("textbox", name="GitHub repository URL").fill(repository)
+    page.get_by_role("button", name="Scan repository").click()
+
+
+def test_success_notices_expire_without_hiding_active_scans(browser_page, web_environment):
+    page, state = browser_page, web_environment
+    page.clock.install()
+    page.goto(page.base_url)
+    state.scan_gate.clear()
+    submit_repository(page, "https://github.com/acme/skills")
+    expect(page.locator('.job[data-state="running"]')).to_be_visible()
+    page.clock.fast_forward(6000)
+    expect(page.locator('.job[data-state="running"]')).to_be_visible()
+    expect(page.get_by_role("button", name="Dismiss scan result", exact=False)).to_have_count(0)
+    state.scan_gate.set()
+    success = page.locator('.job[data-state="succeeded"]')
+    expect(success).to_be_visible()
+    expect(page.locator(".repository-row")).to_have_count(1)
+    page.clock.fast_forward(3000)
+    expect(success).to_be_visible()
+    state.scan_gate.clear()
+    submit_repository(page, "https://github.com/acme/other")
+    expect(page.locator('.job[data-state="running"]')).to_be_visible()
+    # Replacing the scan panel must not restart a successful notice's timer.
+    page.clock.fast_forward(2500)
+    expect(success).to_have_count(0)
+    expect(page.locator('.job[data-state="running"]')).to_be_visible()
+    page.reload()
+    expect(success).to_have_count(0)
+    expect(page.locator('.job[data-state="running"]')).to_be_visible()
+    state.scan_gate.set()
+    expect(success).to_have_count(1)
+    expect(page.locator(".repository-row")).to_have_count(2)
+    page.get_by_role("button", name="Dismiss scan result", exact=False).click()
+    expect(success).to_have_count(0)
+
+
+def test_failed_scan_notices_wait_for_dismissal_and_stay_dismissed(browser_page, web_environment):
+    page, state = browser_page, web_environment
+    page.clock.install()
+    state.scan_status = 404
+    page.goto(page.base_url)
+    submit_repository(page, "https://github.com/acme/skills")
+    failed = page.locator('.job[data-state="failed"]')
+    expect(failed).to_be_visible()
+    page.clock.fast_forward(10000)
+    expect(failed).to_be_visible()
+    expect(page.get_by_role("button", name="Retry scan")).to_be_visible()
+    page.get_by_role("button", name="Dismiss scan result", exact=False).click()
+    expect(failed).to_have_count(0)
+    page.reload()
+    expect(failed).to_have_count(0)
+    state.scan_status = 200
+    submit_repository(page, "https://github.com/acme/skills")
+    expect(page.locator('.job[data-state="succeeded"]')).to_be_visible()
+    expect(failed).to_have_count(0)

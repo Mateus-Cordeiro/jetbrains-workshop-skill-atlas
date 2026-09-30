@@ -54,6 +54,9 @@ backend credentials for private repositories. They are not stored locally.
 A scan with zero skills shows **No skills found** and removes that repository
 from the saved list. Failed scans preserve the previous successful entries.
 Queued jobs and scan activity exist only while the server is running.
+Queued and running scans remain visible. Successful notices disappear after
+five seconds; failed scans stay available for retry or dismissal. Both completed
+states have a dismiss button, and dismissed notices stay hidden in the same tab.
 
 The interface is local and binds only to loopback. Templates, CSS, JavaScript,
 and HTMX are bundled with the Python package; no frontend build or CDN is needed.
