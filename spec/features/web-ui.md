@@ -2,8 +2,9 @@
 
 Status: accepted and implemented. This document defines a local Web UI for
 browsing the catalog, submitting scans, and reading skill definitions. The
-[CLI architecture specification](cli.md) remains the source of truth for scan
-discovery, parsing, authentication, snapshot consistency, and catalog writes.
+[shared architecture](../architecture.md) owns the stack, component boundaries,
+authentication, snapshot consistency, and catalog contracts. The
+[scan specification](scan.md) owns discovery, parsing, and repository access.
 
 ## Purpose and scope
 
@@ -38,7 +39,7 @@ without rescanning.
 
 ## Starting the application
 
-Introduce a CLI subcommand:
+Start the local server with the `serve` subcommand:
 
 ```sh
 skill-atlas serve
@@ -177,43 +178,22 @@ link uses the existing encoded, commit-pinned skill URL.
 
 ## Components and boundaries
 
-Use one Python application. The delivery stack is FastAPI with Uvicorn, Jinja2 templates, HTMX,
-and plain CSS. HTMX handles scan submission, polling, and HTML fragment updates;
-a small JavaScript layer manages selection history and stale responses.
-`markdown-it-py` renders documents. HTMX 2.0.8 and its license are bundled locally;
-there is no runtime CDN or frontend build step. Package templates and static assets with the application;
-the installed command must not depend on the source checkout or a separate
-frontend development server.
+Use the adopted [runtime stack](../architecture.md#runtime) and shared
+[component boundaries](../architecture.md#components-and-dependency-boundaries).
+Web routes adapt HTTP requests to catalog queries, scan jobs, and document
+services; templates and HTMX return pages and fragments. Keep selection history
+and stale-response handling in the browser presentation layer. Package the
+required templates and static assets so the installed command works outside
+the checkout.
 
-| Component | Responsibility |
-| --- | --- |
-| `serve` command | Parse server options and start the local application. |
-| Web routes and views | Adapt requests, render pages, and return data and errors. |
-| Catalog query service | List repositories, list their skills, and find a skill by its catalog identity. |
-| Catalog read port | Expose those queries independently of the scan/write port. |
-| SQLite read adapter | Query the existing skill rows and derive repository summaries. |
-| Scan job runner | Track in-process job status and invoke the existing scanner. |
-| Document service and reader port | Resolve a catalog selection and retrieve its document at the recorded commit. |
-| GitHub document adapter | Perform authenticated, commit-pinned content retrieval. |
-| `runtime.py` | Construct adapters and own their resource lifetimes. |
+The scanner continues to use the catalog-write port. The document service uses
+catalog-read and document-reader ports; browsing never invokes the CLI or the
+Textual view. Reuse the shared [catalog read contract](../architecture.md#catalog-reads),
+including missing-database handling, schema checks, independent connections,
+and consistent read snapshots during atomic scan replacement.
 
-Keep HTTP and presentation dependencies out of the scanner and domain models.
-Do not invoke the CLI command or launch the Textual view from a Web request.
-Preserve the existing `Catalog.replace_repository` contract; add a narrow read
-protocol rather than requiring scanner implementations to support browsing.
-
-Catalog reads perform no GitHub requests. A missing database is an empty
-catalog; an unreadable, corrupt, or unsupported database is an error. Reads
-must respect the existing schema-version checks and must not rebuild or reset
-the database. Use independent, short-lived SQLite connections per operation;
-do not share a connection across request and worker threads.
-
-Read each repository's skills from a consistent SQLite snapshot. A scan must
-still replace a repository atomically, so readers see either the previous
-complete entries or the new complete entries. CLI scans and Web scans share
-the catalog; separate processes retain the existing last-successful-write
-behavior. A page refresh sees changes made by the CLI; live cross-process
-notifications are outside scope.
+A page refresh sees changes made by CLI scans. Live cross-process notifications
+are outside scope.
 
 ## Scan execution and lifecycle
 
@@ -313,15 +293,14 @@ Implementation must cover these user-visible outcomes:
     states, and errors remain usable. The installed package serves its assets
     outside the checkout, and existing CLI behavior remains intact.
 
-Follow [the repository testing rules](../AGENTS.md). Use unit tests for query
+Follow [the repository testing rules](../../AGENTS.md). Use unit tests for query
 and job policies and document handling, and integration tests with temporary
 SQLite catalogs, the real application composition, and mocked GitHub transport.
 Exercise browser interactions and rendering without live GitHub or real
 credentials. Preserve the existing API and local Git fallback scan scenarios.
 
-During implementation, run the required local checks and coverage gate, plus
-the packaging and installed-wheel checks for the new command and Web assets.
-Browser checks use Playwright with Chromium and a temporary loopback server;
-all GitHub requests are mocked. Run `uv run --locked playwright install chromium`
-once, then `uv run --locked pytest tests/browser`. CI runs the browser suite
-and `tests/smoke_installed.py` against the installed wheel outside the checkout.
+For changes to this feature, follow the local, browser, and installed-wheel
+checks in [AGENTS.md](../../AGENTS.md#required-local-checks). Browser checks use
+Playwright with Chromium and a temporary loopback server; all GitHub requests
+are mocked. CI also verifies the installed command and packaged Web assets
+outside the checkout.

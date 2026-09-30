@@ -57,7 +57,8 @@ Queued jobs and scan activity exist only while the server is running.
 
 The interface is local and binds only to loopback. Templates, CSS, JavaScript,
 and HTMX are bundled with the Python package; no frontend build or CDN is needed.
-See [the Web UI specification](spec/web-ui.md) for behavior and architecture.
+See [the Web UI specification](spec/features/web-ui.md) for behavior and
+architecture.
 
 ## Installation
 
@@ -113,8 +114,10 @@ uv run mypy
 globally. From another directory, use the installed `skill-atlas` command above,
 or specify the checkout with `uv run --project /path/to/checkout skill-atlas ...`.
 
-See [the architecture specification](spec/cli.md) for component boundaries,
-data semantics, and guidance for adding commands, parsing rules, and migrations.
+Start with the [specification index](spec/README.md). The
+[shared architecture](spec/architecture.md) records the adopted stack, component
+boundaries, catalog contracts, and extension patterns. Feature specs describe
+scan and Web UI behavior and their acceptance criteria.
 
 ## Continuous integration
 
@@ -131,7 +134,10 @@ removals, failures, and cleanup. Copies at different paths remain distinct
 catalog entries. Tests require no GitHub credentials or live network access.
 
 See [AGENTS.md](AGENTS.md) for the testing rules, required checks, and criteria
-for adding integration coverage when changing the implementation.
+for adding integration coverage when changing the implementation. Delivery
+includes pushing a task branch and checking CI for the latest commit, fixing
+failures until the required checks are green. Default-branch merges remain a
+separate action.
 
 ### Browser and installed-package checks
 
