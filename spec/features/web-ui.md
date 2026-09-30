@@ -166,7 +166,7 @@ current catalog; it does not retain older catalog snapshots.
 
 Each catalog skill card has a **Find similar** link, available without loading its
 document. It opens a dedicated two-pane workspace with the starting skill's
-name, repository, path, and commit above the results. A **Starting skill** link
+name, repository, and path above the results. A **Starting skill** link
 returns to its repository selection. Links from expanded homepage repositories
 and repository lists preserve the catalog query in `q` as return-navigation
 context. Candidate selection, reload, and automatic refresh retain this context;
@@ -196,10 +196,8 @@ repositories; there are no **Refresh results**, **Other repositories only**, or
 **Apply filter** controls. Scoring, cutoffs, grouping, and limitations belong to
 [Similar skills](similar-skills.md).
 
-A keyboard-accessible **How similarity scores work** disclosure explains weights,
-colour bands, rounding, and limitations. The percentage is a similarity measure,
-not a probability or quality rating. Show **No similar skills found** when no
-candidates reach the cutoff, separately from missing-source and catalog errors.
+Show **No similar skills found** when no candidates reach the cutoff, separately
+from missing-source and catalog errors.
 Escape names and paths. Keep source identity and selected result identity in
 the URL. Browser reload and Back restore state using the current
 catalog, including changes from CLI scans. Expand a group containing the restored

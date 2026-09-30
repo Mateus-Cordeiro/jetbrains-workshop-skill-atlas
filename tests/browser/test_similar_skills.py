@@ -129,8 +129,6 @@ def test_find_similar_from_metadata_score_bars_grouping_and_history(
         expect(page.get_by_role("button", name=removed)).to_have_count(0)
     expect(page.get_by_label("Other repositories only")).to_have_count(0)
     expect(page.get_by_text("Same metadata · 3 locations")).to_be_visible()
-    page.get_by_text("How similarity scores work").click()
-    expect(page.get_by_text("They are not probabilities", exact=False)).to_be_visible()
     page.get_by_text("Same metadata · 3 locations").click()
     remote = page.locator('.skill-link[data-skill-path="review #?/SKILL.md"]')
     remote.focus()

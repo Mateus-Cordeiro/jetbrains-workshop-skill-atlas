@@ -97,7 +97,6 @@ with (
         for path in ("/similar", "/fragments/similar"):
             page = client.get(path, params={"repository_url": REPOSITORY, "skill_path": "SKILL.md"})
             assert page.status_code == 200 and "No similar skills found" in page.text
-            assert "How similarity scores work" in page.text
         catalog = SQLiteCatalog(Path(directory) / "catalog.sqlite3")
         original = catalog.skills()[0]
         catalog.replace_repository(

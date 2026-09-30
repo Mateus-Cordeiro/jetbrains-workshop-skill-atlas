@@ -47,9 +47,10 @@ consume separate top-result slots.
 
 Display the score as a percentage in a colour-coded bar spanning 0–100%, rounded
 to the nearest integer (halves up). The [Web UI](web-ui.md#similar-skills) owns
-bar presentation, colour thresholds, and accessibility. Explain that it measures
-names and descriptions, not probability, quality, or identical instructions. A rounded 100% does not establish identical metadata or
-bodies. Scores may change as the catalog grows because IDF depends on the corpus.
+bar presentation, colour thresholds, and accessibility. Scores measure names
+and descriptions, not probability, quality, or identical instructions. A rounded
+100% does not establish identical metadata or bodies. Scores may change as the
+catalog grows because IDF depends on the corpus.
 
 The 80/20 weights and cutoff of 10 are initial defaults, covered by a small
 relevance regression set. They are not calibrated probabilities. Lexical ranking
@@ -73,7 +74,7 @@ after evaluation against the lexical baseline.
    the shared read and error contracts. Search does not persist data.
 5. Browser tests cover entry from metadata even after document failure, result
    selection without losing the source, grouping, percentage bars and colour bands,
-   score guidance, shared skill cards with expandable description previews, absence
+   shared skill cards with expandable description previews, absence
    of shared-term lists and retired controls, keyboard/mobile behavior, refresh/back,
    stale/deleted selections, and late responses. Documents retain commit-pinned
    retrieval and safe rendering.

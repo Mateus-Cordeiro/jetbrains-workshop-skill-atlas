@@ -10,10 +10,9 @@
 <section id="workspace" data-mode="similar" data-repository="{{ source.repository.url }}" data-source-path="{{ source.path }}" data-selected-repository="{{ selected.repository.url if selected else '' }}" data-selected-path="{{ selected.path if selected else '' }}">
   <div class="repository-heading similarity-heading">
     <div><p class="eyebrow">SIMILAR SKILLS</p><h1>Similar to “{{ source.name }}”</h1>
-      <p class="muted">{{ source.repository.full_name }} · <code>{{ source.path }}</code> · Snapshot <code title="{{ source.commit_sha }}">{{ source.commit_sha[:8] }}</code></p>
+      <p class="muted">{{ source.repository.full_name }} · <code>{{ source.path }}</code></p>
     </div>
   </div>
-  <details class="score-help"><summary>How similarity scores work</summary><p>Scores compare names (20%) and descriptions (80%) using shared words and phrases. Higher percentages indicate closer metadata matches. Bars use red below 40%, amber from 40–69%, and green from 70–100%. Values are rounded to whole percentages. They are not probabilities or quality ratings. Even 100% does not establish identical instructions. Scores can change as the catalog grows; synonyms and exclusions may be missed.</p></details>
   <div class="split-view">
     <aside class="skills-pane" aria-label="Similar skills"><div class="pane-heading">MATCHES <span class="count">{{ result.matches|length }}</span></div>
       <nav class="skills-list" aria-label="Select a similar skill">
