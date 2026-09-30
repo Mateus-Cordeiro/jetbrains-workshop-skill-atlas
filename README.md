@@ -196,6 +196,23 @@ scan history. Malformed skill definitions are silently skipped.
 
 ## Development
 
+### Working with coding agents
+
+Codex and Claude use the same [shared project memory](memory/index.md) and
+[memory skill](.agents/skills/shared-memory/SKILL.md). Codex follows
+[AGENTS.md](AGENTS.md); [CLAUDE.md](CLAUDE.md) imports those instructions for
+Claude. Both agents read relevant memory before a task and reconcile durable
+findings before finishing. The skill can be read directly; no personal skill
+installation, hook, or memory service is required.
+
+Memory is curated Markdown tracked with the project. Agents in the same
+checkout see the same files; separate branches, worktrees, and machines share
+updates through normal Git integration. It does not automatically synchronize
+active sessions. The [repository instructions](AGENTS.md#shared-project-memory)
+define the policy; the skill defines the maintenance procedure.
+
+### Local development
+
 Run these commands from the project checkout:
 
 ```sh

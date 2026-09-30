@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shared Project Memory"
+  short_description: "Read and maintain shared project knowledge"
+  default_prompt: "Use $shared-memory to read relevant project context and reconcile verified findings in memory/."
