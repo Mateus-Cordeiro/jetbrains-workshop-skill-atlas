@@ -8,8 +8,9 @@ feature behavior and [AGENTS.md](../AGENTS.md) for contribution and CI rules.
 
 skill-atlas discovers AI skills in GitHub repositories and stores their metadata
 in a local catalog on each user's machine. One Python application exposes the
-[`scan` command](features/scan.md) and the local
-[`serve` Web UI](features/web-ui.md). Both use the same catalog and scan service.
+[`scan` command](features/scan.md), [`similar` command](features/similar-skills.md),
+and local [`serve` Web UI](features/web-ui.md). These interfaces share the same
+catalog and application services for scanning and similarity search.
 Public and private GitHub repositories are supported, subject to user access.
 
 The catalog holds each repository's latest successfully scanned state. It is
@@ -95,13 +96,13 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
 | `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
 | `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
-| `runtime.py` | Composition root: select adapters and own HTTP, Git, scanner, and Web application resource lifetimes. |
+| `runtime.py` | Composition root: wire catalog similarity queries, select adapters, and own HTTP, Git, scanner, and Web application resource lifetimes. |
 | `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
 | `adapters/git.py` | Temporary partial Git snapshots, authenticated subprocesses, and cleanup. |
 | `adapters/frontmatter.py` | YAML implementation of the metadata parser, with no network or database dependencies. |
 | `adapters/storage/` | SQLite read/write adapter and ordered schema migrations. |
 | `adapters/credentials.py` | Credential resolution from the environment and GitHub CLI. |
-| `cli/output/` | Independent text and interactive terminal views of completed scan results. |
+| `cli/output/` | Text and interactive views of completed scans; terminal and JSON presentation of similarity results. |
 | `web/app.py` | Assemble the Web app, mount assets, and manage the worker lifespan. |
 | `web/routes.py` | Catalog pages, HTMX fragments, and HTTP error adaptation. |
 | `web/middleware.py` | Local Host and Origin checks and browser response protections. |
@@ -174,14 +175,18 @@ Description expansion stays in
 
 ### Following a similarity search
 
-`web/routes.py` adapts a source identity to
-`application/similarity.py`, wired by `runtime.py`. The service reads all catalog
+`web/routes.py` and `cli/commands/similar.py` adapt a source identity to
+`application/similarity.py`, wired by `runtime.py`. The CLI uses
+`runtime.create_similarity()` to configure a local catalog reader without
+credential or network setup. The service reads all catalog
 skills once through `CatalogReader.skills()`, resolving the source from the
 same transaction as candidates. It computes TF-IDF scores and groups matching
 metadata without document retrieval or catalog writes. Web templates present
-scores and links; selecting a match uses the existing document service.
+scores and links; selecting a match uses the existing document service. The CLI
+passes completed results to `cli/output/similarity.py` for terminal or JSON
+output and exits. Presentation never adds ranking or grouping rules.
 
-Ranking lives in an application service so future interfaces can reuse the
+Ranking lives in an application service so both interfaces reuse the
 policy. SQLite remains responsible only for consistent reads, and routes only
 adapt parameters and presentation. Standard-library sparse dictionaries and
 math suffice for the initial lexical algorithm, avoiding a numerical runtime

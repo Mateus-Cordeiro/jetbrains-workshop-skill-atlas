@@ -46,6 +46,11 @@ def create_scanner(settings: Settings) -> Iterator[Scanner]:
         )
 
 
+def create_similarity(settings: Settings) -> SimilarSkills:
+    """Wire a local, read-only search without credential or network setup."""
+    return SimilarSkills(SQLiteCatalog(settings.database_path))
+
+
 def create_web_app(settings: Settings) -> FastAPI:
     from skill_atlas.web.app import create_app
 
