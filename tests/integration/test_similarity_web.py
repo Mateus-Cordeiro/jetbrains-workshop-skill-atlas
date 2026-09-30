@@ -45,7 +45,9 @@ def test_catalog_similarity_is_read_only_and_does_not_fetch_documents(
     assert 'aria-valuetext="100% similarity"' in response.text
     assert 'aria-valuetext="80% similarity"' in response.text
     assert 'min="0" max="100"' in response.text
-    assert fixture.source.description not in response.text
+    assert response.text.count(fixture.source.description) == 2
+    assert response.text.count('class="skill-description"') == 2
+    assert response.text.count('class="description-toggle"') == 2
     assert "Same metadata · 3 locations" in response.text
     assert "Shared terms:" not in response.text
     for removed in ("Other repositories only", "Apply filter", "Refresh results"):
@@ -133,6 +135,7 @@ def test_similarity_metadata_is_escaped(client, web_environment, scan_result):
     assert response.status_code == 200
     assert "&lt;script&gt;evil()&lt;/script&gt;" in response.text
     assert "<img src=x>" not in response.text and "<script>bad()" not in response.text
+    assert "&lt;img src=x&gt;" in response.text
     assert not web_environment.requests
 
 

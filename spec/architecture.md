@@ -178,8 +178,11 @@ app, or resolve credentials. Reusing the matching policy keeps CLI and Web
 results consistent without coupling command output to browser view state. See
 the [filter specification](features/filter.md) for command and output contracts.
 
-Homepage and repository skill lists share `fragments/skill-entry.html` for
-compact descriptions, expansion controls, and links to similarity search.
+Homepage, repository, and similarity skill lists share `fragments/skill-entry.html`
+for compact descriptions, expansion controls, and links to similarity search.
+Similarity results supply their selection URL, repository label, and optional
+score; the shared card owns their presentation. Grouped location links remain
+in the similarity workspace, where repository/path disambiguation is needed.
 Description expansion stays in
 `web/static/app.js`, with controls initialized after list updates from
 `web/static/filters.js` as well as page and workspace loads.
@@ -190,8 +193,10 @@ Description expansion stays in
 `application/similarity.py`, wired by `runtime.py`. The service reads all catalog
 skills once through `CatalogReader.skills()`, resolving the source from the
 same transaction as candidates. It computes TF-IDF scores and groups matching
-metadata without document retrieval or catalog writes. Web templates present
-scores and links; selecting a match uses the existing document service.
+metadata without document retrieval or catalog writes. The workspace reuses the
+shared skill card with a score fragment, keeping description and selection
+behavior consistent across lists; selecting a match uses the existing document
+service.
 
 Ranking lives in an application service so future interfaces can reuse the
 policy. SQLite remains responsible only for consistent reads, and routes only

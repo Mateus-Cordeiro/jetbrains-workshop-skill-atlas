@@ -136,7 +136,7 @@ Initially show **Select a skill to view its SKILL.md** in the right pane. Select
 skills by `(repository_url, skill_path)`, never by name. Identical definitions
 copied into different directories and same-name skills remain separate entries.
 
-Descriptions in both homepage and repository skill lists start collapsed.
+Descriptions in homepage, repository, and similarity skill lists start collapsed.
 Show **Show more** only when a description exceeds two lines at the current pane
 width; expanding reveals its full text and offers
 **Show less**. Each description expands independently without selecting a skill,
@@ -162,20 +162,26 @@ current catalog; it does not retain older catalog snapshots.
 
 Each catalog skill card has a **Find similar** link, available without loading its
 document. It opens a dedicated two-pane workspace with the starting skill's
-name, repository, path, and commit above the results. A **Starting skill** link
+name, repository, and path above the results. A **Starting skill** link
 returns to its repository selection. Links from expanded homepage repositories
 and repository lists preserve the catalog query in `q` as return-navigation
 context. Candidate selection, reload, and automatic refresh retain this context;
-it never filters similarity candidates. Omit descriptions from this header and
-from result cards; descriptions still contribute to ranking, and fetched
-SKILL.md documents retain their complete Preview/Source content.
+it never filters similarity candidates. Omit descriptions from this header.
+Result cards reuse the same skill entry component as homepage and repository
+lists, including two-line descriptions, independent **Show more** / **Show less**
+controls, selection styling, and **Find similar** links. A result's **Find similar**
+link starts a new search from that skill while preserving `q`. Fetched SKILL.md
+documents retain their complete Preview/Source content.
 
-The left pane lists up to ten ranked groups with a colour-coded similarity bar,
-skill name, and repository/path. Shared-term lists are not displayed. Each bar
-spans 0–100%, fills in proportion to the rounded score, and displays that
-percentage inside it. Show 0% and 100% endpoints. Use red for 0–39%, amber for
-40–69%, and green for 70–100%, based on the same rounded value displayed in the bar. The numeric text must
-remain readable against every fill and track colour; colour is supplementary.
+The left pane lists up to ten ranked groups. Each shared skill card adds its
+repository name and a compact similarity indicator below its actions. Paths
+appear in the selected document and expanded grouped locations. Shared-term
+lists are not displayed. Each bar spans 0–100% and fills in proportion to the
+rounded score. Use a slim rounded track with a subtle gradient fill; display
+**Similarity** and a right-aligned percentage above it, without repeated endpoint
+labels. Use red for 0–39%, amber for 40–69%, and green for 70–100%, based on the
+same rounded value displayed above the bar. Numeric text stays on the card
+background, readable independently of the fill; colour is supplementary.
 Expose an accessible named meter with minimum 0, maximum 100, and the current
 percentage. Keep colour selection in Web presentation, not the ranking service.
 
@@ -186,10 +192,8 @@ repositories; there are no **Refresh results**, **Other repositories only**, or
 **Apply filter** controls. Scoring, cutoffs, grouping, and limitations belong to
 [Similar skills](similar-skills.md).
 
-A keyboard-accessible **How similarity scores work** disclosure explains weights,
-colour bands, rounding, and limitations. The percentage is a similarity measure,
-not a probability or quality rating. Show **No similar skills found** when no
-candidates reach the cutoff, separately from missing-source and catalog errors.
+Show **No similar skills found** when no candidates reach the cutoff, separately
+from missing-source and catalog errors.
 Escape names and paths. Keep source identity and selected result identity in
 the URL. Browser reload and Back restore state using the current
 catalog, including changes from CLI scans. Expand a group containing the restored
@@ -402,8 +406,8 @@ Implementation must cover these user-visible outcomes:
    valid scan. Invalid input starts no job.
 2. Existing CLI-populated catalogs display repositories, counts, commits, and
    deterministically sorted skills without rescanning or changing the schema.
-   Homepage and repository skill descriptions use two-line previews with independent
-   expand/collapse controls for overflow, including on narrow screens and after
+   Homepage, repository, and similarity skill descriptions use two-line previews
+   with independent expand/collapse controls for overflow, including on narrow screens and after
    filtering, inline repository expansion, and scan refreshes. Paths
    appear in the selected document pane rather than beneath skill list entries.
 3. A successful Web scan becomes visible in the shared catalog; a rescan adds,
@@ -443,9 +447,10 @@ Implementation must cover these user-visible outcomes:
     outside the checkout, and existing CLI behavior remains intact.
 13. Similarity search follows the [ranking acceptance criteria](similar-skills.md#acceptance-and-verification),
     preserves its source while selecting matches, displays accessible percentage
-    bars and grouped locations, omits metadata descriptions, shared-term lists,
-    and retired controls, and handles reload, Back, stale responses, keyboard
-    selection, document errors, and narrow layouts. Catalog filters survive returning to the starting skill;
+    bars and grouped locations, reuses shared skill cards and description controls,
+    omits shared-term lists and retired controls, and handles reload, Back, stale
+    responses, keyboard selection, document errors, and narrow layouts.
+    Catalog filters survive returning to the starting skill;
     similarity still searches all entries. Selections distinguish equal paths in
     different repositories.
 
