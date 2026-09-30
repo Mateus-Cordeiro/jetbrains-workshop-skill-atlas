@@ -171,6 +171,51 @@ and HTMX are bundled with the Python package; no frontend build or CDN is needed
 See [the Web UI specification](spec/features/web-ui.md) for behavior and
 architecture.
 
+## AI topic and capability groups
+
+Choose **Capabilities** or **Topics** in the Web catalog, then **Generate groups**.
+Titles appear directly above their skills. A skill can belong to multiple groups;
+a distinct skill can have a group of its own. Selecting a skill uses the existing
+Preview/Source viewer. Generation uses names and descriptions, not document bodies.
+
+Install and start [Ollama](https://ollama.com/), and make the model available:
+
+```sh
+ollama pull qwen3.6:latest
+# If the Ollama application is not already serving:
+ollama serve
+```
+
+Run `skill-atlas serve` as usual. The default model is `qwen3.6:latest`; use an
+already-installed local model if preferred. No model is downloaded automatically.
+Only explicit generation calls Ollama. Saved groups work while Ollama is stopped,
+and ordinary scanning, filtering, and similarity search do not require it.
+
+Configure the backend before starting the server:
+
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `SKILL_ATLAS_OLLAMA_MODEL` | `qwen3.6:latest` | Installed local model tag. |
+| `SKILL_ATLAS_OLLAMA_URL` | `http://127.0.0.1:11434` | Loopback HTTP Ollama origin; remote endpoints and embedded credentials are rejected. |
+| `SKILL_ATLAS_OLLAMA_TIMEOUT` | `600` | Inference request timeout in seconds. |
+| `SKILL_ATLAS_OLLAMA_CONTEXT` | `32768` | Requested model context tokens. |
+| `SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS` | `8192` | Reserved maximum output tokens. |
+
+Larger catalogs may require more context and output tokens, subject to the model
+and available memory. A conservative UTF-8 byte budget rejects oversized input
+before sending it; it can reject text that a tokenizer would fit. Skills are never
+silently omitted. Incomplete, malformed, or failed responses preserve previous
+groups and offer retry. Skill Atlas sends metadata only to the configured local
+Ollama server; use a local model, not an Ollama cloud model. GitHub credentials
+are never forwarded.
+
+**Regenerate groups** explicitly replaces the selected perspective's saved result
+and may reorganize or rename groups. Catalog changes show a regeneration notice;
+removed skills disappear, and new skills join groups after regeneration. Topics
+and Capabilities are saved independently in the catalog. Jobs survive browser
+navigation, but do not resume after server restart. See the
+[grouping specification](spec/features/skill-groups.md) for behavior and limits.
+
 ## Installation
 
 For an installation that does not follow source edits, use `uv tool install .`
@@ -250,7 +295,7 @@ or specify the checkout with `uv run --project /path/to/checkout skill-atlas ...
 Start with the [specification index](spec/README.md). The
 [shared architecture](spec/architecture.md) records the adopted stack, component
 boundaries, catalog contracts, and extension patterns. Feature specs describe
-scan, filtering, Web UI, and similarity-search behavior and their acceptance
+scan, filtering, Web UI, AI grouping, and similarity-search behavior and their acceptance
 criteria. The [Filter specification](spec/features/filter.md) owns matching rules
 shared by the CLI and Web UI.
 
@@ -363,7 +408,7 @@ uv run --locked playwright install chromium
 uv run --locked pytest tests/browser
 ```
 
-Browser tests permit loopback connections only and mock GitHub. They cover
+Browser tests permit loopback connections only and mock GitHub and Ollama. They cover
 selection, preview/source switching, navigation, narrow layouts, scan states,
 retry, stale selections, and delayed responses. CI runs them in Chromium on Linux.
 Screenshots are written to the ignored `test-results/` directory.
@@ -371,5 +416,6 @@ Screenshots are written to the ignored `test-results/` directory.
 After `uv build`, install the wheel into a temporary virtual environment and
 run `tests/smoke_installed.py` with that environment's Python from outside the
 checkout. It verifies the installed `filter` and `similar` commands, including
-help and catalog queries, plus packaged templates and static assets. CI also checks
+help and catalog queries, plus AI grouping generation/persistence with mocked Ollama and packaged templates
+and static assets. CI also checks
 `skill-atlas serve --help` in that installed environment.

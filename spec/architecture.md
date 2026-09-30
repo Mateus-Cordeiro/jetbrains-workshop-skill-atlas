@@ -11,7 +11,8 @@ in a local catalog on each user's machine. One Python application exposes the
 [`scan` command](features/scan.md), [`filter` command](features/filter.md),
 [`similar` command](features/similar-skills.md), and local
 [`serve` Web UI](features/web-ui.md). These interfaces share the same catalog
-and application services for scanning, filtering, and similarity search.
+and application services for scanning, filtering, similarity search, and explicit
+[AI grouping](features/skill-groups.md).
 Public and private GitHub repositories are supported, subject to user access.
 
 The catalog holds each repository's latest successfully scanned state. It is
@@ -37,10 +38,11 @@ assets carry their version and license in `src/skill_atlas/web/static/`.
 | Typer | Subcommand registration, argument validation, options, and generated help. |
 | Textual | Interactive terminal results with buttons and keyboard shortcuts. |
 | Rich | Text layout and terminal hyperlinks for interactive and ordinary output. |
-| HTTPX | Explicit GitHub HTTP requests, timeouts, and mockable transport boundaries without a provider-specific SDK. |
+| HTTPX | Explicit GitHub and local Ollama HTTP requests, timeouts, and mockable transport boundaries without a provider-specific SDK. |
 | PyYAML | Safe YAML frontmatter parsing. |
 | platformdirs | OS-appropriate persistent user data locations. |
 | SQLite via standard-library `sqlite3` | Local transactional persistence without a database server or ORM. |
+| Ollama (optional local runtime) | Run a user-installed model for explicit structured topic/capability grouping without sending catalog metadata to a hosted provider. No Python SDK, agent framework, or embeddings are needed. |
 | Git 2.31 or later | Temporary partial snapshots when a repository exceeds GitHub's complete tree-listing capacity. Small repositories need no Git subprocess. |
 | FastAPI and Uvicorn | HTTP routing and the local ASGI server. |
 | Jinja2 | Server-rendered pages and HTML fragments with escaped metadata. |
@@ -125,6 +127,12 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, and repository grouping with consistent counts. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
 | `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
+| `grouping.py` | Immutable grouping perspectives, identities, and saved-result values. |
+| `application/grouping.py` | Complete-membership validation, metadata fingerprints, explicit generation, and current-catalog group views. |
+| `application/grouping_jobs.py` | One process-local generation worker and bounded per-perspective status. |
+| `adapters/ollama.py` | Structured local model requests, context budgeting, and provider error adaptation. |
+| `adapters/storage/grouping.py` | Atomic saved-group writes and consistent group/catalog read snapshots. |
+| `web/grouping_routes.py` | Group pages, workspace fragments, and explicit generation/status HTTP adaptation. |
 | `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
 | `runtime.py` | Composition root: wire catalog filtering and similarity queries, select adapters, and own HTTP, Git, scanner, and Web application resource lifetimes. |
 | `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
@@ -241,6 +249,27 @@ CLI and Web processes, at the cost of recalculation per search. No schema change
 new persistence, embedding model, or remote service is introduced. See the
 [similar-skills specification](features/similar-skills.md) for ranking rules.
 
+### Following group generation
+
+`web/grouping_routes.py` submits a perspective to `application/grouping_jobs.py`.
+`runtime.py` supplies `application/grouping.py` with `SQLiteGroups` and a fresh
+HTTPX/Ollama adapter for each job. The application reads metadata, invokes the
+provider, validates complete overlapping memberships, and saves the generation.
+Provider-specific prompts, schemas, token budgeting, and request failures belong
+to the adapter; completeness and identity policy belong to the application.
+
+The Web routes only adapt parameters and render saved results. Group reads use
+one SQLite transaction for both saved memberships and current skill rows.
+Fingerprint comparisons detect scans from any process; stale results remain
+browsable with an explicit regeneration notice. Document selection reuses the
+existing document service. `web/static/app.js` extends workspace URLs, selection,
+job completion refreshes, and late-response handling for both perspectives.
+
+This adds persistent derived data and a separate inference worker so slow AI
+requests cannot block the existing scan queue. It keeps the current dependency
+direction and adds no external database or runtime Python dependency. The feature
+[specification](features/skill-groups.md) owns grouping policy and UI behavior.
+
 ## Shared CLI results presentation
 
 `scan`, `filter`, and `similar` share terminal presentation in `cli/output/`.
@@ -319,7 +348,10 @@ deduplication.
 
 Repository summaries are derived from skill rows; repositories with no skills
 have no saved summary. There are no separate repository, scan-history, timestamp,
-or job records. Full document bodies are transient and are not catalog data.
+or job records. A separate `skill_groupings` table holds the latest derived topic
+and capability results, with model names, input fingerprints, and JSON-encoded
+repository/path memberships. These are classification data, not scan history.
+Full document bodies are transient and are not catalog data.
 
 ### Write consistency
 
@@ -359,8 +391,10 @@ migrations in `adapters/storage/migrations.py`; do not edit shipped migrations. 
 defaults or backfills when existing rows need new values. `PRAGMA user_version`
 tracks the schema version.
 
-Migrations run under a write lock before catalog replacement. Schema changes
-and their version marker commit or roll back together. Replacing repository
+Migrations run under a write lock before catalog replacement or explicit grouping
+persistence. Version-1 catalogs remain readable without migration; saved groups
+are absent until generated. Version 2 adds only the derived grouping table.
+Schema changes and their version marker commit or roll back together. Replacing repository
 entries uses a separate atomic transaction. Reject newer unsupported schema
 versions without modification. Never drop and recreate a catalog as an upgrade
 strategy.
@@ -399,6 +433,18 @@ HTTP requests use a 30-second timeout; Git commands use a 120-second timeout.
 There is no automatic retry or rate-limit waiting. Adapters translate access,
 rate-limit, network, and invalid-response failures into operational errors;
 presentation must not expose tokens, raw subprocess output, or tracebacks.
+
+### Local model configuration
+
+Optional Ollama settings select the loopback HTTP endpoint, installed model tag,
+request timeout, context size, and reserved output tokens; defaults and environment
+variables are documented in [README](../README.md#ai-topic-and-capability-groups).
+Only explicit generation constructs an Ollama client. It uses no GitHub headers
+or credentials, follows no redirects, and ignores environment proxy settings.
+Only loopback HTTP endpoints without embedded credentials, paths, or queries are
+accepted. Users must select a locally installed model; hosted/cloud models are
+outside this feature. Normal scans, browsing, filtering, and lexical similarity
+need no Ollama server. No model is installed or started automatically.
 
 ## Evolution patterns
 

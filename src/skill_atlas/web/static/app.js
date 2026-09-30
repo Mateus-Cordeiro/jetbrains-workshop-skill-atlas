@@ -2,6 +2,7 @@
   let generation = 0;
   let documentRequest;
   const completed = new Set();
+  const completedGroups = new Set();
   const successTimers = new Map();
   const dismissedKey = 'skill-atlas.dismissed-jobs';
   const dismissed = new Set();
@@ -65,6 +66,14 @@
   }
 
   function workspaceUrl(pane, fragment = false) {
+    if (pane.dataset.mode === 'groups') {
+      const params = new URLSearchParams();
+      if (pane.dataset.selectedPath) {
+        params.set('selected_repository', pane.dataset.selectedRepository);
+        params.set('selected_path', pane.dataset.selectedPath);
+      }
+      return (fragment ? '/fragments' : '') + '/groups/' + pane.dataset.perspective + '?' + params;
+    }
     const params = new URLSearchParams({repository_url: pane.dataset.repository});
     if (atlasFilters.query()) params.set('q', atlasFilters.query());
     const similar = pane.dataset.mode === 'similar';
@@ -88,6 +97,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const groupStatus = document.querySelector('#group-status');
+    if (groupStatus?.dataset.state === 'succeeded') completedGroups.add(groupStatus.dataset.groupJob);
     observeDescriptions();
     // A fresh page shows active work and unresolved errors, not past successes.
     document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
@@ -110,7 +121,7 @@
       workspace().dataset.selectedPath = link.dataset.skillPath;
       workspace().dataset.selectedRepository = link.dataset.skillRepository || workspace().dataset.repository;
       document.querySelectorAll('.skill-link').forEach(item => {
-        if (item === link) item.setAttribute('aria-current', 'true');
+        if (item.dataset.skillPath === link.dataset.skillPath && item.dataset.skillRepository === link.dataset.skillRepository) item.setAttribute('aria-current', 'true');
         else item.removeAttribute('aria-current');
       });
       if (location.href !== link.href) history.pushState(history.state, '', link.href);
@@ -131,7 +142,7 @@
       return;
     }
     if (detail.target?.id === 'workspace') atlasFilters.cancel();
-    if ((detail.xhr.status === 409 || (detail.xhr.status === 404 && workspace()?.dataset.mode === 'similar')) && detail.target?.id === 'document') {
+    if ((detail.xhr.status === 409 || (detail.xhr.status === 404 && ['similar', 'groups'].includes(workspace()?.dataset.mode))) && detail.target?.id === 'document') {
       detail.shouldSwap = false;
       refreshWorkspace();
       return;
@@ -159,9 +170,18 @@
       if (completed.has(job.dataset.jobId)) return;
       completed.add(job.dataset.jobId);
       if (document.querySelector('#repositories')) atlasFilters.refresh();
-      if (workspace()?.dataset.mode === 'similar' || workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
+      if (['similar', 'groups'].includes(workspace()?.dataset.mode) || workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
     });
+    const status = document.querySelector('#group-status');
+    if (status?.dataset.state === 'succeeded' && !completedGroups.has(status.dataset.groupJob)) {
+      completedGroups.add(status.dataset.groupJob);
+      if (workspace()?.dataset.mode === 'groups') refreshWorkspace();
+    }
     updateJobNotices();
+  });
+  document.addEventListener('htmx:afterRequest', () => {
+    const button = document.querySelector('#generate-groups');
+    if (button) button.disabled = button.dataset.hasSkills !== 'true' || ['queued', 'running'].includes(document.querySelector('#group-status')?.dataset.state);
   });
   for (const name of ['htmx:sendError', 'htmx:timeout']) {
     document.addEventListener(name, event => {

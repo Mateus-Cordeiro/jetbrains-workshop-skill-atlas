@@ -1,0 +1,32 @@
+<section id="workspace" data-mode="groups" data-perspective="{{ perspective }}" data-selected-repository="{{ selected.repository.url if selected else '' }}" data-selected-path="{{ selected.path if selected else '' }}">
+  <div class="catalog-heading group-heading">
+    <h1>{{ perspective|capitalize }}</h1>
+    <button id="generate-groups" type="button" class="primary" hx-post="/groups/{{ perspective }}/generate" hx-target="#group-status" hx-swap="outerHTML" hx-disabled-elt="this" {% if not view.skill_count or (group_job and group_job.state in ('queued', 'running')) %}disabled{% endif %} data-has-skills="{{ 'true' if view.skill_count else 'false' }}">{{ 'Regenerate groups' if view.grouping else 'Generate groups' }}</button>
+  </div>
+  {% if group_job %}{% include 'fragments/group-status.html' %}{% else %}<div id="group-status" role="status" aria-live="polite"></div>{% endif %}
+  {% if view.stale %}<p class="group-stale" role="status">The catalog has changed. Regenerate groups to include all current skills.</p>{% endif %}
+  {% if view.groups %}
+  <div class="split-view">
+    <aside class="skills-pane" aria-label="{{ perspective|capitalize }}">
+      <nav class="skills-list grouped-skills" aria-label="Select a grouped skill">
+        {% for group in view.groups %}
+        {% set group_index = loop.index %}
+        <section class="skill-group" aria-labelledby="group-title-{{ group_index }}">
+          <h2 id="group-title-{{ group_index }}">{{ group.title }}</h2>
+          {% for skill in group.skills %}
+          {% with document_selection=true, show_repository=true, description_suffix='-group-' ~ group_index, skill_href=url('/groups/' ~ perspective, selected_repository=skill.repository.url, selected_path=skill.path) %}
+          {% include 'fragments/skill-entry.html' %}
+          {% endwith %}
+          {% endfor %}
+        </section>
+        {% endfor %}
+      </nav>
+    </aside>
+    <section class="document-pane" aria-label="Skill definition"><div id="document" aria-live="polite" {% if selected %}hx-get="{{ url('/fragments/document', repository_url=selected.repository.url, skill_path=selected.path, commit_sha=selected.commit_sha) }}" hx-trigger="load" hx-sync="#workspace:replace"{% endif %}><div class="empty"><h2>{% if selected %}Loading SKILL.md…{% else %}Explore a skill{% endif %}</h2><p>{% if selected %}Retrieving the scanned version from GitHub.{% else %}Select a skill to view its SKILL.md{% endif %}</p></div></div></section>
+  </div>
+  {% elif not view.skill_count %}
+  <div class="empty"><h2>No saved skills</h2><p><a href="/">Scan a repository</a> to start grouping skills.</p></div>
+  {% else %}
+  <div class="empty"><h2>No {{ perspective }} generated yet</h2><p>Generate groups from your saved skills using local Ollama.</p></div>
+  {% endif %}
+</section>

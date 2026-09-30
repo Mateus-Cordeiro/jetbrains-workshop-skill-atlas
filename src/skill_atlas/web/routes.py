@@ -140,9 +140,13 @@ def register_routes(
         except MissingSimilaritySource as exc:
             return error(request, str(exc), 404, "missing_similarity_source")
         # Return navigation is limited to application pages, including nested searches.
-        if return_to.partition("?")[0] not in {"/", "/repository", "/similar"} or any(
-            ord(char) < 32 or char == "\\" for char in return_to
-        ):
+        if return_to.partition("?")[0] not in {
+            "/",
+            "/repository",
+            "/similar",
+            "/groups/topics",
+            "/groups/capabilities",
+        } or any(ord(char) < 32 or char == "\\" for char in return_to):
             return_to = url(
                 "/repository", repository_url=repository.url, skill_path=skill_path, q=q
             )

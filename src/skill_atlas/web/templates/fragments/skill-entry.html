@@ -1,4 +1,4 @@
-{% set description_id = url('skill-description', repository_url=skill.repository.url, skill_path=skill.path) %}
+{% set description_id = url('skill-description', repository_url=skill.repository.url, skill_path=skill.path) ~ description_suffix|default('') %}
 <div class="skill-item{% if not document_selection %} catalog-skill-item{% endif %}">
 <div class="skill-heading">
 <a class="{{ 'skill-link' if document_selection else 'catalog-skill' }}" href="{{ skill_href|default(url('/repository', repository_url=skill.repository.url, skill_path=skill.path, q=q)) }}"

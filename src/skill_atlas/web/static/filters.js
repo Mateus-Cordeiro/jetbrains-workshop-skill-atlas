@@ -37,7 +37,7 @@
       url.searchParams.set('return_to', location.pathname + location.search);
       link.href = url;
     });
-    if (pane?.dataset.mode === 'similar') return;
+    if (['similar', 'groups'].includes(pane?.dataset.mode)) return;
     if (!pane) return;
     let visible = false;
     document.querySelectorAll('.skill-link').forEach(link => {

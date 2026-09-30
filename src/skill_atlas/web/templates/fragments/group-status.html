@@ -1,0 +1,8 @@
+<div id="group-status" role="status" aria-live="polite" {% if group_job %}data-group-job="{{ group_job.id }}" data-state="{{ group_job.state }}"{% if group_job.state in ('queued', 'running') %} hx-get="/groups/{{ group_job.perspective.value }}/status" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}{% endif %}>
+{% if group_job %}
+  {% if group_job.state == 'queued' %}<p>Group generation queued…</p>
+  {% elif group_job.state == 'running' %}<p>Generating {{ group_job.perspective.value }}… You can keep browsing.</p>
+  {% elif group_job.state == 'failed' %}<div class="error" role="alert"><p>{{ group_job.error }}</p><button type="button" hx-post="/groups/{{ group_job.perspective.value }}/generate" hx-target="#group-status" hx-swap="outerHTML" hx-disabled-elt="this">Retry generation</button></div>
+  {% else %}<p>{{ group_job.perspective.value|capitalize }} generated.</p>{% endif %}
+{% else %}<p class="muted">Generation status is no longer available. Saved groups are shown below.</p>{% endif %}
+</div>

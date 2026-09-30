@@ -18,6 +18,22 @@ relevant fragment response, as in
 [the filter tests](../tests/browser/test_filters.py). Keep GitHub transport and
 credential substitution in [the shared fixtures](../tests/conftest.py).
 
+## Group generation fixtures
+
+The shared [Web environment](../tests/web_environment.py) substitutes both GitHub
+and Ollama transports. Ollama requests are handled before the GitHub authorization
+assertion and explicitly require no Authorization header. Use `grouping_gate`,
+`grouping_status`, and `grouping_content` to control inference without replacing
+the real generation service, validation, jobs, or storage. `grouping_requests`
+records model calls separately from GitHub `requests`. Browser teardown must
+release the grouping gate before stopping the server, which waits for active jobs.
+
+Overlapping group cards need unique description-control IDs even when they share
+a skill identity; the [group browser tests](../tests/browser/test_skill_groups.py)
+check both DOM uniqueness and shared selection. Keep pytest module basenames
+distinct across test directories; duplicate `test_grouping.py` files caused
+collection to fail when running unit and integration suites together.
+
 ## Standalone browser demos
 
 When adapting the fixtures for a standalone [PR demo](../.agents/skills/pr-demo/SKILL.md),

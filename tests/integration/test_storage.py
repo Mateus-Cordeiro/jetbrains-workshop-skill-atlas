@@ -56,12 +56,12 @@ def test_migration_failure_preserves_schema_version_and_data(tmp_path, scan_resu
         migrations,
         "MIGRATIONS",
         migrations.MIGRATIONS
-        + (migrations.Migration(2, ("ALTER TABLE skills ADD COLUMN extra TEXT", "INVALID SQL")),),
+        + (migrations.Migration(3, ("ALTER TABLE skills ADD COLUMN extra TEXT", "INVALID SQL")),),
     )
     with pytest.raises(CatalogError):
         catalog.replace_repository(scan_result)
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
         assert "extra" not in [row[1] for row in connection.execute("PRAGMA table_info(skills)")]
         assert connection.execute("SELECT count(*) FROM skills").fetchone()[0] == 2
 
@@ -75,14 +75,14 @@ def test_new_migration_preserves_existing_data(tmp_path, scan_result, monkeypatc
         migrations.MIGRATIONS
         + (
             migrations.Migration(
-                2, ("ALTER TABLE skills ADD COLUMN extra TEXT NOT NULL DEFAULT 'default'",)
+                3, ("ALTER TABLE skills ADD COLUMN extra TEXT NOT NULL DEFAULT 'default'",)
             ),
         ),
     )
     with sqlite3.connect(path) as connection:
         migrations.migrate(connection)
         migrations.migrate(connection)
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
         assert connection.execute("SELECT extra FROM skills").fetchall() == [
             ("default",),
             ("default",),

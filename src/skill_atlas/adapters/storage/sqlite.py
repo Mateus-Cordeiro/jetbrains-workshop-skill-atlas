@@ -1,4 +1,6 @@
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from skill_atlas.adapters.storage.migrations import MIGRATIONS, migrate
@@ -10,20 +12,22 @@ class SQLiteCatalog:
     def __init__(self, path: Path) -> None:
         self.path = path
 
-    def _query(self, sql: str, parameters: tuple[str, ...] = ()) -> list[sqlite3.Row]:
+    @contextmanager
+    def read_connection(self) -> Iterator[sqlite3.Connection | None]:
         connection = None
         try:
             if not self.path.exists():
-                return []
+                yield None
+                return
             connection = sqlite3.connect(self.path.resolve().as_uri() + "?mode=ro", uri=True)
             connection.row_factory = sqlite3.Row
             connection.execute("BEGIN")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             if version > MIGRATIONS[-1].version:
                 raise CatalogError("This catalog requires a newer skill-atlas version.")
-            if version != MIGRATIONS[-1].version:
+            if version < 1:
                 raise CatalogError("Unsupported catalog schema. Run a scan to initialize it.")
-            return list(connection.execute(sql, parameters))
+            yield connection
         except (OSError, sqlite3.Error) as error:
             raise CatalogError(
                 "Could not read the local catalog. Check its location and permissions."
@@ -31,6 +35,10 @@ class SQLiteCatalog:
         finally:
             if connection is not None:
                 connection.close()
+
+    def _query(self, sql: str, parameters: tuple[str, ...] = ()) -> list[sqlite3.Row]:
+        with self.read_connection() as connection:
+            return list(connection.execute(sql, parameters)) if connection is not None else []
 
     @staticmethod
     def _skill(row: sqlite3.Row) -> Skill:

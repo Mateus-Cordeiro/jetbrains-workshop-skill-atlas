@@ -35,6 +35,8 @@ the change before changing behavior or component boundaries:
   interactions, document viewing, HTTP contracts, and background jobs. Read the
   scan spec as well when changing Web scan behavior and the filter spec when
   changing Web filtering.
+- [Skill groups](spec/features/skill-groups.md) owns explicit AI topic/capability
+  grouping, Ollama generation, saved memberships, and grouping browser behavior.
 - [Similar skills](spec/features/similar-skills.md) owns the `similar` command,
   similarity ranking, scores, grouping, and relevance criteria. Read the Web UI
   spec for its browser presentation.

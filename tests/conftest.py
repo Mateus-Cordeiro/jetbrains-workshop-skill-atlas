@@ -9,6 +9,8 @@ def isolated_catalog_and_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("SKILL_ATLAS_DB", str(tmp_path / "catalog.sqlite3"))
     monkeypatch.delenv("GH_TOKEN", raising=False)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    for name in ("URL", "MODEL", "TIMEOUT", "CONTEXT", "OUTPUT_TOKENS"):
+        monkeypatch.delenv(f"SKILL_ATLAS_OLLAMA_{name}", raising=False)
 
 
 @pytest.fixture

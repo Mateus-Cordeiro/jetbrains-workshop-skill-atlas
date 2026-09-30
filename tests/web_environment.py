@@ -8,6 +8,7 @@ from unittest.mock import patch
 def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
     """Real Web composition; only GitHub and credential lookup are substituted."""
     import base64
+    import json
     from threading import Event
     from types import SimpleNamespace
 
@@ -27,13 +28,35 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
         zero=False,
         commit="a" * 40,
         requests=[],
+        grouping_requests=[],
+        grouping_status=200,
+        grouping_content=None,
+        grouping_gate=Event(),
         scan_gate=Event(),
         document_gate=Event(),
     )
     state.scan_gate.set()
     state.document_gate.set()
+    state.grouping_gate.set()
 
     def handler(request):
+        if request.url.host == "127.0.0.1":
+            assert request.url.path == "/api/chat"
+            assert "Authorization" not in request.headers
+            state.grouping_requests.append(request)
+            assert state.grouping_gate.wait(gate_timeout), "Grouping gate was not released"
+            data = json.loads(json.loads(request.content)["messages"][1]["content"])
+            content = state.grouping_content or {
+                "groups": [{"title": "Improve software", "skill_ids": [s["id"] for s in data]}]
+            }
+            return httpx.Response(
+                state.grouping_status,
+                json={
+                    "done": True,
+                    "done_reason": "stop",
+                    "message": {"content": json.dumps(content)},
+                },
+            )
         state.requests.append(request)
         assert request.headers["Authorization"] == "Bearer fixture-token"
         path = request.url.path
@@ -81,3 +104,4 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
         finally:
             state.scan_gate.set()
             state.document_gate.set()
+            state.grouping_gate.set()

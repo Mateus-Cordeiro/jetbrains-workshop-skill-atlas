@@ -127,7 +127,11 @@ def test_skill_list_keeps_full_escaped_descriptions_without_visible_paths(
     web_environment.catalog.replace_repository(replace(scan_result, skills=(skill,)))
     response = client.get(route, params={"repository_url": skill.repository.url, "q": "Long"})
     assert response.status_code == 200
-    listing = response.text.split("<nav ", 1)[1].split("</nav>", 1)[0]
+    listing = next(
+        nav
+        for nav in findall(r"<nav ([\s\S]*?)</nav>", response.text)
+        if 'class="skill-description"' in nav
+    )
     assert description.replace("<", "&lt;").replace(">", "&gt;") in listing
     assert "skill_path=review%2FSKILL.md" in listing
     assert f"<code>{skill.path}</code>" not in listing
@@ -225,6 +229,9 @@ def test_corrupt_catalog_is_not_an_empty_page(client, web_environment):
 def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
     from contextlib import contextmanager
 
+    from skill_atlas.adapters.storage.grouping import SQLiteGroups
+    from skill_atlas.application.grouping import SkillGroups
+    from skill_atlas.application.grouping_jobs import GroupingJobs
     from skill_atlas.application.scan_jobs import ScanJobs
     from skill_atlas.application.similarity import SimilarSkills
     from skill_atlas.web.app import create_app as web_app
@@ -249,8 +256,20 @@ def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
         yield
 
     jobs = ScanJobs(lambda repository: scan_result, capacity=0)
+
+    def no_generation(_):
+        raise AssertionError("Browsing metadata must not generate groups")
+
     with TestClient(
-        web_app(catalog, jobs, no_documents, SimilarSkills(catalog)), base_url="http://127.0.0.1"
+        web_app(
+            catalog,
+            jobs,
+            no_documents,
+            SimilarSkills(catalog),
+            SkillGroups(SQLiteGroups(catalog)),
+            GroupingJobs(no_generation),
+        ),
+        base_url="http://127.0.0.1",
     ) as client:
         response = client.get("/repository", params={"repository_url": scan_result.repository.url})
         assert "&lt;script&gt;steal()&lt;/script&gt;" in response.text
