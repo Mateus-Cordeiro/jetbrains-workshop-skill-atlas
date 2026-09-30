@@ -506,3 +506,13 @@ checks in [AGENTS.md](../../AGENTS.md#required-local-checks). Browser checks use
 Playwright with Chromium and a temporary loopback server; all GitHub requests
 are mocked. CI also verifies the installed command and packaged Web assets
 outside the checkout.
+
+The desktop visual pilot supplements these checks with three Playwright Test
+scenarios: catalog filtering, description expansion and document preview/source,
+and scan progress with failure and retry. Named checkpoints compare the browser
+directly against reviewed screenshot baselines; recording mode produces videos
+from those same scenarios. Mobile baselines and migration of the remaining
+Python browser tests are outside the pilot. See the
+[architecture](../architecture.md#development-and-delivery) for the fixture and
+rendering environment, and [README](../../README.md#desktop-visual-tests) for
+running, reviewing, and updating the screenshots.

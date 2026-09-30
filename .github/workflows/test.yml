@@ -113,10 +113,29 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  visual:
+    name: Desktop visual tests (Chromium)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compare desktop checkpoints in the pinned Linux image
+        run: bash tests/browser/visual/run-container.sh
+      - name: Upload visual report, checkpoint images, and failure recordings
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-visual-reports
+          path: test-results/visual/
+          if-no-files-found: warn
+          retention-days: 14
+
   ci:
     name: CI required
     if: ${{ always() }}
-    needs: [quality, tests, browser]
+    needs: [quality, tests, browser, visual]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -125,4 +144,5 @@ jobs:
           QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.tests.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
-        run: test "$QUALITY_RESULT" = success && test "$TEST_RESULT" = success && test "$BROWSER_RESULT" = success
+          VISUAL_RESULT: ${{ needs.visual.result }}
+        run: test "$QUALITY_RESULT" = success && test "$TEST_RESULT" = success && test "$BROWSER_RESULT" = success && test "$VISUAL_RESULT" = success

@@ -1,0 +1,13 @@
+.git
+.venv
+node_modules
+test-results
+dist
+**/__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage*
+coverage.xml
+.idea
+*.sqlite3*

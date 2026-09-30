@@ -63,12 +63,33 @@ installed application must work outside its source checkout.
 | Ruff | Consistent lint and formatting checks. |
 | mypy and types-PyYAML | Strict static typing, including YAML library stubs. |
 | Playwright with Chromium | Browser interaction and rendering verification. |
+| Playwright Test, TypeScript, and Node.js | Desktop screenshot comparisons, traces, reports, and optional demo recordings from the same test scenarios. Development tooling only; no frontend build or Node runtime dependency. |
+| Docker | One pinned Linux amd64 browser/font environment for generating and comparing visual baselines locally and in CI. |
 | GitHub Actions | Reproducible quality, package, Python test, and browser gates. |
 
 Required commands, supported CI test environments, coverage requirements, and
 delivery and CI status reporting are defined in [AGENTS.md](../AGENTS.md). The
 workflow and manifests hold tool pins; this document need not change for routine
 version bumps unless a documented constraint or architectural choice changes.
+
+The desktop visual pilot lives in `tests/browser/visual/`, alongside the existing
+Python browser suite, which retains its desktop and mobile coverage. Each
+Playwright Test scenario starts its own Python server and temporary catalog.
+`tests/web_environment.py` shares the real application composition and mocked
+GitHub transport with pytest. A stdin protocol controls fixture responses and
+scan gates; no test endpoints or controls enter the installed application.
+Python and browser requests are restricted to loopback, and the container runs
+without external networking after dependency installation.
+
+Named browser screenshots are compared with reviewed PNGs in Git. Videos record
+the same scenarios and are optional review evidence, not comparison inputs.
+Missing baselines fail normal runs; updates are explicit and forbidden in CI.
+The pinned container owns browser, OS, and fonts; `package.json` and
+`package-lock.json` own the JavaScript development dependencies. Python pins stay
+in their existing manifests. Baselines are generated and reviewed in that
+container, not on the host OS. This adds a development toolchain in exchange for
+using Playwright Test's maintained comparison and reporting features rather than
+implementing a screenshot assertion framework in Python.
 
 Coding agents share development context through curated Markdown in
 [`memory/`](../memory/index.md), maintained with an
