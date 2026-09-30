@@ -272,9 +272,11 @@ catalog entries. Tests require no GitHub credentials or live network access.
 
 See [AGENTS.md](AGENTS.md) for the testing rules, required checks, and criteria
 for adding integration coverage when changing the implementation. Delivery
-includes pushing a task branch and checking CI for the latest commit, fixing
-failures until the required checks are green. Default-branch merges remain a
-separate action.
+includes pushing a task branch and reporting CI status for the latest commit.
+Tasks may finish while CI is queued or running, without waiting for **CI required**
+to turn green, unless the user explicitly requests waiting. Local checks remain
+required, and observed failures caused by the change must be fixed.
+Default-branch merges remain a separate action.
 
 ### Browser and installed-package checks
 

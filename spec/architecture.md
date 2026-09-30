@@ -66,9 +66,9 @@ installed application must work outside its source checkout.
 | GitHub Actions | Reproducible quality, package, Python test, and browser gates. |
 
 Required commands, supported CI test environments, coverage requirements, and
-the push/check/fix loop are defined in [AGENTS.md](../AGENTS.md). The workflow
-and manifests hold tool pins; this document need not change for routine version
-bumps unless a documented constraint or architectural choice changes.
+delivery and CI status reporting are defined in [AGENTS.md](../AGENTS.md). The
+workflow and manifests hold tool pins; this document need not change for routine
+version bumps unless a documented constraint or architectural choice changes.
 
 Coding agents share development context through curated Markdown in
 [`memory/`](../memory/index.md), maintained with an
