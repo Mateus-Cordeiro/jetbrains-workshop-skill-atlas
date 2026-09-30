@@ -31,6 +31,34 @@ skill-atlas scan https://github.com/owner/repository --no-interactive
 
 Redirected output automatically uses plain text, including literal URLs.
 
+## Web UI
+
+Start the local browser interface:
+
+```sh
+skill-atlas serve
+```
+
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000), or use
+`skill-atlas serve --port 8123` to select another port. Press Ctrl+C to stop.
+From a development checkout, use `uv run --locked skill-atlas serve`.
+
+The page lists repositories in the same catalog used by CLI scans. Submit a
+GitHub repository URL to scan it, open a repository, and select a skill in the
+left pane to read its definition in the right pane. **Preview** renders Markdown;
+**Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
+background while you browse. **Rescan repository** refreshes an existing entry.
+
+Documents are fetched from GitHub at the recorded commit when selected, using
+backend credentials for private repositories. They are not stored locally.
+A scan with zero skills shows **No skills found** and removes that repository
+from the saved list. Failed scans preserve the previous successful entries.
+Queued jobs and scan activity exist only while the server is running.
+
+The interface is local and binds only to loopback. Templates, CSS, JavaScript,
+and HTMX are bundled with the Python package; no frontend build or CDN is needed.
+See [the Web UI specification](spec/web-ui.md) for behavior and architecture.
+
 ## Installation
 
 For an installation that does not follow source edits, use `uv tool install .`
@@ -73,7 +101,9 @@ Run these commands from the project checkout:
 ```sh
 uv sync --locked
 uv run skill-atlas scan https://github.com/owner/repository
-uv run pytest
+uv run pytest tests/unit
+uv run pytest tests/integration
+uv run pytest --cov=skill_atlas --cov-report=term-missing
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
@@ -85,3 +115,39 @@ or specify the checkout with `uv run --project /path/to/checkout skill-atlas ...
 
 See [the architecture specification](spec/cli.md) for component boundaries,
 data semantics, and guidance for adding commands, parsing rules, and migrations.
+
+## Continuous integration
+
+GitHub Actions runs lint, formatting, type checks, an installed-package smoke
+test, and both test suites on every push and pull request. Tests run on Linux
+(Python 3.11 and 3.13) and macOS (Python 3.13), with a combined 90% coverage floor
+and branch measurement enabled. JUnit and coverage reports are available as
+workflow artifacts. The stable aggregate status check is **CI required**; select
+it in GitHub branch protection or a ruleset to require passing CI before merging.
+
+Integration tests exercise both the API and partial Git paths against local
+fixtures, including copies of skills under `.claude` and `.agents`, rescans,
+removals, failures, and cleanup. Copies at different paths remain distinct
+catalog entries. Tests require no GitHub credentials or live network access.
+
+See [AGENTS.md](AGENTS.md) for the testing rules, required checks, and criteria
+for adding integration coverage when changing the implementation.
+
+### Browser and installed-package checks
+
+Install Chromium once and run the browser suite:
+
+```sh
+uv run --locked playwright install chromium
+uv run --locked pytest tests/browser
+```
+
+Browser tests permit loopback connections only and mock GitHub. They cover
+selection, preview/source switching, navigation, narrow layouts, scan states,
+retry, stale selections, and delayed responses. CI runs them in Chromium on Linux.
+Screenshots are written to the ignored `test-results/` directory.
+
+After `uv build`, install the wheel into a temporary virtual environment and
+run `tests/smoke_installed.py` with that environment's Python from outside the
+checkout. It verifies the packaged templates and static assets. CI also checks
+`skill-atlas serve --help` in that installed environment.

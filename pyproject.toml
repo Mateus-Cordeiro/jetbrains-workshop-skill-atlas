@@ -9,19 +9,32 @@ description = "Discover AI skills in GitHub repositories and keep a local catalo
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
+  "jinja2>=3.1,<4",
+  "markdown-it-py>=3,<5",
   "platformdirs>=4.3,<5",
   "PyYAML>=6.0,<7",
   "rich>=14,<15",
   "textual>=6,<7",
   "typer>=0.16,<1",
+  "uvicorn>=0.34,<1",
 ]
 
 [project.scripts]
 skill-atlas = "skill_atlas.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8,<9", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "mypy>=1.17,<2", "types-PyYAML>=6"]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=1,<2",
+  "pytest-cov>=6,<8",
+  "pytest-socket>=0.7,<1",
+  "ruff>=0.12,<1",
+  "mypy>=1.17,<2",
+  "types-PyYAML>=6",
+  "playwright>=1.58,<2",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skill_atlas"]
@@ -29,6 +42,16 @@ packages = ["src/skill_atlas"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = "--strict-config --strict-markers --disable-socket --allow-unix-socket"
+
+[tool.coverage.run]
+branch = true
+source = ["skill_atlas"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
 
 [tool.ruff]
 target-version = "py311"

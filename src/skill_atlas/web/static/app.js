@@ -1,0 +1,91 @@
+(() => {
+  let generation = 0;
+  let documentRequest;
+  const completed = new Set();
+  const workspace = () => document.querySelector('#workspace');
+
+  function refreshWorkspace() {
+    const pane = workspace();
+    if (!pane) return;
+    generation++;
+    documentRequest?.abort();
+    const params = new URLSearchParams({repository_url: pane.dataset.repository,
+      skill_path: pane.dataset.selectedPath || ''});
+    htmx.ajax('GET', '/fragments/repository?' + params, {target: '#workspace', swap: 'outerHTML'});
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => completed.add(job.dataset.jobId));
+  });
+  document.addEventListener('htmx:beforeRequest', event => {
+    const detail = event.detail;
+    if (!['document', 'workspace'].includes(detail.target?.id)) return;
+    detail.xhr.atlasGeneration = ++generation;
+    if (detail.target.id === 'workspace') return;
+    documentRequest = detail.xhr;
+    const link = detail.elt.closest('[data-skill-path]');
+    if (link) {
+      workspace().dataset.selectedPath = link.dataset.skillPath;
+      document.querySelectorAll('.skill-link').forEach(item => {
+        if (item === link) item.setAttribute('aria-current', 'true');
+        else item.removeAttribute('aria-current');
+      });
+      if (location.href !== link.href) history.pushState(null, '', link.href);
+    }
+    detail.target.setAttribute('aria-busy', 'true');
+    detail.target.innerHTML = '<div class="empty"><h2>Loading SKILL.md…</h2><p>Retrieving the scanned version from GitHub.</p></div>';
+  });
+  document.addEventListener('htmx:beforeSwap', event => {
+    const detail = event.detail;
+    if (detail.xhr.atlasGeneration !== undefined && detail.xhr.atlasGeneration !== generation) {
+      detail.shouldSwap = false;
+      return;
+    }
+    if (detail.xhr.status === 409 && detail.target?.id === 'document') {
+      detail.shouldSwap = false;
+      refreshWorkspace();
+      return;
+    }
+    if (detail.xhr.status >= 400) {
+      detail.shouldSwap = true;
+      detail.isError = false;
+      if (detail.target?.id === 'jobs') detail.target = document.querySelector('#scan-feedback');
+    }
+  });
+  document.addEventListener('htmx:afterSwap', event => {
+    document.querySelector('#document')?.removeAttribute('aria-busy');
+    if (event.detail.target?.id === 'workspace') {
+      const pane = workspace();
+      const params = new URLSearchParams({repository_url: pane.dataset.repository});
+      if (pane.dataset.selectedPath) params.set('skill_path', pane.dataset.selectedPath);
+      history.replaceState(null, '', '/repository?' + params);
+    }
+    if (event.detail.target?.id === 'jobs') document.querySelector('#scan-feedback').replaceChildren();
+    document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
+      if (completed.has(job.dataset.jobId)) return;
+      completed.add(job.dataset.jobId);
+      if (document.querySelector('#repositories')) htmx.ajax('GET', '/fragments/repositories', '#repositories');
+      if (workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
+    });
+  });
+  for (const name of ['htmx:sendError', 'htmx:timeout']) {
+    document.addEventListener(name, event => {
+      const target = event.detail.target;
+      if (target?.id === 'document' && event.detail.xhr.atlasGeneration !== generation) return;
+      const panel = target?.id === 'document' ? target : document.querySelector('#scan-feedback');
+      panel.innerHTML = '<div class="error" role="alert"><p>Could not reach the server. Check that it is running, then retry or refresh.</p></div>';
+      panel.removeAttribute('aria-busy');
+    });
+  }
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-view]');
+    if (button) {
+      const source = button.dataset.view === 'source';
+      document.querySelector('#document-preview').hidden = source;
+      document.querySelector('#document-source').hidden = !source;
+      document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+    }
+    if (event.target.closest('[data-refresh-workspace]')) refreshWorkspace();
+  });
+  window.addEventListener('popstate', () => location.reload());
+})();

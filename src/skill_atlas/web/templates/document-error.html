@@ -1,0 +1,1 @@
+<div class="empty error" role="alert" data-error-code="{{ code }}"><h2>Could not load this skill</h2><p>{{ message }}</p>{% if code == 'document_error' %}<button type="button" hx-get="{{ retry_url }}" hx-target="#document" hx-sync="#workspace:replace">Retry</button>{% else %}<button type="button" data-refresh-workspace>Refresh skill list</button>{% endif %}</div>

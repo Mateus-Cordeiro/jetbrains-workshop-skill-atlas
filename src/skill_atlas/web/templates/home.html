@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero"><p class="eyebrow">YOUR REPOSITORIES, MAPPED</p><h1>Your skill library.</h1><p>Find the skills in your repositories. Read their definitions in one place.</p></section>
+<section class="scan-card" aria-labelledby="scan-heading"><div><h2 id="scan-heading">Add a repository</h2><p>Scan a GitHub repository to discover its skills.</p></div>
+<form hx-post="/scans" hx-target="#jobs" hx-disabled-elt="find button" class="scan-form">
+<label class="sr-only" for="repository-url">GitHub repository URL</label><input id="repository-url" type="url" name="repository_url" placeholder="https://github.com/owner/repository" required autocomplete="off"><button type="submit" class="primary">Scan repository <span aria-hidden="true">↗</span></button>
+</form></section>
+<section id="repositories">{% include 'repositories.html' %}</section>
+{% endblock %}

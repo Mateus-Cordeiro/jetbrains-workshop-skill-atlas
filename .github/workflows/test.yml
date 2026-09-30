@@ -1,20 +1,127 @@
-name: Tests
+name: CI
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  quality:
+    name: Lint, types, and package
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python: ["3.11", "3.13"]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ matrix.python }}
+          version: "0.9.8"
+          python-version: "3.13"
+          enable-cache: true
       - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy
-      - run: uv run pytest
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+      - run: uv run --locked mypy
+      - name: Build and smoke-test the installed wheel
+        run: |
+          uv build
+          uv venv "$RUNNER_TEMP/skill-atlas-wheel"
+          uv pip install --python "$RUNNER_TEMP/skill-atlas-wheel/bin/python" dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/skill-atlas-wheel/bin/skill-atlas" --help
+          "$RUNNER_TEMP/skill-atlas-wheel/bin/skill-atlas" scan --help
+          "$RUNNER_TEMP/skill-atlas-wheel/bin/skill-atlas" serve --help
+          "$RUNNER_TEMP/skill-atlas-wheel/bin/python" "$GITHUB_WORKSPACE/tests/smoke_installed.py"
+
+  tests:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: macos-latest
+            python: "3.13"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.8"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Unit tests
+        run: >-
+          uv run --locked pytest tests/unit
+          --cov=skill_atlas --cov-report= --cov-fail-under=0
+          --junitxml=test-results/unit.xml
+      - name: Integration tests and combined coverage gate
+        if: ${{ !cancelled() }}
+        run: >-
+          uv run --locked pytest tests/integration
+          --cov=skill_atlas --cov-append --cov-report=term-missing --cov-report=xml
+          --junitxml=test-results/integration.xml
+      - name: Upload test and coverage reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.os }}-python-${{ matrix.python }}
+          path: |
+            test-results/*.xml
+            coverage.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  browser:
+    name: Browser tests (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.8"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --locked playwright install --with-deps chromium
+      - run: uv run --locked pytest tests/browser --junitxml=test-results/browser.xml
+      - name: Upload browser reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-reports
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  ci:
+    name: CI required
+    if: ${{ always() }}
+    needs: [quality, tests, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every check to pass
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          TEST_RESULT: ${{ needs.tests.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: test "$QUALITY_RESULT" = success && test "$TEST_RESULT" = success && test "$BROWSER_RESULT" = success

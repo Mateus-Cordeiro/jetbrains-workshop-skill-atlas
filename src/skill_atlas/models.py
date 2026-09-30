@@ -84,3 +84,10 @@ class ScanResult:
     repository: Repository
     commit_sha: str
     skills: tuple[Skill, ...]
+
+
+@dataclass(frozen=True)
+class RepositorySummary:
+    repository: Repository
+    skill_count: int
+    commit_sha: str

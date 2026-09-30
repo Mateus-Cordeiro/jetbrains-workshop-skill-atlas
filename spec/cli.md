@@ -2,6 +2,8 @@
 
 Status: accepted and implemented for the initial `scan` command. This document
 defines behavior, component boundaries, and the patterns used to evolve the CLI.
+The [Web UI specification](web-ui.md) defines the implemented `serve` command,
+catalog reads, and on-demand document viewing over the same catalog.
 
 ## Purpose and scope
 
@@ -244,7 +246,8 @@ go to standard error; noninteractive successful results go to standard output.
 - Malformed-skill reporting.
 - Skill installation or execution.
 - Other Git hosting providers.
-- Branch or tag selection, additional subcommands, and background updates.
+- Branch or tag selection and automatic background updates. The local `serve`
+  command is specified separately in [the Web UI specification](web-ui.md).
 
 ## GitHub access strategy
 
@@ -349,6 +352,16 @@ Git tests use local repositories to verify partial fetching, commit consistency,
 blob selection, and cleanup. Timeout and interruption tests verify the Git
 process has stopped before its temporary directory is removed.
 
-Run `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and
-`uv run mypy`. CI runs the checks on Python 3.11 and 3.13. Commit the lockfile when
-dependencies change so contributors and CI share the same resolved versions.
+Unit tests live in `tests/unit/`; component and command integration tests live
+in `tests/integration/`. The full scan scenarios run against both the GitHub API
+transport fixture and a real local Git fallback, including identical copies in
+`.claude` and `.agents`, same-name skills, rescans, removals, failures, and branch
+movement during a scan. Test sockets are disabled except Unix sockets needed by
+the event loop; Git remotes use local fixture repositories.
+
+Run `uv run pytest --cov=skill_atlas --cov-report=term-missing`, `uv run ruff check .`,
+`uv run ruff format --check .`, and `uv run mypy`. CI enforces a 90% combined
+coverage floor with branch measurement. It checks Linux on Python 3.11 and 3.13
+and macOS on Python 3.13, builds the package, and smoke-tests the installed wheel
+outside the source checkout. Commit the lockfile when dependencies change.
+`AGENTS.md` defines the testing and CI rules for future changes.

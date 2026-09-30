@@ -140,3 +140,12 @@ def test_corrupt_blob_is_a_retrieval_failure(repository, data):
         GitHubReader(client).read_file(
             Snapshot(repository, COMMIT, TREE), SkillFile("SKILL.md", BLOB)
         )
+
+
+def test_document_reader_rejects_metadata_instead_of_raw_file(scan_result):
+    with httpx.Client(
+        base_url="https://api.github.com",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"type": "dir"})),
+    ) as client:
+        with pytest.raises(RepositoryError, match="metadata"):
+            GitHubReader(client).read_document(scan_result.skills[0])

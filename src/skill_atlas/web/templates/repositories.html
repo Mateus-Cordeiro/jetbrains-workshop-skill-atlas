@@ -1,0 +1,9 @@
+<div class="section-heading"><h2>Repositories <span class="count">{{ repositories|length }}</span></h2><span class="muted">Latest scanned snapshots</span></div>
+{% if repositories %}
+<div class="repository-table"><div class="table-heading"><span>REPOSITORY</span><span>SKILLS</span><span>COMMIT</span><span></span></div>
+{% for summary in repositories %}
+<a class="repository-row" href="{{ url('/repository', repository_url=summary.repository.url) }}"><div><span class="repo-icon" aria-hidden="true">⌘</span><strong>{{ summary.repository.full_name }}</strong></div><span>{{ summary.skill_count }} skill{% if summary.skill_count != 1 %}s{% endif %}</span><code title="{{ summary.commit_sha }}">{{ summary.commit_sha[:8] }}</code><span aria-hidden="true">→</span></a>
+{% endfor %}</div>
+{% else %}
+<div class="empty"><span class="empty-icon" aria-hidden="true">▦</span><h3>A map waiting to be explored.</h3><p>No repositories in your catalog yet. Scan a repository above to get started.</p></div>
+{% endif %}

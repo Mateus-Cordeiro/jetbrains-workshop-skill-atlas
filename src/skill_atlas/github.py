@@ -11,7 +11,7 @@ from urllib.parse import quote
 import httpx
 
 from skill_atlas.errors import IncompleteListingError, RepositoryError
-from skill_atlas.models import Repository, SkillFile, Snapshot
+from skill_atlas.models import Repository, Skill, SkillFile, Snapshot
 
 
 def _object(value: Any) -> dict[str, Any]:
@@ -38,9 +38,15 @@ class GitHubReader:
     def __init__(self, client: httpx.Client) -> None:
         self.client = client
 
-    def _get(self, path: str, *, params: dict[str, str] | None = None) -> dict[str, Any]:
+    def _request(
+        self,
+        path: str,
+        *,
+        params: dict[str, str] | None = None,
+        accept: str = "application/vnd.github+json",
+    ) -> httpx.Response:
         try:
-            response = self.client.get(path, params=params)
+            response = self.client.get(path, params=params, headers={"Accept": accept})
         except httpx.HTTPError as error:
             raise RepositoryError(
                 "Could not reach GitHub. Check your connection and try again."
@@ -75,12 +81,26 @@ class GitHubReader:
             raise RepositoryError(
                 f"GitHub request failed (HTTP {response.status_code}). Try again later."
             )
+        return response
+
+    def _get(self, path: str, *, params: dict[str, str] | None = None) -> dict[str, Any]:
+        response = self._request(path, params=params)
         try:
             return _object(response.json())
         except ValueError as error:
             raise RepositoryError(
                 "GitHub returned invalid JSON; the catalog was not updated."
             ) from error
+
+    def read_document(self, skill: Skill) -> bytes:
+        response = self._request(
+            f"/repos/{skill.repository.full_name}/contents/{quote(skill.path, safe='/')}",
+            params={"ref": skill.commit_sha},
+            accept="application/vnd.github.raw+json",
+        )
+        if response.headers.get("content-type", "").split(";")[0] == "application/json":
+            raise RepositoryError("GitHub returned metadata instead of a skill document.")
+        return response.content
 
     def resolve(self, repository: Repository) -> Snapshot:
         metadata = self._get(f"/repos/{repository.full_name}")
