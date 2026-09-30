@@ -202,6 +202,10 @@ local, defer delivery, or make no changes. Do not include unrelated user changes
 in a commit. Use a `codex/` task branch for new work; reuse the appropriate
 existing task branch when continuing it.
 
+When opening a pull request, create it ready for review by default. Use draft
+mode only when the user explicitly requests it. A ready-for-review PR must still
+complete the CI feedback loop below before the task is reported complete.
+
 1. Review the diff and run the local checks appropriate to the change. Behavioral
    changes require the full local checks above; prose-only changes require
    documentation consistency and link validation. Add integration, browser, or
