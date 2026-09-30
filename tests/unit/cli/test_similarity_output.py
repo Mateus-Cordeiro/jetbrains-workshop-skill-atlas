@@ -6,7 +6,9 @@ import pytest
 from rich.console import Console
 
 from skill_atlas.application.similarity import SimilarityResult, SimilarMatch
-from skill_atlas.cli.output.similarity import print_similarity_result, similarity_json
+from skill_atlas.cli.output.console import print_result
+from skill_atlas.cli.output.results import similarity_view
+from skill_atlas.cli.output.similarity import similarity_json
 
 
 @pytest.mark.parametrize("width", [40, 240])
@@ -16,10 +18,11 @@ def test_text_is_literal_safe_and_shows_every_location(scan_result, width):
     other = replace(source, path="nested/SKILL.md")
     result = SimilarityResult(source, (SimilarMatch((copy, other), 82.5),))
     output = StringIO()
-    print_similarity_result(result, Console(file=output, width=width, force_terminal=False))
+    print_result(similarity_view(result), Console(file=output, width=width, force_terminal=False))
     text = output.getvalue()
     assert "[bold]Résumé[/bold]" in text
-    assert "1. 83%" in text
+    assert "1. [bold]Résumé[/bold] · 83%" in text
+    assert "Review code changes" in text
     assert "[red]copy[/red]/SKILL.md" in text
     assert "nested/SKILL.md" in text
     assert "Same metadata · 2 locations" in text

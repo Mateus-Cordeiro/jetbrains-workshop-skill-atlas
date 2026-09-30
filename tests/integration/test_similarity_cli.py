@@ -72,13 +72,13 @@ def test_cli_and_web_share_ranking_grouping_and_locations(web_environment, simil
     assert text.exit_code == 0 and text.stderr == ""
     for expected in (
         "2 result groups",
-        "1. 100%  code-review",
-        "2. 80%  patch-audit",
+        "1. code-review · 100%",
+        "2. patch-audit · 80%",
         "Same metadata · 3 locations",
         similar_catalog.remote.url,
     ):
         assert expected in text.stdout
-    assert source.description not in text.stdout and "\x1b" not in text.stdout
+    assert source.description in text.stdout and "\x1b" not in text.stdout
     assert web_environment.settings.database_path.read_bytes() == before
     assert not web_environment.requests
 

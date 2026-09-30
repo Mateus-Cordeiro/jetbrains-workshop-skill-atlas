@@ -62,7 +62,7 @@ after evaluation against the lexical baseline.
 ## CLI command
 
 ```sh
-skill-atlas similar <github-repo-url> <skill-path> [--json]
+skill-atlas similar <github-repo-url> <skill-path> [--no-interactive] [--json]
 ```
 
 Both positional arguments are required. Normalize the repository URL using the
@@ -74,17 +74,19 @@ Read the catalog selected by the shared settings, including `SKILL_ATLAS_DB`.
 This command performs no credential lookup and requires neither Git nor a
 running Web server.
 
-Always print results and exit, including in an interactive terminal. The text
-format shows the starting skill, the number of result groups, and numbered
-matches with rounded percentages and representative names. Print every grouped
-repository/path and commit-pinned URL, labelled **Same metadata · N locations**
-when a group has multiple locations. Use the service's group and location order.
-Show score guidance and **No similar skills found** for a successful empty search.
-Descriptions contribute to ranking but are omitted from text output. Wrap to
-terminal width and render metadata literally, removing terminal control sequences.
+Use the [shared CLI results presentation](../architecture.md#shared-cli-results-presentation),
+including automatic terminal detection, `--no-interactive`, description toggling,
+scrolling, and keyboard controls. Show the starting skill and its repository/path
+and commit-pinned URL, the number of result groups, and score guidance. Each
+numbered match shows its representative name followed by the rounded percentage,
+its description, and every grouped repository/path and commit-pinned URL.
+Multiple locations are labelled **Same metadata · N locations**. Use the service's
+group and location order. A successful empty search shows **No similar skills
+found**. The results view performs no new searches or catalog reads.
 
-`--json` writes one JSON object followed by a newline, without terminal formatting
-or explanatory text. Preserve metadata exactly, escaping control characters as
+`--json` always prints one JSON object followed by a newline and exits, even on
+a terminal or alongside `--no-interactive`, without terminal formatting or
+explanatory text. Preserve metadata exactly, escaping control characters as
 JSON data. Its fields are:
 
 - `source`: a skill object.
@@ -103,8 +105,9 @@ empty catalog and therefore a missing-source error, without creating any files.
 
 `cli/commands/similar.py` adapts arguments and errors and uses
 `runtime.create_similarity()` to compose the existing service and catalog reader.
-`cli/output/similarity.py` owns terminal formatting and JSON serialization;
-ranking, grouping, cutoffs, and snapshot consistency remain shared with the Web UI.
+`cli/output/results.py` adapts the result for the shared terminal views, and
+`cli/output/similarity.py` owns JSON serialization. Ranking, grouping, cutoffs,
+and snapshot consistency remain shared with the Web UI.
 
 ## Acceptance and verification
 
@@ -136,6 +139,9 @@ ranking, grouping, cutoffs, and snapshot consistency remain shared with the Web 
 8. CLI help, invalid usage, no matches, missing sources, and unreadable, corrupt,
    or unsupported catalogs have the documented output streams and exit codes.
    Searches do not resolve credentials, access GitHub, or change the catalog.
-   Terminal output is safe at narrow widths; JSON preserves metadata and score
-   precision without active control sequences. The installed wheel exercises
+   Both terminal views include descriptions and all grouped locations at narrow
+   widths. The interactive view supports the shared toggle and keyboard controls;
+   `--no-interactive` and redirected streams print and exit. JSON bypasses the
+   interactive view and preserves metadata and score precision without active
+   control sequences. The installed wheel exercises
    command help and both output formats outside the checkout.

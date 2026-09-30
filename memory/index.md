@@ -12,6 +12,5 @@ to maintain them.
 
 ## Topics
 
-No topic notes yet. Add a topic when verified, reusable knowledge is learned;
-give its link a short description of when it is useful. Keep detailed findings
-in the topic note.
+- [Terminal UI testing](terminal-ui-testing.md): waiting for Textual scrolling
+  before checking widget geometry in headless tests.

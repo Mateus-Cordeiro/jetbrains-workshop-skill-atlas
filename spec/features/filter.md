@@ -9,8 +9,8 @@ owns catalog storage, identity, ordering, configuration, and read consistency.
 ## Purpose and scope
 
 Find skills by their saved names and descriptions, across the local catalog or
-within one repository. Expose the existing Web filter through a command that
-prints results and exits, with structured output for scripts.
+within one repository. Expose the existing Web filter through a command with
+shared interactive/printed results and structured output for scripts.
 
 Use the existing [catalog configuration](../architecture.md#configuration-and-authentication),
 including `SKILL_ATLAS_DB`. Results reflect the latest successful scans already
@@ -42,7 +42,7 @@ Unicode case folding. `%`, `_`, and `.*` match only those literal substrings.
 ## Command
 
 ```sh
-skill-atlas filter [QUERY] [--repository GITHUB_REPO_URL] [--json]
+skill-atlas filter [QUERY] [--repository GITHUB_REPO_URL] [--no-interactive] [--json]
 ```
 
 `QUERY` is an optional positional argument, defaulting to an empty string. Quote
@@ -62,20 +62,19 @@ infer whether it has never been scanned or was scanned successfully with zero
 skills; the catalog does not record that distinction.
 
 Omitting `QUERY`, passing `""`, or passing only whitespace lists all skills in
-the selected scope. The command always prints and exits, including in an
-interactive terminal. It does not open a TUI or browser.
+the selected scope. The command uses the
+[shared CLI mode selection](../architecture.md#shared-cli-results-presentation):
+an interactive results view on a capable terminal, or printed output with
+`--no-interactive` or redirected streams. `--json` always prints and exits.
 
 ### Human-readable output
 
-Print a matching skill count, followed by numbered results in catalog order.
-Include each skill's name, description, repository name, exact path, and
-commit-pinned GitHub link so same-name entries can be distinguished. Number
-results consecutively across repositories.
-
-Adapt to terminal width and render metadata as literal text, escaping terminal
-control sequences and avoiding Rich markup interpretation. Redirected output
-contains literal URLs and no terminal styling or control sequences. Terminal
-hyperlinks may be used where supported.
+Show a matching skill count, followed by the
+[shared skill-list layout and controls](../architecture.md#shared-cli-results-presentation).
+Include names, descriptions, repository names, exact paths, and commit-pinned
+links. Number entries consecutively across repositories in catalog order.
+Interactive description toggling affects only presentation; it does not rerun
+filtering or read the catalog again.
 
 Distinguish an empty selected scope (**No saved skills in the selected scope**)
 from a populated scope with no matches (**No skills match the query**). Both
@@ -113,7 +112,8 @@ Follow the existing [component map](../architecture.md#components-and-dependency
 Keep matching and query coordination in `application/catalog.py`, reuse
 `CatalogReader`, and wire the read-only service through `runtime.py`. The CLI
 adapter in `cli/commands/filter.py` handles arguments, exit codes, and
-output through `cli/output/filter.py`; it must not call Web routes or duplicate matching
+shared terminal output through `cli/output/results.py` and JSON through
+`cli/output/filter.py`; it must not call Web routes or duplicate matching
 in a command handler or SQL query.
 
 The unfiltered homepage reads repository summaries and loads skills only on
@@ -133,7 +133,8 @@ see the [filter walkthrough](../architecture.md#following-a-catalog-filter).
 - Similarity scores, relevance ranking, or metadata deduplication; see
   [Similar skills](similar-skills.md) for that separate feature.
 - Automatic catalog refresh, remote search, or skill execution.
-- Interactive filtering in the terminal, pagination, or a persistent search index.
+- Editing the query inside the terminal results view, pagination, or a persistent
+  search index.
 - Changes to browser expansion, selection, history, or document behavior.
 
 ## Acceptance and verification
@@ -157,8 +158,11 @@ The CLI and Web filters must preserve these outcomes:
    or server, and performs no catalog writes or migrations.
 6. Text output distinguishes duplicate names by repository and path, preserves
    descriptions and deterministic numbering, and handles narrow terminals,
-   redirected output, and untrusted metadata safely. Links use stored commits
-   and correctly encode paths containing spaces or URL-significant characters.
+   redirected output, and untrusted metadata safely. The shared interactive view
+   supports description toggling, scrolling, keyboard navigation, and all links;
+   `--no-interactive` bypasses it, and dumb terminals print and exit.
+   Links use stored commits and correctly encode paths containing spaces or
+   URL-significant characters.
 7. JSON parses independently of terminal detection and round-trips metadata,
    identity, and full commits with correct counts and ordering. It contains no
    presentation text or raw terminal control sequences.

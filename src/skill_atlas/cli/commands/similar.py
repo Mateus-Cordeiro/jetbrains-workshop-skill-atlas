@@ -8,7 +8,9 @@ from rich.text import Text
 
 from skill_atlas import runtime
 from skill_atlas.application.similarity import MissingSimilaritySource
-from skill_atlas.cli.output.similarity import print_similarity_result, similarity_json
+from skill_atlas.cli.output.presentation import show_results
+from skill_atlas.cli.output.results import similarity_view
+from skill_atlas.cli.output.similarity import similarity_json
 from skill_atlas.config import Settings
 from skill_atlas.errors import AtlasError
 from skill_atlas.models import Repository
@@ -19,6 +21,10 @@ def similar(
     skill_path: Annotated[
         str, typer.Argument(help="Exact repository-relative path to the catalog skill's SKILL.md.")
     ],
+    no_interactive: Annotated[
+        bool,
+        typer.Option("--no-interactive", help="Print results and exit without opening the UI."),
+    ] = False,
     json_output: Annotated[
         bool, typer.Option("--json", help="Output JSON with scores, metadata, and all locations.")
     ] = False,
@@ -46,7 +52,7 @@ def similar(
     if json_output:
         typer.echo(similarity_json(result))
     else:
-        print_similarity_result(result, Console())
+        show_results(similarity_view(result), no_interactive=no_interactive)
 
 
 def register(app: typer.Typer) -> None:

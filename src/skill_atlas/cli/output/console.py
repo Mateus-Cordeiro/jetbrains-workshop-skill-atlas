@@ -2,11 +2,11 @@ import os
 
 from rich.console import Console
 from rich.padding import Padding
-from rich.table import Table
 from rich.text import Text
 
-from skill_atlas.cli.output.text import display_text, summary
-from skill_atlas.models import ScanResult
+from skill_atlas.cli.output.results import ResultsView
+from skill_atlas.cli.output.text import display_text, location_text
+from skill_atlas.models import Skill
 
 
 def supports_hyperlinks(console: Console) -> bool:
@@ -21,20 +21,36 @@ def supports_hyperlinks(console: Console) -> bool:
     )
 
 
-def print_result(result: ScanResult, console: Console) -> None:
-    links = supports_hyperlinks(console)
-    console.print(Text(summary(result), style="bold"))
-    for index, skill in enumerate(result.skills, start=1):
-        name = display_text(skill.name, single_line=True)
-        console.print()
-        row = Table.grid(expand=True, padding=(0, 1))
-        row.add_column(ratio=1, overflow="fold")
-        row.add_column(ratio=1, justify="right", overflow="fold")
-        row.add_row(
-            Text(f"{index}. {name}"),
-            Text(name, style=f"link {skill.url}" if links else ""),
+def _print_location(skill: Skill, console: Console, links: bool) -> None:
+    console.print(Padding(Text(location_text(skill), overflow="fold"), (0, 0, 0, 3)))
+    console.print(
+        Padding(
+            Text(skill.url, style=f"link {skill.url}" if links else "", overflow="fold"),
+            (0, 0, 0, 3),
         )
-        console.print(row)
-        console.print(Padding(Text(display_text(skill.description)), (0, 0, 0, 3)))
-        if not links:
-            console.print(Padding(Text(skill.url, overflow="fold"), (0, 0, 0, 3)))
+    )
+
+
+def print_result(result: ResultsView, console: Console) -> None:
+    links = supports_hyperlinks(console)
+    console.print(Text(display_text(result.title, single_line=True), style="bold"))
+    if result.source is not None:
+        _print_location(result.source, console, links)
+    if result.guidance:
+        console.print(Text(display_text(result.guidance)))
+    if not result.entries:
+        console.print(Text(result.empty_message))
+    for index, entry in enumerate(result.entries, start=1):
+        console.print()
+        console.print(
+            Text(
+                display_text(entry.heading(index), single_line=True), style="bold", overflow="fold"
+            )
+        )
+        console.print(
+            Padding(Text(display_text(entry.skill.description), overflow="fold"), (0, 0, 0, 3))
+        )
+        if len(entry.locations) > 1:
+            console.print(Text(f"   Same metadata · {len(entry.locations)} locations"))
+        for skill in entry.locations:
+            _print_location(skill, console, links)
