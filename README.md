@@ -49,8 +49,9 @@ left pane to read its definition in the right pane. **Preview** renders Markdown
 **Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
 background while you browse. **Rescan repository** refreshes an existing entry.
 
-Skill descriptions on both pages show up to two lines by default. Use
-**Show more** or **Show less** to expand or collapse an individual description.
+Skill descriptions on homepage and repository lists show up to two lines by
+default. Use **Show more** or **Show less** to expand or collapse an individual
+description.
 The skill's path appears in the document pane when selected.
 
 Expand a repository with its chevron to browse skills inline, or use **Filter
@@ -59,6 +60,23 @@ descriptions match case-insensitively; every search word must appear in either
 field. The repository view has its own filter above the skill list. Filters stay
 in the URL through navigation and refresh, and filtering keeps the open document
 visible. Clear the field or press Escape while focused to show all skills again.
+
+Choose **Find similar** beneath a skill to discover alternatives across your
+scanned catalog. Results show a colour-coded **0–100% similarity bar** and
+expandable locations with matching metadata. Bars are red below 40%,
+amber at 40–69%, and green at 70–100%, with the percentage visible inside the bar.
+Select a result to read it while keeping the starting skill visible. The header
+and result cards omit descriptions. Search always includes all scanned
+repositories, even when opened from a filtered list. **Starting skill** returns
+to that repository with your filter preserved. Reload the page to include
+changes made by CLI scans.
+
+Scores compare descriptions (80%) and names (20%) using shared words and phrases;
+they are not probabilities or quality ratings. Even 100% does not establish
+identical instructions. Scores can change as the catalog grows. Search shows up
+to ten groups scoring at least 10% and can miss synonyms or misinterpret
+exclusions. It works locally from metadata without fetching documents or
+rescanning. See [Similar skills](spec/features/similar-skills.md) for the rules.
 
 Documents are fetched from GitHub at the recorded commit when selected, using
 backend credentials for private repositories. They are not stored locally.
@@ -131,15 +149,17 @@ or specify the checkout with `uv run --project /path/to/checkout skill-atlas ...
 Start with the [specification index](spec/README.md). The
 [shared architecture](spec/architecture.md) records the adopted stack, component
 boundaries, catalog contracts, and extension patterns. Feature specs describe
-scan and Web UI behavior and their acceptance criteria.
+scan, Web UI, and similarity-search behavior and their acceptance criteria.
 
 The source package groups workflows in `application/`, concrete integrations
 in `adapters/`, terminal commands and output in `cli/`, and the browser interface
 in `web/`. Shared models and ports remain at the package root; `runtime.py`
 connects implementations and manages their resources. The architecture includes
 a [component map](spec/architecture.md#components-and-dependency-boundaries) and
-walkthroughs for [scanning](spec/architecture.md#following-a-scan) and
-[document viewing](spec/architecture.md#following-a-document-selection).
+walkthroughs for [scanning](spec/architecture.md#following-a-scan),
+[catalog filtering](spec/architecture.md#following-a-catalog-filter),
+[document viewing](spec/architecture.md#following-a-document-selection), and
+[similarity search](spec/architecture.md#following-a-similarity-search).
 
 ## Continuous integration
 

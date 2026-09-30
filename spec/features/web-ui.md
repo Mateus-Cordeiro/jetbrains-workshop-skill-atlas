@@ -14,6 +14,7 @@ Provide a browser page where the user can:
 - Submit a GitHub repository URL to scan, or rescan an existing repository.
 - Select a repository and see its skills in a left pane.
 - Select a skill and read its `SKILL.md` in a right pane.
+- Find similar skills across the catalog, see scores, and inspect matches.
 
 The first version runs on the user's machine and shares the CLI's SQLite
 catalog and GitHub credentials. Public and private GitHub repositories follow
@@ -161,6 +162,53 @@ Repository and skill selections belong in the page URL so that refresh and
 browser back/forward navigation restore the selection. Refresh reads the
 current catalog; it does not retain older catalog snapshots.
 
+### Similar skills
+
+Each catalog skill card has a **Find similar** link, available without loading its
+document. It opens a dedicated two-pane workspace with the starting skill's
+name, repository, path, and commit above the results. A **Starting skill** link
+returns to its repository selection. Links from expanded homepage repositories
+and repository lists preserve the catalog query in `q` as return-navigation
+context. Candidate selection, reload, and automatic refresh retain this context;
+it never filters similarity candidates. Omit descriptions from this header and
+from result cards; descriptions still contribute to ranking, and fetched
+SKILL.md documents retain their complete Preview/Source content.
+
+The left pane lists up to ten ranked groups with a colour-coded similarity bar,
+skill name, and repository/path. Shared-term lists are not displayed. Each bar
+spans 0–100%, fills in proportion to the rounded score, and displays that
+percentage inside it. Show 0% and 100% endpoints. Use red for 0–39%, amber for
+40–69%, and green for 70–100%, based on the same rounded value displayed in the bar. The numeric text must
+remain readable against every fill and track colour; colour is supplementary.
+Expose an accessible named meter with minimum 0, maximum 100, and the current
+percentage. Keep colour selection in Web presentation, not the ranking service.
+
+Matching metadata groups have an expandable **Same metadata · N locations**
+control; each location is selectable. The right pane reuses the document viewer.
+Selecting a result never changes the starting skill. Search all scanned
+repositories; there are no **Refresh results**, **Other repositories only**, or
+**Apply filter** controls. Scoring, cutoffs, grouping, and limitations belong to
+[Similar skills](similar-skills.md).
+
+A keyboard-accessible **How similarity scores work** disclosure explains weights,
+colour bands, rounding, and limitations. The percentage is a similarity measure,
+not a probability or quality rating. Show **No similar skills found** when no
+candidates reach the cutoff, separately from missing-source and catalog errors.
+Escape names and paths. Keep source identity and selected result identity in
+the URL. Browser reload and Back restore state using the current
+catalog, including changes from CLI scans. Expand a group containing the restored
+selection. Stack panes on narrow screens and preserve keyboard selection, focus
+visibility, loading, retry, and Preview/Source behavior.
+
+Any successful Web scan automatically refreshes a similarity workspace because
+its candidates may span repositories. A stale or removed candidate also refreshes
+results before loading again; clear selection if it is no longer among returned
+locations. A missing source reports an explicit error. A failed automatic refresh
+shows its error above the existing workspace; navigation and browser reload remain
+available. Late workspace or document responses cannot replace a newer selection.
+Documents still use the displayed candidate's stored commit and existing
+authentication.
+
 ### Empty results
 
 After a successful zero-skill scan, show the repository name and **No skills
@@ -301,8 +349,10 @@ catalog is the source of truth, not the lost in-memory job status.
 ## HTTP contract
 
 The following routes define the interface. The `q` filter is optional on all
-catalog routes. Repository arguments use canonical GitHub URLs; skill paths use exact stored paths. Encode all query
-parameters rather than interpolating unescaped values into URLs.
+catalog routes; on similarity routes it is return-navigation context only.
+Repository arguments use canonical GitHub URLs; skill paths use exact stored
+paths. Encode all query parameters rather than interpolating unescaped values
+into URLs.
 
 | Method and route | Behavior |
 | --- | --- |
@@ -312,16 +362,21 @@ parameters rather than interpolating unescaped values into URLs.
 | `GET /fragments/repository?repository_url=...&skill_path=...&q=...` | Refresh the two-pane workspace; skill selection is optional. |
 | `GET /fragments/repository-skills?repository_url=...&q=...` | Inline skill metadata for an expanded homepage repository. |
 | `GET /fragments/skills?repository_url=...&skill_path=...&q=...` | Filtered repository skill list and counts without replacing the document. |
+| `GET /similar?repository_url=...&skill_path=...` | Similarity workspace; optional `selected_repository`, `selected_path`, and return-context `q`. |
+| `GET /fragments/similar?repository_url=...&skill_path=...` | Refresh similarity workspace with the same optional parameters. |
 | `GET /fragments/document?repository_url=...&skill_path=...&commit_sha=...` | Document fragment containing escaped source and safe rendered content. |
 | `POST /scans` | Validate form-encoded `repository_url`; return `202` with scan activity fragments and a job status URL in `Location`. |
 | `GET /scans/{job_id}` | Job status fragment with identity, state, and outcome or error. |
 
 Return escaped HTML errors with a stable `data-error-code` and user-facing
-message. Invalid
-input uses `400`; missing catalog entries and unknown job IDs use `404`; stale
-document selections use `409`. Distinguish upstream retrieval failures, local
-storage failures, and a full scan queue without returning tokens, raw subprocess
-output, or tracebacks. An accepted scan that later fails reports `failed` in
+message. Invalid input uses `400`; missing catalog entries and unknown job IDs use `404`; stale
+document selections use `409`. Similarity searches use `404` with
+`missing_similarity_source` for a removed starting skill; a missing or no-longer
+ranked result selection is cleared in a successful workspace response. The retired
+`other_repositories` parameter is ignored, like other unknown query parameters;
+old links search all repositories. Distinguish upstream retrieval failures,
+local storage failures, and a full scan queue without returning tokens, raw
+subprocess output, or tracebacks. An accepted scan that later fails reports `failed` in
 its job fragment rather than changing the original submission response.
 Document retrieval failures use `502`, catalog failures use `500`, and queue
 capacity or shutdown rejections use `503`. HTMX displays error fragments in
@@ -389,6 +444,13 @@ Implementation must cover these user-visible outcomes:
 12. Keyboard navigation, narrow layouts, refresh/back navigation, loading
     states, and errors remain usable. The installed package serves its assets
     outside the checkout, and existing CLI behavior remains intact.
+13. Similarity search follows the [ranking acceptance criteria](similar-skills.md#acceptance-and-verification),
+    preserves its source while selecting matches, displays accessible percentage
+    bars and grouped locations, omits metadata descriptions, shared-term lists,
+    and retired controls, and handles reload, Back, stale responses, keyboard
+    selection, document errors, and narrow layouts. Catalog filters survive returning to the starting skill;
+    similarity still searches all entries. Selections distinguish equal paths in
+    different repositories.
 
 Follow [the repository testing rules](../../AGENTS.md). Use unit tests for query
 and job policies and document handling, and integration tests with temporary

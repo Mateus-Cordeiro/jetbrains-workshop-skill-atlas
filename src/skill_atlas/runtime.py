@@ -15,6 +15,7 @@ from skill_atlas.application.documents import Documents
 from skill_atlas.application.reader_fallback import FallbackReader
 from skill_atlas.application.scan import Scanner
 from skill_atlas.application.scan_jobs import ScanJobs
+from skill_atlas.application.similarity import SimilarSkills
 from skill_atlas.config import Settings
 from skill_atlas.models import Repository, ScanResult
 
@@ -68,4 +69,4 @@ def create_web_app(settings: Settings) -> FastAPI:
         ) as client:
             yield Documents(catalog, GitHubReader(client))
 
-    return create_app(catalog, ScanJobs(scan), documents)
+    return create_app(catalog, ScanJobs(scan), documents, SimilarSkills(catalog))

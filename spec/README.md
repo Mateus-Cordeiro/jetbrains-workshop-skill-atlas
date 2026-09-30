@@ -7,6 +7,7 @@ the shared architecture, then the feature specifications affected by the change.
 | --- | --- | --- |
 | [Architecture](architecture.md) | Adopted stack, component boundaries, shared domain and catalog contracts, configuration, credentials, and extension patterns. | Accepted and implemented |
 | [Scan](features/scan.md) | `scan` command, discovery and extraction rules, repository access strategy, terminal output, and acceptance criteria. | Accepted and implemented |
+| [Similar skills](features/similar-skills.md) | Catalog-based similarity ranking, scores, grouping, and relevance criteria. | Accepted and implemented |
 | [Web UI](features/web-ui.md) | `serve` command, catalog browsing and filtering, expandable repositories, document viewing, background jobs, HTTP contracts, and acceptance criteria. | Accepted and implemented |
 
 ## Organization and ownership

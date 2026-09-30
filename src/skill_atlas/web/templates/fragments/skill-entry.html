@@ -6,4 +6,5 @@
 <p class="skill-description" id="{{ description_id }}">{{ skill.description }}</p>
 </a>
 <button type="button" class="description-toggle" aria-expanded="false" aria-controls="{{ description_id }}" hidden><span>Show more</span><span class="sr-only"> description for {{ skill.name }}</span></button>
+<a class="similar-link" href="{{ url('/similar', repository_url=repository.url, skill_path=skill.path, q=q) }}">Find similar<span class="sr-only"> to {{ skill.name }}</span></a>
 </div>

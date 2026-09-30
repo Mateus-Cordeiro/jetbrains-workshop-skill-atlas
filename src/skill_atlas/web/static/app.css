@@ -335,17 +335,17 @@ input::placeholder{
 .skills-list{
   padding:0 12px 16px;
 }
-.skill-item{
+.skill-item,.similar-result .skill-link{
   padding:17px 14px;
   border-radius:7px;
   border:1px solid transparent;
   margin-bottom:6px;
   overflow-wrap:anywhere;
 }
-.skill-item:hover{
+.skill-item:hover,.similar-result .skill-link:hover{
   background:#edf2e8;
 }
-.skill-item:has(.skill-link[aria-current]){
+.skill-item:has(.skill-link[aria-current]),.similar-result .skill-link[aria-current]{
   border-color:#cbdac5;
   background:#e9f0e3;
 }
@@ -662,6 +662,112 @@ footer{
   .status-dot.running{
     animation:none;
   }
+}
+.similar-link{
+  display:inline-block;
+  color:var(--accent);
+  font-size:12px;
+  margin:8px 0 0;
+}
+.similarity-heading>div{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.score-help{
+  max-width:750px;
+  margin-bottom:22px;
+  font-size:13px;
+}
+.score-help summary,.match-locations summary{
+  cursor:pointer;
+  color:var(--accent);
+}
+.score-help p{
+  margin:12px 0;
+}
+.similar-result{
+  border-bottom:1px solid var(--line);
+  padding:12px 0;
+}
+.similar-result .skill-link{
+  margin-bottom:0;
+}
+.similarity-score{
+  padding:0 14px;
+}
+.score-track{
+  position:relative;
+}
+.similarity-meter{
+  display:block;
+  appearance:none;
+  width:100%;
+  height:28px;
+  border:0;
+  border-radius:5px;
+  overflow:hidden;
+  background:#e3e8df;
+}
+.score-low{
+  --score-color:#a34332;
+}
+.score-medium{
+  --score-color:#946200;
+}
+.score-high{
+  --score-color:#29634e;
+}
+.similarity-meter::-webkit-meter-bar{
+  height:100%;
+  border:0;
+  border-radius:5px;
+  background:#e3e8df;
+}
+.similarity-meter::-webkit-meter-optimum-value,
+.similarity-meter::-webkit-meter-suboptimum-value,
+.similarity-meter::-webkit-meter-even-less-good-value{
+  background:var(--score-color);
+}
+.similarity-meter::-moz-meter-bar{
+  background:var(--score-color);
+}
+.score-value{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  font-size:12px;
+  font-weight:650;
+  color:var(--ink);
+}
+.score-value span{
+  background:var(--paper);
+  border-radius:3px;
+  padding:0 5px;
+}
+.score-scale{
+  display:flex;
+  justify-content:space-between;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:10px;
+}
+.result-repository,.similar-result code{
+  display:block;
+  overflow-wrap:anywhere;
+}
+.result-repository{
+  font-size:11px;
+}
+.similar-result code{
+  font-size:9px;
+  color:var(--muted);
+}
+.match-locations{
+  padding:0 14px;
+  font-size:11px;
+  overflow-wrap:anywhere;
 }
 
 /* Filtering shares the catalog's existing input and pane styles. */

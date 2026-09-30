@@ -21,6 +21,10 @@
 
   function selection() {
     const pane = document.querySelector('#workspace');
+    if (pane?.dataset.mode === 'similar') return;
+    document.querySelectorAll('.similar-link').forEach(link => {
+      link.href = setQuery(new URL(link.href), query());
+    });
     if (!pane) return;
     let visible = false;
     document.querySelectorAll('.skill-link').forEach(link => {

@@ -1,0 +1,9 @@
+<div class="similarity-score">
+  <div class="score-track">
+    <meter class="similarity-meter {% if score >= 70 %}score-high{% elif score >= 40 %}score-medium{% else %}score-low{% endif %}"
+           min="0" max="100" value="{{ score }}"
+           aria-label="Similarity for {{ name }}" aria-valuetext="{{ score }}% similarity">{{ score }}%</meter>
+    <span class="score-value" aria-hidden="true"><span>{{ score }}%</span></span>
+  </div>
+  <div class="score-scale" aria-hidden="true"><span>0%</span><span>100%</span></div>
+</div>

@@ -64,14 +64,26 @@
     updateActivityVisibility();
   }
 
+  function workspaceUrl(pane, fragment = false) {
+    const params = new URLSearchParams({repository_url: pane.dataset.repository});
+    if (atlasFilters.query()) params.set('q', atlasFilters.query());
+    const similar = pane.dataset.mode === 'similar';
+    if (similar) {
+      params.set('skill_path', pane.dataset.sourcePath);
+      if (pane.dataset.selectedPath) {
+        params.set('selected_repository', pane.dataset.selectedRepository);
+        params.set('selected_path', pane.dataset.selectedPath);
+      }
+    } else if (pane.dataset.selectedPath) params.set('skill_path', pane.dataset.selectedPath);
+    return (fragment ? '/fragments' : '') + (similar ? '/similar?' : '/repository?') + params;
+  }
+
   function refreshWorkspace() {
     const pane = workspace();
     if (!pane) return;
     generation++;
     documentRequest?.abort();
-    const params = new URLSearchParams({repository_url: pane.dataset.repository,
-      skill_path: pane.dataset.selectedPath || '', q: atlasFilters.query()});
-    htmx.ajax('GET', '/fragments/repository?' + params, {target: '#workspace', swap: 'outerHTML'});
+    htmx.ajax('GET', workspaceUrl(pane, true), {target: '#workspace', swap: 'outerHTML'});
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -95,6 +107,7 @@
     const link = detail.elt.closest('[data-skill-path]');
     if (link) {
       workspace().dataset.selectedPath = link.dataset.skillPath;
+      workspace().dataset.selectedRepository = link.dataset.skillRepository || workspace().dataset.repository;
       document.querySelectorAll('.skill-link').forEach(item => {
         if (item === link) item.setAttribute('aria-current', 'true');
         else item.removeAttribute('aria-current');
@@ -117,7 +130,7 @@
       return;
     }
     if (detail.target?.id === 'workspace') atlasFilters.cancel();
-    if (detail.xhr.status === 409 && detail.target?.id === 'document') {
+    if ((detail.xhr.status === 409 || (detail.xhr.status === 404 && workspace()?.dataset.mode === 'similar')) && detail.target?.id === 'document') {
       detail.shouldSwap = false;
       refreshWorkspace();
       return;
@@ -125,7 +138,10 @@
     if (detail.xhr.status >= 400) {
       detail.shouldSwap = true;
       detail.isError = false;
-      if (detail.target?.id === 'jobs') detail.target = document.querySelector('#scan-feedback');
+      if (['jobs', 'workspace'].includes(detail.target?.id)) {
+        detail.target = document.querySelector('#scan-feedback');
+        detail.swapOverride = 'innerHTML';
+      }
     }
   });
   document.addEventListener('htmx:afterSwap', event => {
@@ -133,10 +149,8 @@
     if (event.detail.target?.id === 'workspace') {
       observeDescriptions();
       const pane = workspace();
-      const params = new URLSearchParams({repository_url: pane.dataset.repository});
-      if (atlasFilters.query()) params.set('q', atlasFilters.query());
-      if (pane.dataset.selectedPath) params.set('skill_path', pane.dataset.selectedPath);
-      history.replaceState(history.state, '', '/repository?' + params);
+      if (pane) history.replaceState(history.state, '', workspaceUrl(pane));
+      document.querySelector('#scan-feedback').replaceChildren();
       atlasFilters.restore();
     }
     if (event.detail.target?.id === 'jobs') document.querySelector('#scan-feedback').replaceChildren();
@@ -144,7 +158,7 @@
       if (completed.has(job.dataset.jobId)) return;
       completed.add(job.dataset.jobId);
       if (document.querySelector('#repositories')) atlasFilters.refresh();
-      if (workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
+      if (workspace()?.dataset.mode === 'similar' || workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
     });
     updateJobNotices();
   });

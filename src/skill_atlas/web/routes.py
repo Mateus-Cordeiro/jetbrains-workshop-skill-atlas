@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents, MissingSkill, StaleSkill
 from skill_atlas.application.scan_jobs import QueueFull, ScanJobs
+from skill_atlas.application.similarity import MissingSimilaritySource, SimilarSkills
 from skill_atlas.errors import CatalogError, RepositoryError
 from skill_atlas.models import Repository
 from skill_atlas.web.rendering import render
@@ -27,6 +28,7 @@ def register_routes(
     browse: BrowseCatalog,
     jobs: ScanJobs,
     documents: Callable[[], AbstractContextManager[Documents]],
+    similarity: SimilarSkills,
     templates: Jinja2Templates,
 ) -> None:
     def page(request: Request, template: str, status: int = 200, **context: Any) -> HTMLResponse:
@@ -116,6 +118,46 @@ def register_routes(
     ) -> Response:
         return page(
             request, "fragments/workspace.html", **repository_context(repository_url, skill_path, q)
+        )
+
+    @app.get("/similar", response_class=HTMLResponse)
+    @app.get("/fragments/similar", response_class=HTMLResponse)
+    def similar(
+        request: Request,
+        repository_url: str,
+        skill_path: str,
+        selected_repository: str = "",
+        selected_path: str = "",
+        q: str = "",
+    ) -> Response:
+        repository = Repository.from_url(repository_url)
+        candidate_repository = (
+            Repository.from_url(selected_repository) if selected_repository else None
+        )
+        try:
+            result = similarity.search(repository, skill_path)
+        except MissingSimilaritySource as exc:
+            return error(request, str(exc), 404, "missing_similarity_source")
+        selected = next(
+            (
+                skill
+                for match in result.matches
+                for skill in match.locations
+                if candidate_repository is not None
+                and skill.repository.url == candidate_repository.url
+                and skill.path == selected_path
+            ),
+            None,
+        )
+        return page(
+            request,
+            "fragments/similar.html"
+            if request.url.path.startswith("/fragments/")
+            else "pages/similar.html",
+            result=result,
+            q=q,
+            selected=selected,
+            jobs=jobs.recent(),
         )
 
     @app.get("/fragments/document", response_class=HTMLResponse)
