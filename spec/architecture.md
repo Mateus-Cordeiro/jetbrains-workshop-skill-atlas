@@ -91,6 +91,7 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `errors.py` | Shared operational error types translated by adapters and presented by interfaces. |
 | `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. |
 | `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
+| `application/catalog.py` | Read-only catalog browsing, shared name/description matching, and repository grouping with consistent counts. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
 | `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
 | `runtime.py` | Composition root: select adapters and own HTTP, Git, scanner, and Web application resource lifetimes. |
@@ -115,8 +116,9 @@ separately. Integration scenarios keep the real components involved together.
 `SnapshotReader` lists and reads files; `RepositoryReader` also resolves a
 repository snapshot. `SkillParser` extracts metadata. `Catalog` exposes
 `replace_repository` to the scanner, while `CatalogReader` exposes repository
-summaries, skill lists, and identity lookup. `DocumentReader` retrieves a file at
-a recorded commit independently of scan discovery. Keep these read and write
+summaries, skill lists (one repository or the whole catalog), and identity lookup.
+`DocumentReader` retrieves a file at a recorded commit independently of scan
+discovery. Keep these read and write
 interfaces separate as commands and views are added.
 
 Commands and Web routes invoke application services. They do not duplicate scan
@@ -147,7 +149,26 @@ The browser requests a document fragment from `web/routes.py`.
 catalog, then retrieves the document through the GitHub adapter configured in
 `runtime.py`. `web/rendering.py` prepares safe Markdown and the document fragment
 renders preview and source together. Selection history, source toggling, and
-late-response handling stay in `web/static/app.js`.
+late document response handling stay in `web/static/app.js`.
+
+### Following a catalog filter
+
+`web/routes.py` adapts queries to `application/catalog.py`. Both scopes use the
+same matching policy there, keeping rules out of routes, SQL, and JavaScript.
+An unfiltered homepage requests repository summaries; expanding one requests
+its metadata. A filtered homepage requests all skill metadata in one read
+snapshot, groups matches and counts on the server, and renders only matches.
+This avoids transferring every catalog entry to the browser or doing one query
+per repository. It uses a linear in-memory pass on the local backend; pagination
+and indexed full-text search are not introduced for this metadata-only catalog.
+`web/static/filters.js` handles query history, expansion state, and cancellable
+list requests separately from document loading. No filtering operation reads
+GitHub, changes the catalog, or retrieves document bodies.
+
+Homepage and repository skill lists share `fragments/skill-entry.html` for
+compact descriptions and expansion controls. Description expansion stays in
+`web/static/app.js`, with controls initialized after list updates from
+`web/static/filters.js` as well as page and workspace loads.
 
 ## Shared domain contracts
 
@@ -218,7 +239,11 @@ Use independent, short-lived read-only SQLite connections with a transaction
 per operation. Do not share connections across request and worker threads.
 Readers see either the previous complete repository entries or the new complete
 entries, never a partial replacement. Repository summaries are sorted by
-canonical URL; skill queries follow the shared name/path ordering.
+canonical URL; skill queries follow the shared name/path ordering. A skill
+query without a repository returns the whole catalog, ordered by canonical
+repository URL, then name/path, in one transaction. Derive filtered groups,
+matching counts, and repository totals from that same result so concurrent
+replacement cannot mix versions in one response.
 
 ### Schema evolution
 

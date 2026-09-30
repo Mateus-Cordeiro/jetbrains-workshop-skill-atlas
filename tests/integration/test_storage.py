@@ -126,3 +126,27 @@ def test_catalog_queries_preserve_schema_and_report_failures(tmp_path, scan_resu
     path.write_bytes(b"corrupt")
     with pytest.raises(CatalogError, match="Could not read"):
         catalog.repositories()
+
+
+def test_whole_catalog_read_is_ordered_read_only_and_keeps_duplicate_names(tmp_path, scan_result):
+    from dataclasses import replace
+
+    from skill_atlas.models import Repository
+
+    catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
+    assert catalog.skills() == ()
+    assert not catalog.path.exists()
+    second = Repository("zebra", "repo")
+    catalog.replace_repository(replace(scan_result, repository=second))
+    duplicate = replace(scan_result.skills[0], path="a copy/SKILL.md")
+    catalog.replace_repository(replace(scan_result, skills=(*scan_result.skills, duplicate)))
+    before = catalog.path.read_bytes()
+    skills = catalog.skills()
+    assert [(skill.repository.url, skill.path) for skill in skills] == [
+        (scan_result.repository.url, "a copy/SKILL.md"),
+        (scan_result.repository.url, "review/SKILL.md"),
+        (scan_result.repository.url, "release notes/SKILL.md"),
+        (second.url, "review/SKILL.md"),
+        (second.url, "release notes/SKILL.md"),
+    ]
+    assert catalog.path.read_bytes() == before

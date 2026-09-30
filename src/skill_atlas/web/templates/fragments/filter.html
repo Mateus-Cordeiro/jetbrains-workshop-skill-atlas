@@ -1,0 +1,6 @@
+<form class="skill-filter" role="search" action="{{ '/repository' if repository is defined else '/' }}" method="get">
+{% if repository is defined %}<input type="hidden" name="repository_url" value="{{ repository.url }}">{% if selected %}<input type="hidden" name="skill_path" value="{{ selected.path }}">{% endif %}{% endif %}
+<label for="skill-filter">{{ filter_label }}</label>
+<div class="filter-input"><input id="skill-filter" type="search" name="q" value="{{ q }}" placeholder="Search names and descriptions…" autocomplete="off" aria-controls="{{ 'skill-results' if repository is defined else 'repositories' }}"><button type="button" data-clear-filter aria-label="Clear filter" {% if not q %}hidden{% endif %}>×</button></div>
+</form>
+<div id="filter-error" role="alert"></div>

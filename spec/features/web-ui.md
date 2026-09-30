@@ -75,6 +75,55 @@ shows an error rather than being presented as an empty catalog.
 Validate and normalize submitted URLs with the same rules as the CLI. Invalid
 input receives an inline error and does not start a scan.
 
+### Skill filtering and expandable repositories
+
+The homepage has a **Filter skills across repositories** field above its
+repository list. Each repository has a separate keyboard-accessible chevron
+button to expand its skills inline; the repository name opens the detail page.
+Expanded entries show skill names and two-line description previews with the
+same independent **Show more** / **Show less** controls as the repository view.
+Paths are omitted from these entries. Selecting one opens that repository with
+the document selected and the filter carried over.
+Unfiltered repositories begin collapsed and load metadata from the local backend
+only when expanded. Loading failures offer **Retry**.
+
+Both views use the same server-side matching policy: split the query on
+whitespace, case-fold Unicode text, and require every term to occur as a literal
+substring in either the name or description. Terms may match different fields;
+paths, repository names, and document bodies are not searched. Empty or
+whitespace-only queries show all entries. Wildcards and regular expressions
+have no special meaning. Preserve repository and skill ordering and keep
+same-name entries at different paths separate.
+
+The homepage displays only repositories with matches and reveals matching
+skills automatically, including previously collapsed repositories. Show the
+matching total and repository count, plus **3 of 24 skills** per repository.
+Users can collapse matching groups manually; preserve those choices while
+editing the query. Clearing the query restores the expansion choices from
+before filtering. A page URL containing a query initially reveals matches.
+
+The repository view has a **Filter skills in this repository** field in its
+sticky left-pane heading. It updates only the skill list and shows the matching
+and total counts. Keep the current document, scroll position, and source/preview
+mode even when its skill no longer matches; display **The open skill is hidden
+by the filter.** Never automatically select another match. Clearing the filter
+restores the selected entry's visible state.
+
+Filter as the user types with a short debounce, without page reload or GitHub
+requests. Provide a clear button; Escape clears a focused field. Keep focus in
+the field while updating results, announce counts accessibly, and exclude hidden
+entries from keyboard navigation. Distinguish **No skills match “…”** with a
+**Clear filter** action from an empty catalog or repository. Query failures
+retain the previous results and offer **Retry**, rather than showing no matches.
+
+Store the query in the URL's `q` parameter with replacement history updates, so
+keystrokes do not create history entries. Selection links preserve it. Refresh
+and browser back/forward restore the query and selection; homepage expansion
+choices are saved in that history entry, not persistent browser storage.
+Reapply the query after successful scans and retain expansion choices for
+remaining repositories. Discard superseded filter responses and detached
+expansion responses, independently of document selection requests.
+
 ### Repository detail
 
 Show the repository name, scanned commit, a **Rescan** button, and navigation
@@ -90,13 +139,14 @@ Initially show **Select a skill to view its SKILL.md** in the right pane. Select
 skills by `(repository_url, skill_path)`, never by name. Identical definitions
 copied into different directories and same-name skills remain separate entries.
 
-Descriptions start collapsed. Show **Show more** only when a description exceeds
-two lines at the current pane width; expanding reveals its full text and offers
+Descriptions in both homepage and repository skill lists start collapsed.
+Show **Show more** only when a description exceeds two lines at the current pane
+width; expanding reveals its full text and offers
 **Show less**. Each description expands independently without selecting a skill,
 changing the URL, or fetching a document. These controls support keyboard use
-and remain available after the skill list refreshes. Do not display paths beneath
-skills in the list; the selected document still displays its path in the right
-pane.
+and remain available after filtering, inline repository expansion, or scan
+refreshes. Do not display paths beneath skills in the list; the selected document
+still displays its path in the right pane.
 
 The source view displays the complete decoded file, including YAML frontmatter.
 The rendered view displays frontmatter separately as escaped source text and
@@ -208,9 +258,11 @@ rendering remains in `web/rendering.py`.
 Use the adopted [runtime stack](../architecture.md#runtime) and shared
 [component boundaries](../architecture.md#components-and-dependency-boundaries).
 Web routes adapt HTTP requests to catalog queries, scan jobs, and document
-services; templates and HTMX return pages and fragments. Keep selection history
-and stale-response handling in the browser presentation layer. Package the
-required templates and static assets so the installed command works outside
+services; templates and HTMX return pages and fragments. Use
+`application/catalog.py` for shared matching and grouped read results.
+Keep selection history and document response handling in `web/static/app.js`,
+and filtering, expansions, and independent list response handling in
+`web/static/filters.js`. Package the required templates and static assets so the installed command works outside
 the checkout.
 
 The scanner continues to use the catalog-write port. The document service uses
@@ -248,16 +300,18 @@ catalog is the source of truth, not the lost in-memory job status.
 
 ## HTTP contract
 
-The following routes define the initial interface. Repository arguments use
-canonical GitHub URLs; skill paths use exact stored paths. Encode all query
+The following routes define the interface. The `q` filter is optional on all
+catalog routes. Repository arguments use canonical GitHub URLs; skill paths use exact stored paths. Encode all query
 parameters rather than interpolating unescaped values into URLs.
 
 | Method and route | Behavior |
 | --- | --- |
-| `GET /` | Repository page and scan form. |
-| `GET /repository?repository_url=...&skill_path=...` | Repository detail; skill selection is optional. |
-| `GET /fragments/repositories` | Catalog-derived repository list as an HTML fragment. |
-| `GET /fragments/repository?repository_url=...&skill_path=...` | Refresh the two-pane workspace; skill selection is optional. |
+| `GET /?q=...` | Repository page, optional skill filter, and scan form. |
+| `GET /repository?repository_url=...&skill_path=...&q=...` | Repository detail; skill selection is optional. |
+| `GET /fragments/repositories?q=...` | Catalog-derived repository list with matching skills when filtering. |
+| `GET /fragments/repository?repository_url=...&skill_path=...&q=...` | Refresh the two-pane workspace; skill selection is optional. |
+| `GET /fragments/repository-skills?repository_url=...&q=...` | Inline skill metadata for an expanded homepage repository. |
+| `GET /fragments/skills?repository_url=...&skill_path=...&q=...` | Filtered repository skill list and counts without replacing the document. |
 | `GET /fragments/document?repository_url=...&skill_path=...&commit_sha=...` | Document fragment containing escaped source and safe rendered content. |
 | `POST /scans` | Validate form-encoded `repository_url`; return `202` with scan activity fragments and a job status URL in `Location`. |
 | `GET /scans/{job_id}` | Job status fragment with identity, state, and outcome or error. |
@@ -297,8 +351,9 @@ Implementation must cover these user-visible outcomes:
    valid scan. Invalid input starts no job.
 2. Existing CLI-populated catalogs display repositories, counts, commits, and
    deterministically sorted skills without rescanning or changing the schema.
-   Skill descriptions use two-line previews with independent expand/collapse
-   controls for overflow, including on narrow screens and refreshed lists. Paths
+   Homepage and repository skill descriptions use two-line previews with independent
+   expand/collapse controls for overflow, including on narrow screens and after
+   filtering, inline repository expansion, and scan refreshes. Paths
    appear in the selected document pane rather than beneath skill list entries.
 3. A successful Web scan becomes visible in the shared catalog; a rescan adds,
    updates, and removes entries atomically while leaving other repositories
@@ -322,7 +377,16 @@ Implementation must cover these user-visible outcomes:
    document responses cannot overwrite the currently selected document.
 9. Unsafe Markdown, metadata, links, and cross-origin scan requests cannot
    execute content or expose credentials. No document content is persisted.
-10. Keyboard navigation, narrow layouts, refresh/back navigation, loading
+10. Homepage repository expansion loads only catalog metadata. Both filter scopes
+    apply identical matching, counts, and ordering, including Unicode, multiple
+    terms across fields, literal punctuation, duplicate names, and empty queries.
+    Nonmatches and query failures have distinct, recoverable states.
+11. Filtering preserves document content and source mode, even for a hidden
+    selection. Queries and homepage expansions survive refresh and back/forward;
+    clearing restores earlier expansions. Successful rescans reapply filters and
+    late list/expansion responses cannot replace newer state. All controls work
+    with keyboard navigation and narrow layouts without external requests.
+12. Keyboard navigation, narrow layouts, refresh/back navigation, loading
     states, and errors remain usable. The installed package serves its assets
     outside the checkout, and existing CLI behavior remains intact.
 

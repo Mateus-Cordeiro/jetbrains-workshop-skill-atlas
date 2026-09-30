@@ -49,9 +49,16 @@ left pane to read its definition in the right pane. **Preview** renders Markdown
 **Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
 background while you browse. **Rescan repository** refreshes an existing entry.
 
-Skill descriptions show up to two lines by default. Use **Show more** or
-**Show less** to expand or collapse an individual description. The skill's path
-appears in the document pane when selected.
+Skill descriptions on both pages show up to two lines by default. Use
+**Show more** or **Show less** to expand or collapse an individual description.
+The skill's path appears in the document pane when selected.
+
+Expand a repository with its chevron to browse skills inline, or use **Filter
+skills across repositories** to find matches throughout the catalog. Names and
+descriptions match case-insensitively; every search word must appear in either
+field. The repository view has its own filter above the skill list. Filters stay
+in the URL through navigation and refresh, and filtering keeps the open document
+visible. Clear the field or press Escape while focused to show all skills again.
 
 Documents are fetched from GitHub at the recorded commit when selected, using
 backend credentials for private repositories. They are not stored locally.
