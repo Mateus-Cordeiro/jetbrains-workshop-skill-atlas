@@ -1,6 +1,6 @@
 import pytest
 
-from skill_atlas.parsing import FrontmatterParser
+from skill_atlas.adapters.frontmatter import FrontmatterParser
 
 
 def test_extracts_multiline_frontmatter_and_ignores_body():

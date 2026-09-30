@@ -178,6 +178,13 @@ link uses the existing encoded, commit-pinned skill URL.
 
 ## Components and boundaries
 
+`web/app.py` assembles the interface and manages the worker lifespan;
+`web/routes.py` adapts requests and errors, and `web/middleware.py` applies local
+request protections. Full-page templates live in `web/templates/pages/` and
+shared fragments in `web/templates/fragments/`. Document loading and scan jobs
+live in `application/documents.py` and `application/scan_jobs.py`; safe Markdown
+rendering remains in `web/rendering.py`.
+
 Use the adopted [runtime stack](../architecture.md#runtime) and shared
 [component boundaries](../architecture.md#components-and-dependency-boundaries).
 Web routes adapt HTTP requests to catalog queries, scan jobs, and document

@@ -26,6 +26,13 @@ not update automatically.
 
 ## Scan flow
 
+Implementation starts in `cli/commands/scan.py` and the shared
+`application/scan.py` service. Reader selection is in
+`application/reader_fallback.py`; GitHub, Git, frontmatter, and SQLite
+implementations live in `adapters/`. Terminal output lives in `cli/output/`.
+See the [architecture walkthrough](../architecture.md#following-a-scan) for
+wiring and resource ownership.
+
 1. Parse and normalize the GitHub repository URL.
 2. Resolve the repository's default branch to a commit SHA.
 3. List repository files at that commit and discover `SKILL.md` files

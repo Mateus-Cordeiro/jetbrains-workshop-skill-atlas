@@ -3,10 +3,10 @@ from dataclasses import replace
 
 import pytest
 
+from skill_atlas.adapters.storage import migrations
+from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
 from skill_atlas.errors import CatalogError
 from skill_atlas.models import Repository, ScanResult, Skill
-from skill_atlas.storage import migrations
-from skill_atlas.storage.sqlite import SQLiteCatalog
 
 
 def rows(path):
@@ -98,3 +98,31 @@ def test_newer_database_is_not_modified(tmp_path, scan_result):
     with pytest.raises(CatalogError, match="newer"):
         catalog.replace_repository(replace(scan_result, skills=()))
     assert len(rows(path)) == 2
+
+
+def test_catalog_queries_preserve_schema_and_report_failures(tmp_path, scan_result):
+    path = tmp_path / "catalog.sqlite3"
+    catalog = SQLiteCatalog(path)
+    assert catalog.repositories() == ()
+    assert catalog.skills(scan_result.repository) == ()
+    assert catalog.skill(scan_result.repository, "SKILL.md") is None
+    assert not path.exists()
+    catalog.replace_repository(scan_result)
+    before = path.read_bytes()
+    assert catalog.repositories()[0].skill_count == 2
+    assert catalog.skills(scan_result.repository) == scan_result.skills
+    assert (
+        catalog.skill(scan_result.repository, scan_result.skills[0].path) == scan_result.skills[0]
+    )
+    assert path.read_bytes() == before
+    with sqlite3.connect(path) as connection:
+        connection.execute("PRAGMA user_version = 99")
+    with pytest.raises(CatalogError, match="newer"):
+        catalog.repositories()
+    with sqlite3.connect(path) as connection:
+        connection.execute("PRAGMA user_version = 0")
+    with pytest.raises(CatalogError, match="Unsupported"):
+        catalog.skills(scan_result.repository)
+    path.write_bytes(b"corrupt")
+    with pytest.raises(CatalogError, match="Could not read"):
+        catalog.repositories()

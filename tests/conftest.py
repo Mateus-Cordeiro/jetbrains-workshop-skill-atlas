@@ -50,8 +50,8 @@ def web_environment(tmp_path, monkeypatch, scan_result):
     import httpx
 
     from skill_atlas import runtime
+    from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
     from skill_atlas.config import Settings
-    from skill_atlas.storage.sqlite import SQLiteCatalog
 
     state = SimpleNamespace(
         source=(

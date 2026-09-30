@@ -2,10 +2,10 @@ from dataclasses import replace
 
 import pytest
 
+from skill_atlas.adapters.frontmatter import FrontmatterParser
+from skill_atlas.application.scan import Scanner
 from skill_atlas.errors import RepositoryError
 from skill_atlas.models import SkillFile, Snapshot
-from skill_atlas.parsing import FrontmatterParser
-from skill_atlas.scanner import Scanner
 
 
 class MemoryCatalog:

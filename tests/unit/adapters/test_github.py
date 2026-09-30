@@ -3,8 +3,8 @@ import base64
 import httpx
 import pytest
 
+from skill_atlas.adapters.github import GitHubReader
 from skill_atlas.errors import IncompleteListingError, RepositoryError
-from skill_atlas.github import GitHubReader
 from skill_atlas.models import SkillFile, Snapshot
 
 COMMIT, TREE, BLOB, SUBTREE = (letter * 40 for letter in "abcd")

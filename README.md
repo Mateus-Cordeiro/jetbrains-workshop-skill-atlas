@@ -119,6 +119,14 @@ Start with the [specification index](spec/README.md). The
 boundaries, catalog contracts, and extension patterns. Feature specs describe
 scan and Web UI behavior and their acceptance criteria.
 
+The source package groups workflows in `application/`, concrete integrations
+in `adapters/`, terminal commands and output in `cli/`, and the browser interface
+in `web/`. Shared models and ports remain at the package root; `runtime.py`
+connects implementations and manages their resources. The architecture includes
+a [component map](spec/architecture.md#components-and-dependency-boundaries) and
+walkthroughs for [scanning](spec/architecture.md#following-a-scan) and
+[document viewing](spec/architecture.md#following-a-document-selection).
+
 ## Continuous integration
 
 GitHub Actions runs lint, formatting, type checks, an installed-package smoke

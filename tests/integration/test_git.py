@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from skill_atlas import git
+from skill_atlas.adapters import git
+from skill_atlas.adapters.frontmatter import FrontmatterParser
+from skill_atlas.adapters.git import GitSnapshotReader
+from skill_atlas.application.reader_fallback import FallbackReader
+from skill_atlas.application.scan import Scanner
 from skill_atlas.errors import CatalogError, RepositoryError
-from skill_atlas.git import GitSnapshotReader
 from skill_atlas.models import Snapshot
-from skill_atlas.parsing import FrontmatterParser
-from skill_atlas.readers import FallbackReader
-from skill_atlas.scanner import Scanner
 
 
 @pytest.fixture

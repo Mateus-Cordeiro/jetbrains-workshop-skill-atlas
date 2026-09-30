@@ -9,7 +9,7 @@ from urllib.parse import quote, unquote, urljoin, urlsplit
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
-from skill_atlas.documents import Document
+from skill_atlas.application.documents import Document
 
 
 @dataclass(frozen=True)

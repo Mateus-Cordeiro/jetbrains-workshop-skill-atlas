@@ -5,8 +5,8 @@ from rich.padding import Padding
 from rich.table import Table
 from rich.text import Text
 
+from skill_atlas.cli.output.text import display_text, summary
 from skill_atlas.models import ScanResult
-from skill_atlas.presentation.text import display_text, summary
 
 
 def supports_hyperlinks(console: Console) -> bool:

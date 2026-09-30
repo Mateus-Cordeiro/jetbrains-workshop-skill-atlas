@@ -6,7 +6,8 @@ from rich.text import Text
 from typer.testing import CliRunner
 
 from skill_atlas import runtime
-from skill_atlas.cli import create_app
+from skill_atlas.cli.app import create_app
+from skill_atlas.cli.commands import serve
 
 runner = CliRunner()
 
@@ -99,3 +100,21 @@ def test_command_registration_is_extensible():
     result = runner.invoke(app, ["another"])
     assert result.exit_code == 0
     assert result.stdout.strip() == "another command"
+
+
+def test_serve_command_and_startup_error(monkeypatch):
+    calls = []
+    monkeypatch.setattr(serve.uvicorn, "run", lambda app, **options: calls.append(options))
+    result = CliRunner().invoke(create_app(), ["serve", "--port", "8123"])
+    assert result.exit_code == 0
+    assert "http://127.0.0.1:8123" in result.stdout
+    assert calls == [{"host": "127.0.0.1", "port": 8123}]
+    assert CliRunner().invoke(create_app(), ["serve", "--port", "0"]).exit_code == 2
+
+    def failure(*args, **kwargs):
+        raise OSError(48, "Address already in use")
+
+    monkeypatch.setattr(serve.uvicorn, "run", failure)
+    result = CliRunner().invoke(create_app(), ["serve"])
+    assert result.exit_code == 1
+    assert "Address already in use" in result.stderr

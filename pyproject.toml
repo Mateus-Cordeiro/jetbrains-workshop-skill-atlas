@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-skill-atlas = "skill_atlas.cli:app"
+skill-atlas = "skill_atlas.cli.app:app"
 
 [dependency-groups]
 dev = [
