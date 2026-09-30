@@ -34,5 +34,5 @@ def test_similarity_meter_range_value_and_colour_boundaries(score, band):
     assert meter["value"] == str(score)
     assert meter["aria-valuetext"] == f"{score}% similarity"
     assert f"score-{band}" in meter["class"].split()
-    assert f"<span>{score}%</span>" in html
+    assert f'class="score-value">{score}%</span>' in html
     assert "<script>" not in html

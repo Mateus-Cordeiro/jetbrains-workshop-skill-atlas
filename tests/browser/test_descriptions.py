@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import pytest
 from playwright.sync_api import expect
 
-from skill_atlas.models import Repository
+from skill_atlas.models import Repository, ScanResult
 
 pytestmark = pytest.mark.allow_hosts(["127.0.0.1"])
 
@@ -21,6 +21,77 @@ def assert_collapsed(card):
 def assert_expanded(card):
     expect(card.locator(".description-toggle")).to_have_attribute("aria-expanded", "true")
     assert card.locator(".skill-description").evaluate("el => el.scrollHeight === el.clientHeight")
+
+
+@pytest.mark.parametrize("width", [1360, 390], ids=["desktop", "mobile"])
+def test_similarity_reuses_description_controls_and_keeps_scores_and_selection(
+    browser_page, web_environment, similar_catalog, width
+):
+    page, state, fixture = browser_page, web_environment, similar_catalog
+    for repository in (fixture.source.repository, fixture.remote.repository):
+        skills = tuple(
+            replace(skill, description=LONG_DESCRIPTION)
+            for skill in state.catalog.skills(repository)
+        )
+        state.catalog.replace_repository(ScanResult(repository, skills[0].commit_sha, skills))
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.goto(
+        page.base_url
+        + "/similar?"
+        + urlencode(
+            {
+                "repository_url": fixture.source.repository.url,
+                "skill_path": fixture.source.path,
+                "q": "original query",
+            }
+        )
+    )
+    cards = page.locator(".skill-item")
+    expect(cards).to_have_count(3)
+    first, second = cards.nth(0), cards.nth(1)
+    assert_collapsed(first)
+    assert_collapsed(second)
+    expect(first.get_by_role("meter")).to_have_attribute("value", "100")
+    expect(cards.locator("code")).to_have_count(0)
+    original_url = page.url
+    first.locator(".description-toggle").focus()
+    page.keyboard.press("Enter")
+    assert_expanded(first)
+    assert_collapsed(second)
+    assert page.url == original_url
+    assert not state.requests
+    first.locator(".skill-link").click()
+    expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
+    page.get_by_role("button", name="Source", exact=True).click()
+    selected_url, reads = page.url, len(state.requests)
+    first.locator(".description-toggle").focus()
+    page.keyboard.press("Space")
+    assert_collapsed(first)
+    expect(page.locator("#document-source")).to_be_visible()
+    expect(first.locator(".skill-link")).to_have_attribute("aria-current", "true")
+    assert page.url == selected_url
+    assert len(state.requests) == reads
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    page.locator(".skills-pane").evaluate("el => el.scrollTop = 0")
+    page.screenshot(path=f"test-results/similar-descriptions-{width}.png", full_page=True)
+    page.reload()
+    assert_collapsed(first)
+    expect(first.locator(".skill-link")).to_have_attribute("aria-current", "true")
+    # A stale selection replaces the workspace and initializes the shared controls again.
+    updated = tuple(
+        replace(skill, commit_sha="d" * 40)
+        for skill in state.catalog.skills(fixture.source.repository)
+    )
+    state.catalog.replace_repository(ScanResult(fixture.source.repository, "d" * 40, updated))
+    first.locator(".skill-link").click()
+    expect(page.locator(".document-options code")).to_have_text("dddddddd")
+    assert_collapsed(first)
+    first.locator(".description-toggle").click()
+    assert_expanded(first)
+    # The shared action can start another search from a result, preserving return context.
+    second.get_by_role("link", name="Find similar", exact=False).click()
+    expect(page.get_by_role("heading", name="Similar to “patch-audit”")).to_be_visible()
+    assert parse_qs(urlsplit(page.url).query)["q"] == ["original query"]
 
 
 @pytest.mark.parametrize("width", [1360, 390], ids=["desktop", "mobile"])
