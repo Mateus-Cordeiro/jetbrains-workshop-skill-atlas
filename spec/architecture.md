@@ -70,6 +70,14 @@ the push/check/fix loop are defined in [AGENTS.md](../AGENTS.md). The workflow
 and manifests hold tool pins; this document need not change for routine version
 bumps unless a documented constraint or architectural choice changes.
 
+Coding agents share development context through curated Markdown in
+[`memory/`](../memory/index.md), maintained with an
+[instruction-only skill](../.agents/skills/shared-memory/SKILL.md). Keeping notes
+in the repository makes them portable between Codex and Claude and reviewable
+with the code they describe. Separate checkouts exchange updates through Git.
+[AGENTS.md](../AGENTS.md#shared-project-memory) owns the lifecycle policy and
+is read directly by both agents.
+
 ## Components and dependency boundaries
 
 These are modules within one application, not separate services. Application

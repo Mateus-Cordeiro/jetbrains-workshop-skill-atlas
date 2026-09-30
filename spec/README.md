@@ -31,3 +31,6 @@ the shared architecture, then the feature specifications affected by the change.
 - [AGENTS.md](../AGENTS.md) owns contribution, testing, and CI delivery rules.
   The project [README](../README.md) owns installation and usage guidance.
   Link to those rules rather than duplicating them in each feature spec.
+- [Shared memory](../memory/index.md) holds verified working knowledge and
+  practical lessons for agents. It links to these authoritative documents;
+  it does not define architecture, feature contracts, or contribution rules.

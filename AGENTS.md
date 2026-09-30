@@ -1,8 +1,29 @@
 # Working on skill-atlas
 
+## Shared project memory
+
+Before starting every task, use the
+[shared-memory skill](.agents/skills/shared-memory/SKILL.md): read
+[the memory index](memory/index.md), then the topic notes relevant to the task.
+Read the skill file directly if your agent does not discover it automatically.
+Repeat this startup step when resuming work without the relevant context.
+
+Before completing every task, use the same skill to reconcile durable findings:
+add verified knowledge, correct stale claims, and consolidate or remove obsolete
+notes. Leave memory unchanged when there is no useful update. Explicit read-only
+or no-change requests take precedence; report useful proposed updates without
+writing them. Include relevant memory edits in the task's normal review and
+delivery, following the rules below.
+
+Memory supplements the specifications and repository instructions. Keep
+architecture and behavior contracts in `spec/`, contribution rules here, and
+installation and usage guidance in `README.md`; memory links to those sources
+instead of redefining them. Codex and Claude share this policy and the same
+repository-local `memory/` directory, reading `AGENTS.md` directly.
+
 ## Architecture and behavior
 
-Start with the [specification index](spec/README.md), then read the
+After the memory startup step, read the [specification index](spec/README.md), then the
 [shared architecture](spec/architecture.md) and every feature spec affected by
 the change before changing behavior or component boundaries:
 
