@@ -17,6 +17,23 @@ catalog consistency, and migration contracts in the architecture. Changes to a
 shared service require checking all affected features, including the Web UI.
 Do not redefine shared contracts independently in feature specs or this file.
 
+### Architecture maintenance
+
+- Before adding or moving code, identify its owning component using the
+  [architecture component map](spec/architecture.md#components-and-dependency-boundaries).
+  Follow the documented dependency boundaries.
+- Keep modules cohesive and name them for their responsibility. Introduce a new
+  module or package when it represents a distinct responsibility that makes the
+  code easier to navigate.
+- Reuse shared application services across interfaces. Keep business rules out
+  of command handlers, HTTP routes, and presentation code.
+- When changing component boundaries or dependency direction, explain the
+  reason and tradeoffs in `spec/architecture.md` and update its component map,
+  affected walkthroughs, and feature specifications in the same change.
+- Before delivery, review the diff for misplaced responsibilities, duplicated
+  policies, circular dependencies, and unnecessary abstractions. Resolve issues
+  introduced by the change.
+
 ## Documentation and dependency maintenance
 
 - Keep affected specifications in sync with intentional behavior changes in
