@@ -1,7 +1,8 @@
 # Similar skills
 
 Status: accepted and implemented. This feature finds alternatives to a catalog
-skill using its stored name and description. The [architecture](../architecture.md)
+skill using its stored name and description, through the CLI and Web UI.
+The [architecture](../architecture.md)
 owns catalog identity and read consistency; the [Web UI](web-ui.md) owns browser interaction
 and HTTP contracts.
 
@@ -45,18 +46,65 @@ consume separate top-result slots.
   unrounded score descending, then representative name (case-folded), canonical
   repository URL, and exact path. Sort locations by that same identity order.
 
-Display the score as a percentage in a colour-coded bar spanning 0–100%, rounded
-to the nearest integer (halves up). The [Web UI](web-ui.md#similar-skills) owns
-bar presentation, colour thresholds, and accessibility. Scores measure names
-and descriptions, not probability, quality, or identical instructions. A rounded
-100% does not establish identical metadata or bodies. Scores may change as the
-catalog grows because IDF depends on the corpus.
+Display the score as a percentage rounded to the nearest integer (halves up).
+The [Web UI](web-ui.md#similar-skills) owns bar presentation, colour thresholds,
+and accessibility. Scores measure names and descriptions, not probability,
+quality, or identical instructions. A rounded 100% does not establish identical
+metadata or bodies. Scores may change as the catalog grows because IDF depends
+on the corpus.
 
 The 80/20 weights and cutoff of 10 are initial defaults, covered by a small
 relevance regression set. They are not calibrated probabilities. Lexical ranking
 can miss synonyms and can match capabilities mentioned only to exclude them.
 Embeddings and body-based ranking are outside this version; consider them only
 after evaluation against the lexical baseline.
+
+## CLI command
+
+```sh
+skill-atlas similar <github-repo-url> <skill-path> [--json]
+```
+
+Both positional arguments are required. Normalize the repository URL using the
+shared rules. The path is the exact, nonempty repository-relative catalog path
+to `SKILL.md`, including case and whitespace; do not resolve it as a local file,
+trim it, decode it as a URL, or select by skill name. Quote paths containing
+spaces or shell metacharacters. The starting skill must already be scanned.
+Read the catalog selected by the shared settings, including `SKILL_ATLAS_DB`.
+This command performs no credential lookup and requires neither Git nor a
+running Web server.
+
+Always print results and exit, including in an interactive terminal. The text
+format shows the starting skill, the number of result groups, and numbered
+matches with rounded percentages and representative names. Print every grouped
+repository/path and commit-pinned URL, labelled **Same metadata · N locations**
+when a group has multiple locations. Use the service's group and location order.
+Show score guidance and **No similar skills found** for a successful empty search.
+Descriptions contribute to ranking but are omitted from text output. Wrap to
+terminal width and render metadata literally, removing terminal control sequences.
+
+`--json` writes one JSON object followed by a newline, without terminal formatting
+or explanatory text. Preserve metadata exactly, escaping control characters as
+JSON data. Its fields are:
+
+- `source`: a skill object.
+- `matches`: an ordered array of groups, empty when no candidates meet the cutoff.
+  Each group has numeric `score` (unrounded, on the 0–100 scale), integer
+  `display_score` (the shared rounded percentage), and `locations` (an ordered
+  array of skill objects). The first location is the representative.
+- Each skill object contains `repository_url` (canonical), `repository_name`,
+  `skill_path`, `name`, `description`, `commit_sha`, and `url` (commit-pinned).
+
+Exit `0` for a completed search, including no matches; `1` for a missing source
+or catalog error; and `2` for invalid command usage. Successful output goes to
+stdout; errors go only to stderr, also with `--json`. Missing sources explain
+how to check the identity or scan the repository first. A missing catalog is an
+empty catalog and therefore a missing-source error, without creating any files.
+
+`cli/commands/similar.py` adapts arguments and errors and uses
+`runtime.create_similarity()` to compose the existing service and catalog reader.
+`cli/output/similarity.py` owns terminal formatting and JSON serialization;
+ranking, grouping, cutoffs, and snapshot consistency remain shared with the Web UI.
 
 ## Acceptance and verification
 
@@ -81,3 +129,13 @@ after evaluation against the lexical baseline.
 6. Installed-wheel checks exercise the new page and fragment. Benchmark a
    synthetic catalog of thousands of skills to check on-demand ranking latency;
    avoid timing assertions in CI. Follow [AGENTS.md](../../AGENTS.md) for delivery.
+7. CLI text and JSON results match the Web UI's scores, order, and grouped
+   locations. Exact paths, same-name skills, URL normalization, and encoded
+   commit links work with catalogs populated by both scan readers. Subsequent
+   searches reflect updates, removals, and zero-skill scans.
+8. CLI help, invalid usage, no matches, missing sources, and unreadable, corrupt,
+   or unsupported catalogs have the documented output streams and exit codes.
+   Searches do not resolve credentials, access GitHub, or change the catalog.
+   Terminal output is safe at narrow widths; JSON preserves metadata and score
+   precision without active control sequences. The installed wheel exercises
+   command help and both output formats outside the checkout.

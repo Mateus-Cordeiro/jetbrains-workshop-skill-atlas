@@ -57,6 +57,46 @@ No matches is a successful query (exit `0`). Catalog failures exit `1`; invalid
 usage exits `2`. Errors go to stderr. See the [Filter specification](spec/features/filter.md)
 for matching and output contracts.
 
+## Similar skills from the CLI
+
+Find alternatives to a skill already in the catalog:
+
+```sh
+skill-atlas similar https://github.com/owner/repository \
+  ".agents/skills/code-review/SKILL.md"
+```
+
+Supply the repository URL and exact repository-relative path to `SKILL.md`,
+including case. Quote paths containing spaces or shell metacharacters. Names
+alone cannot select a skill because multiple entries may have the same name.
+Scan the repository first if the starting skill is not yet in the catalog.
+
+The command prints ranked scores, skill names, every grouped repository/path,
+and links to the scanned commits, then exits. It uses the same ranking as the
+Web UI, searching all scanned repositories, including the starting repository.
+Identical normalized names and descriptions share one result group. Results
+contain at most ten groups scoring at least 10%.
+
+For scripts, add `--json`:
+
+```sh
+skill-atlas similar https://github.com/owner/repository \
+  ".agents/skills/code-review/SKILL.md" --json
+```
+
+JSON includes `source` and ordered `matches`. Each match contains the unrounded
+0–100 `score`, rounded `display_score`, and all `locations`, with metadata,
+repository/path identity, commit SHA, and URL for each location. Text output
+omits descriptions; JSON preserves them. Successful output goes to stdout and
+errors to stderr. Exit codes are `0` for success (including no matches), `1` for
+a missing source or catalog failure, and `2` for invalid usage.
+
+Search works locally from the configured catalog, including `SKILL_ATLAS_DB`,
+without credentials, document fetching, rescanning, or a running Web server.
+Scores measure names and descriptions, not quality or identical instructions,
+and can change as the catalog grows. See [Similar skills](spec/features/similar-skills.md)
+for the complete ranking and JSON contracts.
+
 ## Web UI
 
 Start the local browser interface:
@@ -230,6 +270,6 @@ Screenshots are written to the ignored `test-results/` directory.
 
 After `uv build`, install the wheel into a temporary virtual environment and
 run `tests/smoke_installed.py` with that environment's Python from outside the
-checkout. It verifies the installed `filter` command, packaged templates, and
-static assets. CI also checks
+checkout. It verifies the installed `filter` and `similar` commands, including
+help and catalog queries, plus packaged templates and static assets. CI also checks
 `skill-atlas serve --help` in that installed environment.

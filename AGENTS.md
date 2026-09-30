@@ -14,8 +14,9 @@ the change before changing behavior or component boundaries:
   interactions, document viewing, HTTP contracts, and background jobs. Read the
   scan spec as well when changing Web scan behavior and the filter spec when
   changing Web filtering.
-- [Similar skills](spec/features/similar-skills.md) owns similarity ranking, scores,
-  grouping, and relevance criteria. Read the Web UI spec for its presentation.
+- [Similar skills](spec/features/similar-skills.md) owns the `similar` command,
+  similarity ranking, scores, grouping, and relevance criteria. Read the Web UI
+  spec for its browser presentation.
 
 Follow the shared component boundaries, identity, authentication, snapshot,
 catalog consistency, and migration contracts in the architecture. Changes to a
