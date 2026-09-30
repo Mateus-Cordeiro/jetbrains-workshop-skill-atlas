@@ -41,7 +41,7 @@ def test_pages_and_packaged_assets(client, web_environment, scan_result):
     assert "Select a skill" in detail.text
     assert detail.text.index("code-review") < detail.text.index("release-notes")
     assert not web_environment.requests
-    for asset in ("app.css", "app.js", "htmx.min.js", "HTMX-LICENSE.txt"):
+    for asset in ("app.css", "app.js", "filters.js", "htmx.min.js", "HTMX-LICENSE.txt"):
         assert client.get(f"/static/{asset}").status_code == 200
     assert "script-src 'self'" in home.headers["Content-Security-Policy"]
     assert home.headers["cache-control"] == "no-store"
@@ -204,3 +204,72 @@ def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
         assert "<img src=x>" not in response.text
         full = submit(client)
         assert full.status_code == 503 and "queue_full" in full.text
+
+
+def test_catalog_filtering_and_expansion_share_matching_without_upstream_reads(
+    client, web_environment, scan_result
+):
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    other = Repository("other", "repo")
+    duplicate = replace(scan_result.skills[0], path="a & copy/SKILL.md")
+    state.catalog.replace_repository(replace(scan_result, repository=other, skills=(duplicate,)))
+    before = state.catalog.path.read_bytes()
+    home = client.get("/", params={"q": "CODE maintain"})
+    assert home.status_code == 200
+    assert "2 matching skills across 2 repositories" in home.text
+    assert "1 of 2 skills" in home.text and "1 of 1 skill" in home.text
+    assert "release-notes" not in home.text
+    assert "a &amp; copy/SKILL.md" in home.text
+    assert "skill_path=a+%26+copy%2FSKILL.md" in home.text
+    assert "q=CODE+maintain" in home.text
+    filtered = client.get("/fragments/repositories", params={"q": "release"})
+    assert "other/repo" not in filtered.text
+    assert "1 matching skill across 1 repository" in filtered.text
+    unfiltered = client.get("/")
+    assert "code-review" not in unfiltered.text  # Collapsed metadata is loaded on demand.
+    for route in ("/fragments/repository-skills", "/fragments/skills", "/repository"):
+        result = client.get(route, params={"repository_url": other.url, "q": "CODE maintain"})
+        assert result.status_code == 200 and "code-review" in result.text
+        assert "release-notes" not in result.text
+    selected = client.get(
+        "/repository",
+        params={
+            "repository_url": scan_result.repository.url,
+            "q": "notes",
+            "skill_path": scan_result.skills[0].path,
+        },
+    )
+    assert 'data-selected-path="review/SKILL.md"' in selected.text
+    assert 'class="filter-notice" >The open skill is hidden' in selected.text
+    assert 'hx-trigger="load"' in selected.text
+    assert state.catalog.path.read_bytes() == before
+    assert not state.requests
+
+
+def test_filter_empty_literal_queries_errors_and_scan_refresh(client, web_environment, scan_result):
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    for q in ("SKILL.md", "acme", "%", "_", "<script>alert(1)</script>"):
+        result = client.get("/fragments/repositories", params={"q": q})
+        assert result.status_code == 200
+        assert "No skills match" in result.text and "Clear filter" in result.text
+        assert "<script>alert" not in result.text
+        assert 'class="repository-row"' not in result.text
+    empty = client.get("/fragments/repositories", params={"q": " \t "})
+    assert "No skills match" not in empty.text and "Acme/skills" in empty.text
+    wait_scan(client, submit(client))
+    assert "2 matching skills" in client.get("/fragments/repositories", params={"q": "review"}).text
+    state.zero = True
+    wait_scan(client, submit(client))
+    assert "No skills match" in client.get("/fragments/repositories", params={"q": "review"}).text
+    assert "No repositories" in client.get("/").text
+    state.catalog.path.write_bytes(b"broken database")
+    for route, params in (
+        ("/fragments/repositories", {"q": "review"}),
+        ("/fragments/repository-skills", {"repository_url": scan_result.repository.url}),
+        ("/fragments/skills", {"repository_url": scan_result.repository.url, "q": "review"}),
+    ):
+        response = client.get(route, params=params, headers={"HX-Request": "true"})
+        assert response.status_code == 500 and "catalog_error" in response.text
+        assert "No skills match" not in response.text

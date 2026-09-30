@@ -2,10 +2,12 @@
 <div class="repository-heading"><div><p class="eyebrow">REPOSITORY</p><h1>{{ repository.full_name }}</h1><p class="muted">{{ skills|length }} skill{% if skills|length != 1 %}s{% endif %}{% if skills %} <span class="separator">/</span> Snapshot <code title="{{ skills[0].commit_sha }}">{{ skills[0].commit_sha[:8] }}</code>{% endif %}</p></div>
 <form hx-post="/scans" hx-target="#jobs" hx-disabled-elt="find button"><input type="hidden" name="repository_url" value="{{ repository.url }}"><button type="submit">{% if skills %}Rescan{% else %}Scan{% endif %} repository <span aria-hidden="true">↻</span></button></form></div>
 {% if skills %}
-<div class="split-view"><aside class="skills-pane" aria-label="Skills"><div class="pane-heading">SKILLS <span class="count">{{ skills|length }}</span></div><nav class="skills-list" aria-label="Select a skill">
-{% for skill in skills %}
-<a class="skill-link" {% if selected and selected.path == skill.path %}aria-current="true"{% endif %} href="{{ url('/repository', repository_url=repository.url, skill_path=skill.path) }}" data-skill-path="{{ skill.path }}" hx-get="{{ url('/fragments/document', repository_url=repository.url, skill_path=skill.path, commit_sha=skill.commit_sha) }}" hx-target="#document" hx-sync="#workspace:replace"><strong>{{ skill.name }} <span aria-hidden="true">↗</span></strong><p>{{ skill.description }}</p><code>{{ skill.path }}</code></a>
-{% endfor %}</nav></aside>
-<section class="document-pane" aria-label="Skill definition"><div id="document" aria-live="polite" {% if selected %}hx-get="{{ url('/fragments/document', repository_url=repository.url, skill_path=selected.path, commit_sha=selected.commit_sha) }}" hx-trigger="load" hx-sync="#workspace:replace"{% endif %}><div class="empty"><span class="empty-icon" aria-hidden="true">≡</span><h2>{% if selected %}Loading SKILL.md…{% else %}A closer look.{% endif %}</h2><p>{% if selected %}Retrieving the scanned version from GitHub.{% else %}Select a skill to view its SKILL.md{% endif %}</p></div></div></section></div>
+<div class="split-view"><aside class="skills-pane" aria-label="Skills">
+<div class="pane-heading">SKILLS
+{% set filter_label = 'Filter skills in this repository' %}
+{% include 'fragments/filter.html' %}
+</div>
+<div id="skill-results">{% include 'fragments/skills.html' %}</div></aside>
+<section class="document-pane" aria-label="Skill definition"><p id="selection-filter-notice" class="filter-notice" {% if not selected or selected in matches %}hidden{% endif %}>The open skill is hidden by the filter.</p><div id="document" aria-live="polite" {% if selected %}hx-get="{{ url('/fragments/document', repository_url=repository.url, skill_path=selected.path, commit_sha=selected.commit_sha) }}" hx-trigger="load" hx-sync="#workspace:replace"{% endif %}><div class="empty"><span class="empty-icon" aria-hidden="true">≡</span><h2>{% if selected %}Loading SKILL.md…{% else %}A closer look.{% endif %}</h2><p>{% if selected %}Retrieving the scanned version from GitHub.{% else %}Select a skill to view its SKILL.md{% endif %}</p></div></div></section></div>
 {% else %}<div class="empty"><h2>No skills found</h2><p>This repository has no skills in the current catalog.</p></div>{% endif %}
 </section>

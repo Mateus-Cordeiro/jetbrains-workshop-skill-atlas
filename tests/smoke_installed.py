@@ -71,7 +71,7 @@ with (
         page = client.get("/")
         assert page.status_code == 200
         assert "Your skill library." in page.text
-        for asset in ("htmx.min.js", "HTMX-LICENSE.txt", "app.js", "app.css"):
+        for asset in ("htmx.min.js", "HTMX-LICENSE.txt", "app.js", "filters.js", "app.css"):
             response = client.get(f"/static/{asset}")
             assert response.status_code == 200 and response.content
         accepted = client.post(
@@ -92,6 +92,11 @@ with (
             page = client.get(path, params={"repository_url": REPOSITORY})
             assert page.status_code == 200 and "installed-skill" in page.text
         assert "acme/skills" in client.get("/fragments/repositories").text
+        filtered = client.get("/", params={"q": "installed wheel"})
+        assert "1 matching skill across 1 repository" in filtered.text
+        for path in ("/fragments/skills", "/fragments/repository-skills"):
+            result = client.get(path, params={"repository_url": REPOSITORY, "q": "installed"})
+            assert result.status_code == 200 and "installed-skill" in result.text
         selection = {"repository_url": REPOSITORY, "skill_path": "SKILL.md", "commit_sha": COMMIT}
         document = client.get("/fragments/document", params=selection)
         assert document.status_code == 200 and "<h1>Skill document</h1>" in document.text

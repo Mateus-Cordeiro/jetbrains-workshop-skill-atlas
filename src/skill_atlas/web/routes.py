@@ -10,11 +10,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
+from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents, MissingSkill, StaleSkill
 from skill_atlas.application.scan_jobs import QueueFull, ScanJobs
 from skill_atlas.errors import CatalogError, RepositoryError
 from skill_atlas.models import Repository
-from skill_atlas.ports import CatalogReader
 from skill_atlas.web.rendering import render
 
 
@@ -24,7 +24,7 @@ def url(path: str, **query: str) -> str:
 
 def register_routes(
     app: FastAPI,
-    catalog: CatalogReader,
+    browse: BrowseCatalog,
     jobs: ScanJobs,
     documents: Callable[[], AbstractContextManager[Documents]],
     templates: Jinja2Templates,
@@ -67,36 +67,55 @@ def register_routes(
         return error(request, str(exc), 500, "catalog_error")
 
     @app.get("/", response_class=HTMLResponse)
-    def home(request: Request) -> Response:
-        return page(
-            request, "pages/home.html", repositories=catalog.repositories(), jobs=jobs.recent()
-        )
+    def home(request: Request, q: str = "") -> Response:
+        return page(request, "pages/home.html", view=browse.home(q), q=q, jobs=jobs.recent())
 
-    def repository_context(repository_url: str, skill_path: str) -> dict[str, Any]:
+    def repository_context(repository_url: str, skill_path: str, q: str) -> dict[str, Any]:
         repository = Repository.from_url(repository_url)
-        skills = catalog.skills(repository)
-        selected = next((skill for skill in skills if skill.path == skill_path), None)
-        return {"repository": repository, "skills": skills, "selected": selected}
+        view = browse.repository(repository, q, skill_path)
+        return {
+            "repository": repository,
+            "skills": view.skills,
+            "matches": view.matches,
+            "selected": view.selected,
+            "q": q,
+        }
 
     @app.get("/repository", response_class=HTMLResponse)
-    def repository_page(request: Request, repository_url: str, skill_path: str = "") -> Response:
+    def repository_page(
+        request: Request, repository_url: str, skill_path: str = "", q: str = ""
+    ) -> Response:
         return page(
             request,
             "pages/repository.html",
             jobs=jobs.recent(),
-            **repository_context(repository_url, skill_path),
+            **repository_context(repository_url, skill_path, q),
         )
 
     @app.get("/fragments/repositories", response_class=HTMLResponse)
-    def repositories_fragment(request: Request) -> Response:
-        return page(request, "fragments/repositories.html", repositories=catalog.repositories())
+    def repositories_fragment(request: Request, q: str = "") -> Response:
+        return page(request, "fragments/repositories.html", view=browse.home(q), q=q)
+
+    @app.get("/fragments/repository-skills", response_class=HTMLResponse)
+    def repository_skills(request: Request, repository_url: str, q: str = "") -> Response:
+        return page(
+            request, "fragments/repository-skills.html", **repository_context(repository_url, "", q)
+        )
+
+    @app.get("/fragments/skills", response_class=HTMLResponse)
+    def skills_fragment(
+        request: Request, repository_url: str, q: str = "", skill_path: str = ""
+    ) -> Response:
+        return page(
+            request, "fragments/skills.html", **repository_context(repository_url, skill_path, q)
+        )
 
     @app.get("/fragments/repository", response_class=HTMLResponse)
     def repository_fragment(
-        request: Request, repository_url: str, skill_path: str = ""
+        request: Request, repository_url: str, skill_path: str = "", q: str = ""
     ) -> Response:
         return page(
-            request, "fragments/workspace.html", **repository_context(repository_url, skill_path)
+            request, "fragments/workspace.html", **repository_context(repository_url, skill_path, q)
         )
 
     @app.get("/fragments/document", response_class=HTMLResponse)

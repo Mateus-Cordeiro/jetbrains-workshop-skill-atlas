@@ -646,3 +646,128 @@ footer{
     animation:none;
   }
 }
+
+/* Filtering shares the catalog's existing input and pane styles. */
+.catalog-filter{
+  margin-top:32px;
+  max-width:520px;
+}
+.skill-filter label{
+  display:block;
+  margin-bottom:8px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:0;
+  color:var(--ink);
+}
+.pane-heading .skill-filter{
+  margin-top:14px;
+}
+.filter-input{
+  position:relative;
+}
+.filter-input input{
+  width:100%;
+  min-width:0;
+  padding:11px 36px 11px 12px;
+  border:1px solid #d1d9d1;
+  border-radius:6px;
+  background:white;
+  color:var(--ink);
+  font-size:12px;
+}
+.filter-input input::-webkit-search-cancel-button{
+  display:none;
+}
+.filter-input button{
+  position:absolute;
+  right:2px;
+  top:2px;
+  bottom:2px;
+  padding:0 10px;
+  border:0;
+  background:transparent;
+  font-size:20px;
+}
+.filter-count,.filter-notice{
+  font-size:12px;
+  color:var(--muted);
+  padding:0 22px;
+}
+.filter-notice{
+  padding:12px 24px;
+  margin:0;
+  background:var(--tint);
+}
+.filter-empty{
+  padding:20px;
+  font-size:13px;
+  overflow-wrap:anywhere;
+}
+#filter-error{
+  font-size:12px;
+  letter-spacing:0;
+  color:#924b33;
+}
+#filter-error p{
+  margin:12px 0 0;
+}
+.repository-row a{
+  text-decoration:none;
+  min-width:0;
+}
+.repository-row a:hover{
+  text-decoration:underline;
+}
+.repository-toggle{
+  padding:6px 10px;
+  flex-shrink:0;
+  font-size:18px;
+}
+.repository-toggle span{
+  display:block;
+}
+.repository-toggle[aria-expanded=true] span{
+  transform:rotate(90deg);
+}
+.repository-skills{
+  border-top:1px solid var(--line);
+  background:#fafbf8;
+}
+.repository-skills[aria-busy=true]{
+  padding:20px;
+}
+.repository-skill-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));
+  gap:12px;
+  padding:16px 24px;
+}
+.catalog-skill{
+  display:block;
+  min-width:0;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:white;
+  text-decoration:none;
+  overflow-wrap:anywhere;
+}
+.catalog-skill:hover{
+  background:var(--tint);
+}
+.catalog-skill strong{
+  font-size:13px;
+}
+.catalog-skill p{
+  margin:8px 0;
+  font-size:12px;
+  color:var(--muted);
+}
+.catalog-skill code{
+  font-size:10px;
+  color:var(--muted);
+}
+.pane-heading{
+  z-index:1;
+}
