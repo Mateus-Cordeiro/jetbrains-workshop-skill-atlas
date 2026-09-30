@@ -15,4 +15,5 @@ to maintain them.
 - [Terminal UI testing](terminal-ui-testing.md): waiting for Textual scrolling
   before checking widget geometry in headless tests.
 - [Browser UI testing](browser-ui-testing.md): starting a homepage scan and
-  returning to a workspace before completion to exercise automatic refresh.
+  returning to a workspace before completion, plus controlled-clock settling
+  for desktop visual checkpoints.

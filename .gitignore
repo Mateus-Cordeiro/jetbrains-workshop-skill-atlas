@@ -14,3 +14,4 @@ dist/
 coverage.xml
 htmlcov/
 test-results/
+node_modules/

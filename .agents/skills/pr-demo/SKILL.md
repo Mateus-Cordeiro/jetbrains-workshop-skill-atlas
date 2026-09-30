@@ -45,12 +45,25 @@ for placement. Respect a user's requested format or scope.
 
 ### Browser
 
-Prefer the project's existing Playwright installation when browser recording is
-available. Use a dedicated browser context with a readable viewport and matching
+For a scenario covered by the desktop visual pilot, generate its demo from the
+committed Playwright Test scenario rather than maintaining a separate recording
+script. Run `ATLAS_DEMO=1 bash tests/browser/visual/run-container.sh`, optionally
+with `--grep` to select a scenario. This compares all named screenshots and
+records the same interactions with review pacing. See the
+[README](../../../README.md#desktop-visual-tests) for the pinned environment,
+baseline review, report, and artifact commands. Preserve videos needed for
+delivery under `test-results/pr-demo/` before another run replaces the report.
+Disclose the fixture-controlled scan delays and failures in captions. The pilot
+covers desktop filtering, descriptions/document views, and scan failure/retry;
+do not imply it covers every browser flow or mobile visuals.
+
+For other browser scenarios, prefer the project's existing Playwright
+installation. Use a dedicated browser context with a readable viewport and matching
 `record_video_size`; set `record_video_dir` before creating the page. Retain the
 page's video handle and close the context before saving or inspecting the file,
-because Playwright finalizes the recording on context close. The current browser
-fixture captures screenshots only; do not assume running it produces a video.
+because Playwright finalizes the recording on context close. The Python browser
+fixture captures screenshots only; the Playwright Test pilot records successful
+runs only when demo mode is enabled, otherwise retaining failure videos.
 
 Use stable accessible locators and wait for visible states. Pace actions so a
 reviewer can follow them and leave the final result visible briefly. Demonstrate

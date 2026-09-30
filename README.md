@@ -264,6 +264,65 @@ walkthroughs for [scanning](spec/architecture.md#following-a-scan),
 [document viewing](spec/architecture.md#following-a-document-selection), and
 [similarity search](spec/architecture.md#following-a-similarity-search).
 
+### Desktop visual tests
+
+The desktop pilot uses Playwright Test with Chromium for catalog filtering,
+description expansion and document preview/source, and scan progress with
+failure and retry. Each scenario uses a real local app and temporary catalog,
+with synthetic GitHub responses. Existing Python browser tests, including mobile
+coverage, remain in place.
+
+With Docker running, run the canonical Linux amd64 environment:
+
+```sh
+bash tests/browser/visual/run-container.sh
+```
+
+This builds the pinned browser image and installs locked Python and JavaScript
+dependencies, then runs the tests without external networking. Docker emulates
+amd64 on Apple Silicon so local comparisons use CI's architecture and fonts.
+Node is only development tooling; the installed application still needs no Node
+runtime. If Node is installed locally, `npm ci` and `npm run check:visual` provide
+the TypeScript check; `npm run test:visual:container` wraps the command above.
+
+Named checkpoints capture the browser at stable states and compare it with PNGs
+in `tests/browser/visual/snapshots/`. Review
+`test-results/visual/report/index.html` for each run's checkpoint attachments.
+Failures also include expected/actual/diff images, traces, and videos. With local
+dependencies installed, `npx playwright show-report test-results/visual/report`
+opens the report. CI uploads the full directory as `desktop-visual-reports`.
+
+For an intentional visual change, update only the affected scenario's baselines:
+
+```sh
+bash tests/browser/visual/run-container.sh --update-snapshots --grep 'catalog filtering'
+bash tests/browser/visual/run-container.sh
+```
+
+Review changed baseline images against the intended design before committing
+them with the implementation. Missing baselines fail normal runs. CI forbids
+updates. Browser/image upgrades also require reviewed baseline regeneration;
+keep the Playwright package pin, Docker image, and environment guard aligned.
+Do not generate these baselines with a host browser or relax tolerances to hide
+unexplained differences.
+
+Generate review videos from the same scenarios with optional pacing:
+
+```sh
+ATLAS_DEMO=1 bash tests/browser/visual/run-container.sh
+# Or, with Node installed:
+npm run demo:visual
+```
+
+Recording mode still checks all screenshot baselines. Videos are finalized when
+the browser context closes and appear with the scenario's checkpoint images in
+the HTML report. Each run replaces `test-results/visual/`; copy any recording
+you need to keep into `test-results/pr-demo/` before the next run. Review the
+videos before attaching them to a PR, following the
+[demo skill](.agents/skills/pr-demo/SKILL.md). Scan delays and failures are
+controlled fixture responses. Screenshots are captured directly from the
+browser; recordings themselves are not compared frame by frame.
+
 ## Continuous integration
 
 GitHub Actions runs lint, formatting, type checks, an installed-package smoke
@@ -272,6 +331,11 @@ test, and both test suites on every push and pull request. Tests run on Linux
 and branch measurement enabled. JUnit and coverage reports are available as
 workflow artifacts. The stable aggregate status check is **CI required**; select
 it in GitHub branch protection or a ruleset to require passing CI before merging.
+
+The existing browser job runs Python Playwright tests. A separate required
+desktop visual job runs the three pilot scenarios in the pinned Docker image,
+compares screenshot baselines, and uploads the HTML/JUnit reports, checkpoint
+images, and failure diagnostics. Both feed into **CI required**.
 
 Push, pull-request, and manual runs use separate concurrency groups. Newer runs
 cancel older runs for the same event type and branch or PR; a PR run cannot

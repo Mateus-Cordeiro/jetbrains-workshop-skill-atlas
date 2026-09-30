@@ -202,6 +202,22 @@ that environment's Python. Also check `skill-atlas serve --help` there. Browser
 tests permit only loopback access; GitHub is mocked. CI runs Chromium on Linux
 and uploads screenshots and JUnit results from `test-results/`.
 
+For changes to Web presentation, browser scenarios, or visual-test tooling, also
+run the desktop visual pilot in its pinned Linux amd64 Docker environment:
+
+```sh
+bash tests/browser/visual/run-container.sh
+```
+
+Keep the existing Python browser suite, including mobile coverage. The pilot
+adds three desktop scenarios; it does not replace that suite. Screenshot
+baselines under `tests/browser/visual/snapshots/` are intentional tracked test
+inputs; generated reports and recordings remain ignored. Generate baseline
+updates explicitly in the same container, review the changed images, and commit
+them with the change they describe. Never update baselines in CI or loosen
+comparison thresholds to conceal a regression. See the
+[README](README.md#desktop-visual-tests) for commands and artifact review.
+
 ## GitHub Actions rules
 
 `.github/workflows/test.yml` runs on pushes, pull requests, and manual dispatch.
@@ -229,8 +245,11 @@ Use read-only repository permissions, no secrets for tests, bounded job timeouts
 and locked dependency installation. Do not use `pull_request_target` to execute
 pull request code. Keep workflow commands, this document, and the README in sync.
 
-Keep the browser test job and installed Web asset checks in CI. The browser job
-is required by the `CI required` aggregate alongside quality and Python tests.
+Keep the browser test job, desktop visual job, and installed Web asset checks in
+CI. Both browser jobs are required by the `CI required` aggregate alongside
+quality and Python tests. The visual job uses the same pinned container as local
+baseline generation and uploads its report, checkpoint screenshots, visual
+diffs, and failure traces/videos even when a test fails.
 Python/CLI checks must not be presented as coverage for browser behavior.
 
 To enforce merge blocking in GitHub, select **CI required** as a required status
