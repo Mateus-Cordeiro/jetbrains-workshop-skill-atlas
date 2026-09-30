@@ -172,6 +172,13 @@
     });
   }
   document.addEventListener('click', event => {
+    const addRepository = event.target.closest('#add-repository');
+    if (addRepository) {
+      const form = document.querySelector('#repository-form');
+      form.hidden = !form.hidden;
+      addRepository.setAttribute('aria-expanded', String(!form.hidden));
+      if (!form.hidden) document.querySelector('#repository-url').focus();
+    }
     const descriptionToggle = event.target.closest('.description-toggle');
     if (descriptionToggle) {
       const expanded = descriptionToggle.getAttribute('aria-expanded') !== 'true';

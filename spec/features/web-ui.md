@@ -58,29 +58,43 @@ Preserve the existing `scan` command and its terminal presentation. Register
 
 ## Pages and interaction
 
-### Repository page
+### Homepage
 
-The home page contains a repository URL input, a **Scan** button, and a list of
-repositories derived from the catalog. Each repository displays:
+Start the homepage with a compact **Repositories** heading and count, a search
+field, and **+ Add repository**. Omit the introductory hero and permanent scan
+card so the catalog is immediately visible. **Add repository** toggles a compact
+URL input and **Scan repository** button below the toolbar, focusing the URL
+input when opened. Keep entered text when collapsed. Show the form immediately
+for an unfiltered empty catalog, including after the last repository is removed.
+A query with no matches is not an empty catalog and must not open the form.
+Keep the toolbar and form in place when results refresh, updating the heading's
+repository count with the list. Each repository displays:
 
 - Its `owner/repository` name.
 - Its number of stored skills.
-- Its scanned commit, abbreviated for display with the full SHA available.
 - An action to open its skills.
 
 Sort repositories deterministically by their canonical repository URL. Do not
 display a last-scan time: the current catalog does not contain that information.
-An empty catalog shows an explanation and the scan form. A catalog read failure
-shows an error rather than being presented as an empty catalog.
+An empty catalog shows an explanation and the scan form.
+Do not display commit hashes or a rescan action in the repository list.
+A catalog read failure shows an error rather than being presented as an empty catalog.
 
 Validate and normalize submitted URLs with the same rules as the CLI. Invalid
 input receives an inline error and does not start a scan.
 
 ### Skill filtering and expandable repositories
 
-The homepage has a **Filter skills across repositories** field above its
-repository list. Each repository has a separate keyboard-accessible chevron
-button to expand its skills inline; the repository name opens the detail page.
+The homepage toolbar has a compact **Search skills…** field, accessibly labelled
+**Filter skills across repositories**. The repository pane uses the same field,
+labelled **Filter skills in this repository**. On desktop the fields remain
+visible. At narrow widths, a magnifying-glass button labelled **Search skills**
+reveals and focuses the field; it can collapse an empty field. An active query
+always keeps the field visible, including after refresh, navigation, or resizing.
+Clearing a query keeps the field open and focused; closing it is a separate action.
+
+Each repository has a separate keyboard-accessible chevron button to expand its
+skills inline; the repository name opens the detail page.
 Expanded entries show skill names and two-line description previews with the
 same independent **Show more** / **Show less** controls as the repository view.
 Paths are omitted from these entries. Selecting one opens that repository with
@@ -123,18 +137,26 @@ expansion responses, independently of document selection requests.
 
 ### Repository detail
 
-Show the repository name, scanned commit, a **Rescan** button, and navigation
-back to the repository list above a two-pane view:
+Show the repository name, skill count, and navigation back to the repository
+list above a two-pane view. Do not display a snapshot hash, scan/rescan button,
+or a replacement rescan menu action. Scanning remains available through the
+homepage URL form, including repeated submissions of an existing repository.
 
 | Left pane: skills | Right pane: selected `SKILL.md` |
 | --- | --- |
-| Skill name and a description preview of up to two lines. | Document path, scanned commit, and link to the file on GitHub. |
+| Skill name and a description preview of up to two lines. | Document path and commit-pinned link to the file on GitHub, without a visible hash. |
 | Skills sorted by name, then path. | Rendered Markdown by default, with a **Source** toggle. |
 | A visible selection state. | Loading, content, or a retrieval error with **Retry**. |
 
 Initially show **Select a skill to view its SKILL.md** in the right pane. Select
 skills by `(repository_url, skill_path)`, never by name. Identical definitions
 copied into different directories and same-name skills remain separate entries.
+
+Each skill card places the skill-name link and the **Similar skills** action in
+its heading row. A connected-nodes icon accompanies the similarity text; do not
+rely on an icon or colour alone to explain the action. The description follows
+below. Its subdued **Show more** / **Show less** control has a chevron and remains
+next to the description, separate from similarity navigation.
 
 Descriptions in homepage, repository, and similarity skill lists start collapsed.
 Show **Show more** only when a description exceeds two lines at the current pane
@@ -160,7 +182,7 @@ current catalog; it does not retain older catalog snapshots.
 
 ### Similar skills
 
-Each catalog skill card has a **Find similar** link, available without loading its
+Each catalog skill card has a **Similar skills** link, available without loading its
 document. It opens a dedicated two-pane workspace with the starting skill's
 name, repository, and path above the results. A **Starting skill** link
 returns to its repository selection. Links from expanded homepage repositories
@@ -169,7 +191,7 @@ context. Candidate selection, reload, and automatic refresh retain this context;
 it never filters similarity candidates. Omit descriptions from this header.
 Result cards reuse the same skill entry component as homepage and repository
 lists, including two-line descriptions, independent **Show more** / **Show less**
-controls, selection styling, and **Find similar** links. A result's **Find similar**
+controls, selection styling, and **Similar skills** links. A result's **Similar skills**
 link starts a new search from that skill while preserving `q`. Fetched SKILL.md
 documents retain their complete Preview/Source content.
 
@@ -215,9 +237,9 @@ After a successful zero-skill scan, show the repository name and **No skills
 found** in the scan outcome/detail view. Clear any previous skill selection and
 document. The repository disappears from the catalog-derived repository list.
 
-A detail URL with no current skill rows shows **No skills found** and offers
-**Scan**. It cannot distinguish a repository that has never been scanned from a
-previous zero-skill result. After the process restarts, there is no record of
+A detail URL with no current skill rows shows **No skills found** with
+navigation back to the homepage; it has no scan button. It cannot distinguish a
+repository that has never been scanned from a previous zero-skill result. After the process restarts, there is no record of
 that earlier successful scan or its commit.
 
 ### Scan feedback
@@ -245,8 +267,9 @@ session storage; it does not alter job execution, the server's bounded job
 registry, or the catalog. Dismissal still works on the current page if browser
 storage is unavailable. Existing successful catalog entries remain available.
 A failed first scan does not create a saved repository.
-Keep the previous successful results visible during a rescan, labelled with
-their stored commit until the new scan succeeds.
+Keep the previous successful results visible during a scan of an existing
+repository. Their document links stay pinned to the stored commit until the new
+scan succeeds; commit hashes are not displayed as interface metadata.
 
 ## Document retrieval
 
@@ -275,7 +298,7 @@ files, browser local storage, or a persistent application cache. Send document
 responses with `Cache-Control: no-store`. Offline document viewing is not a
 supported feature.
 
-The request includes the commit displayed in the selected skill's metadata.
+The request includes the commit recorded in the selected skill's metadata.
 If the catalog entry has disappeared, report it as unavailable; if its commit
 has changed, return a conflict and refresh the skill list before loading again.
 Once a request has resolved an entry, its fetch stays pinned to that commit.
@@ -442,7 +465,14 @@ Implementation must cover these user-visible outcomes:
     clearing restores earlier expansions. Successful rescans reapply filters and
     late list/expansion responses cannot replace newer state. All controls work
     with keyboard navigation and narrow layouts without external requests.
-12. Keyboard navigation, narrow layouts, refresh/back navigation, loading
+12. The compact homepage reveals the add form with keyboard-accessible controls,
+    shows it for an empty catalog, and keeps it stable during filtering/scans.
+    Search is visible on desktop and expandable on mobile; active queries remain
+    visible across navigation, refresh, and resizing. Repository counts update
+    with results. No repository scan/rescan controls or visible snapshot hashes
+    remain; document links and fetches stay commit-pinned. Skill headings separate
+    **Similar skills** from the description's **Show more** control.
+    Keyboard navigation, narrow layouts, refresh/back navigation, loading
     states, and errors remain usable. The installed package serves its assets
     outside the checkout, and existing CLI behavior remains intact.
 13. Similarity search follows the [ranking acceptance criteria](similar-skills.md#acceptance-and-verification),

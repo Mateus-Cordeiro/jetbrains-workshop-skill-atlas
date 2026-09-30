@@ -7,6 +7,17 @@
   const collapsedMatches = new Set(history.state?.catalogCollapsedMatches || []);
   const input = () => document.querySelector('#skill-filter');
   const query = () => input()?.value ?? new URLSearchParams(location.search).get('q') ?? '';
+  const narrow = matchMedia('(max-width: 600px)');
+
+  function searchVisibility() {
+    const controls = document.querySelector('.filter-controls');
+    if (!controls) return;
+    if (query() || document.activeElement === input()) controls.classList.add('is-open');
+    controls.querySelector('.search-toggle').setAttribute('aria-expanded',
+      String(!narrow.matches || controls.classList.contains('is-open')));
+  }
+
+  narrow.addEventListener('change', searchVisibility);
 
   function saveState() {
     history.replaceState({...history.state, catalogExpanded: [...expanded],
@@ -77,6 +88,14 @@
   }
 
   function restore() {
+    searchVisibility();
+    const results = document.querySelector('.repository-results');
+    const count = document.querySelector('#repository-count');
+    if (count && results) count.textContent = results.dataset.repositoryCount;
+    if (results?.dataset.catalogEmpty === 'true') {
+      document.querySelector('#repository-form').hidden = false;
+      document.querySelector('#add-repository').setAttribute('aria-expanded', 'true');
+    }
     const filtering = Boolean(query().trim());
     document.querySelectorAll('.repository-group').forEach(group => {
       expand(group, filtering ? !collapsedMatches.has(group.dataset.repository) : expanded.has(group.dataset.repository));
@@ -124,6 +143,7 @@
 
   function changed(immediate = false) {
     cancel();
+    searchVisibility();
     if (!query().trim()) collapsedMatches.clear();
     history.replaceState(history.state, '', setQuery(new URL(location.href), query()));
     saveState();
@@ -153,6 +173,13 @@
     }
   });
   document.addEventListener('click', event => {
+    const search = event.target.closest('.search-toggle');
+    if (search) {
+      const controls = search.closest('.filter-controls');
+      if (!query()) controls.classList.toggle('is-open');
+      if (controls.classList.contains('is-open')) input().focus();
+      searchVisibility();
+    }
     if (event.target.closest('[data-clear-filter]')) {
       input().value = '';
       input().focus();

@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlencode
@@ -72,7 +73,7 @@ def test_descriptions_expand_independently_without_selecting_or_fetching(
 
 
 def test_description_controls_follow_pane_width_and_refreshed_skill_lists(
-    browser_page, web_environment, scan_result
+    browser_page, web_environment, scan_result, scan_from_home
 ):
     page, state = browser_page, web_environment
     description = (
@@ -92,7 +93,7 @@ def test_description_controls_follow_pane_width_and_refreshed_skill_lists(
     expect(toggle).to_have_attribute("aria-expanded", "true")
 
     state.source = f"---\nname: refreshed\ndescription: {description}\n---\n# Refreshed\n"
-    page.get_by_role("button", name="Rescan repository").click()
+    scan_from_home(scan_result.repository.url)
     expect(page.locator(".skill-link").first).to_contain_text("refreshed")
     expect(toggle).to_be_visible()
     expect(toggle).to_have_attribute("aria-expanded", "false")
@@ -141,7 +142,9 @@ def test_selection_source_keyboard_history_and_mobile(browser_page, web_environm
     )
 
 
-def test_scan_queue_failure_retry_and_zero_results(browser_page, web_environment, scan_result):
+def test_scan_queue_failure_retry_and_zero_results(
+    browser_page, web_environment, scan_result, scan_from_home
+):
     page, state = browser_page, web_environment
     page.goto(page.base_url)
     state.scan_gate.clear()
@@ -157,7 +160,7 @@ def test_scan_queue_failure_retry_and_zero_results(browser_page, web_environment
     page.goto(detail_url(page, scan_result, scan_result.skills[0].path))
     expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
     state.scan_status = 404
-    page.get_by_role("button", name="Rescan repository").click()
+    scan_from_home(scan_result.repository.url)
     expect(page.locator('.job[data-state="failed"]')).to_be_visible()
     expect(page.locator(".skill-link")).to_have_count(2)
     state.scan_status = 200
@@ -193,7 +196,9 @@ def test_retrieval_error_retry_stale_selection_and_safe_preview(
         )
     )
     page.locator(".skill-link").nth(1).click()
-    expect(page.locator(".document-options code")).to_have_text("dddddddd")
+    expect(page.get_by_role("link", name="View on GitHub")).to_have_attribute(
+        "href", re.compile("/blob/" + "d" * 40 + "/")
+    )
     expect(page.locator(".document-toolbar strong")).to_have_text("release-notes")
 
 
@@ -242,6 +247,8 @@ def test_delayed_workspace_refresh_preserves_new_selection(
 
 
 def submit_repository(page, repository):
+    if not page.get_by_role("textbox", name="GitHub repository URL").is_visible():
+        page.get_by_role("button", name="Add repository").click()
     page.get_by_role("textbox", name="GitHub repository URL").fill(repository)
     page.get_by_role("button", name="Scan repository").click()
 

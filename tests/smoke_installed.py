@@ -93,7 +93,9 @@ with (
     ) as client:
         page = client.get("/")
         assert page.status_code == 200
-        assert "Your skill library." in page.text
+        assert "Repositories" in page.text
+        assert 'id="add-repository"' in page.text
+        assert 'aria-controls="repository-form"' in page.text
         for asset in ("htmx.min.js", "HTMX-LICENSE.txt", "app.js", "filters.js", "app.css"):
             response = client.get(f"/static/{asset}")
             assert response.status_code == 200 and response.content

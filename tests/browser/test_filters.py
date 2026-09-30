@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -121,6 +122,7 @@ def test_filter_empty_catalog_and_narrow_keyboard_layout(
     web_environment.catalog.replace_repository(scan_result)
     page.reload()
     page.set_viewport_size({"width": 390, "height": 844})
+    page.get_by_role("button", name="Search skills", exact=True).click()
     field = page.get_by_role("searchbox")
     field.fill("notes")
     expect(page.locator(".catalog-skill:visible")).to_have_count(1)
@@ -217,19 +219,21 @@ def test_pending_list_filter_preserves_newer_document_selection(
 
 
 def test_rescan_reapplies_filters_and_clears_deleted_selection(
-    browser_page, web_environment, scan_result
+    browser_page, web_environment, scan_result, scan_from_home
 ):
     page, state = browser_page, web_environment
     state.catalog.replace_repository(scan_result)
     page.goto(repository_url(page, scan_result, q="review", skill_path=scan_result.skills[0].path))
     expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
     state.commit = "d" * 40
-    page.get_by_role("button", name="Rescan repository").click()
-    expect(page.locator(".document-options code")).to_have_text("dddddddd")
+    scan_from_home(scan_result.repository.url)
+    expect(page.get_by_role("link", name="View on GitHub")).to_have_attribute(
+        "href", re.compile("/blob/" + "d" * 40 + "/")
+    )
     expect(page.get_by_role("searchbox")).to_have_value("review")
     expect(page.get_by_role("status")).to_have_text("2 of 2 skills")
     state.zero = True
-    page.get_by_role("button", name="Rescan repository").click()
+    scan_from_home(scan_result.repository.url)
     expect(
         page.locator("#workspace").get_by_role("heading", name="No skills found")
     ).to_be_visible()
@@ -239,7 +243,7 @@ def test_rescan_reapplies_filters_and_clears_deleted_selection(
 
 
 def test_query_changed_during_workspace_refresh_is_preserved(
-    browser_page, web_environment, scan_result
+    browser_page, web_environment, scan_result, scan_from_home
 ):
     page = browser_page
     web_environment.catalog.replace_repository(scan_result)
@@ -252,7 +256,7 @@ def test_query_changed_during_workspace_refresh_is_preserved(
     page.goto(repository_url(page, scan_result, skill_path=scan_result.skills[0].path))
     expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
     with page.expect_request("**/fragments/repository?*"):
-        page.get_by_role("button", name="Rescan repository").click()
+        scan_from_home(scan_result.repository.url)
     page.get_by_role("searchbox").fill("absent")
     expect(page.get_by_role("status")).to_have_text("0 of 2 skills")
     route, response = held.pop()
@@ -293,6 +297,7 @@ def test_home_scan_refresh_preserves_filter_and_manual_collapse(
     page.goto(page.base_url + "/?q=review")
     expect(page.get_by_role("status")).to_have_text("1 matching skill across 1 repository")
     page.locator(".repository-toggle").click()
+    page.get_by_role("button", name="Add repository").click()
     page.get_by_role("textbox", name="GitHub repository URL").fill(scan_result.repository.url)
     page.get_by_role("button", name="Scan repository").click()
     expect(page.get_by_role("status")).to_have_text("2 matching skills across 1 repository")

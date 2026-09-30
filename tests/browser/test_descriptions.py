@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -84,12 +85,14 @@ def test_similarity_reuses_description_controls_and_keeps_scores_and_selection(
     )
     state.catalog.replace_repository(ScanResult(fixture.source.repository, "d" * 40, updated))
     first.locator(".skill-link").click()
-    expect(page.locator(".document-options code")).to_have_text("dddddddd")
+    expect(page.get_by_role("link", name="View on GitHub")).to_have_attribute(
+        "href", re.compile("/blob/" + "d" * 40 + "/")
+    )
     assert_collapsed(first)
     first.locator(".description-toggle").click()
     assert_expanded(first)
     # The shared action can start another search from a result, preserving return context.
-    second.get_by_role("link", name="Find similar", exact=False).click()
+    second.get_by_role("link", name="Similar skills", exact=False).click()
     expect(page.get_by_role("heading", name="Similar to “patch-audit”")).to_be_visible()
     assert parse_qs(urlsplit(page.url).query)["q"] == ["original query"]
 
@@ -139,6 +142,8 @@ def test_home_description_controls_after_expansion_filtering_and_navigation(
     assert not state.requests
 
     field = page.get_by_role("searchbox")
+    if not field.is_visible():
+        page.get_by_role("button", name="Search skills", exact=True).click()
     field.fill("UniqueTail")
     expect(page.get_by_role("status")).to_have_text("2 matching skills across 2 repositories")
     assert_collapsed(first_card)
@@ -185,6 +190,8 @@ def test_filtered_repository_descriptions_keep_selection_source_and_query(
     page.get_by_role("button", name="Source", exact=True).click()
     reads = len(state.requests)
     field = page.get_by_role("searchbox")
+    if not field.is_visible():
+        page.get_by_role("button", name="Search skills", exact=True).click()
     field.fill("UniqueTail")
     expect(page.get_by_role("status")).to_have_text("1 of 2 skills")
     card = page.locator(".skill-item")
@@ -217,6 +224,7 @@ def test_home_scan_refresh_reinitializes_description_controls(
     state.source = f"---\nname: refreshed\ndescription: {LONG_DESCRIPTION}\n---\n# Refreshed\n"
     page.goto(page.base_url + "/?q=UniqueTail")
     expect(page.locator(".catalog-skill")).to_have_count(0)
+    page.get_by_role("button", name="Add repository").click()
     page.get_by_role("textbox", name="GitHub repository URL").fill(scan_result.repository.url)
     page.get_by_role("button", name="Scan repository").click()
     expect(page.get_by_role("status")).to_have_text("2 matching skills across 1 repository")
