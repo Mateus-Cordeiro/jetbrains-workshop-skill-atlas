@@ -49,6 +49,10 @@ left pane to read its definition in the right pane. **Preview** renders Markdown
 **Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
 background while you browse. **Rescan repository** refreshes an existing entry.
 
+Skill descriptions show up to two lines by default. Use **Show more** or
+**Show less** to expand or collapse an individual description. The skill's path
+appears in the document pane when selected.
+
 Documents are fetched from GitHub at the recorded commit when selected, using
 backend credentials for private repositories. They are not stored locally.
 A scan with zero skills shows **No skills found** and removes that repository

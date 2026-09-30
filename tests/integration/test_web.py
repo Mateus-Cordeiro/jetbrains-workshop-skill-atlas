@@ -88,6 +88,25 @@ def test_scan_rescan_zero_and_failed_scan_preserve_catalog(client, web_environme
     assert 'id="document"' not in detail.text
 
 
+@pytest.mark.parametrize("route", ["/repository", "/fragments/repository"])
+def test_skill_list_keeps_full_escaped_descriptions_without_visible_paths(
+    client, web_environment, scan_result, route
+):
+    description = "Long description. " * 30 + "<script>steal()</script>"
+    skill = replace(scan_result.skills[0], description=description)
+    web_environment.catalog.replace_repository(replace(scan_result, skills=(skill,)))
+    response = client.get(route, params={"repository_url": skill.repository.url})
+    assert response.status_code == 200
+    listing = response.text.split('<nav class="skills-list"', 1)[1].split("</nav>", 1)[0]
+    assert description.replace("<", "&lt;").replace(">", "&gt;") in listing
+    assert f'data-skill-path="{skill.path}"' in listing
+    assert f"<code>{skill.path}</code>" not in listing
+    assert 'aria-expanded="false"' in listing
+    assert 'aria-controls="skill-description-1"' in listing
+    assert 'id="skill-description-1"' in listing
+    assert not web_environment.requests
+
+
 def test_scan_validation_and_cross_origin_rejection(client):
     for headers in (
         {},
