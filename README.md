@@ -50,8 +50,8 @@ left pane to read its definition in the right pane. **Preview** renders Markdown
 background while you browse. **Rescan repository** refreshes an existing entry.
 
 Choose **Find similar** beneath a skill to discover alternatives across your
-scanned catalog. Results show a colour-coded **0–100% similarity bar**, shared
-terms, and expandable locations with matching metadata. Bars are red below 40%,
+scanned catalog. Results show a colour-coded **0–100% similarity bar** and
+expandable locations with matching metadata. Bars are red below 40%,
 amber at 40–69%, and green at 70–100%, with the percentage visible inside the bar.
 Select a result to read it while keeping the starting skill visible. The header
 and result cards omit descriptions. Search always includes all scanned

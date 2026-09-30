@@ -746,11 +746,8 @@ footer{
 .result-repository{
   font-size:11px;
 }
-.shared-terms,.match-locations{
+.match-locations{
   padding:0 14px;
   font-size:11px;
   overflow-wrap:anywhere;
-}
-.shared-terms{
-  color:var(--muted);
 }

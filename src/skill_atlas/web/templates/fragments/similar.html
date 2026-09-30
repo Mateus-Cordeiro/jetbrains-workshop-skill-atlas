@@ -22,7 +22,6 @@
         <article class="similar-result">
           {% with score=match.display_score, name=match.skill.name %}{% include 'fragments/similarity-score.html' %}{% endwith %}
           {{ location_link(match.skill, true) }}
-          <p class="shared-terms">Shared terms: {{ match.shared_terms|join(', ') }}</p>
           {% if match.locations|length > 1 %}
           <details class="match-locations" {% if selected and selected in match.locations[1:] %}open{% endif %}><summary>Same metadata · {{ match.locations|length }} locations</summary>
             {% for skill in match.locations[1:] %}{{ location_link(skill) }}{% endfor %}

@@ -114,8 +114,9 @@ from result cards; descriptions still contribute to ranking, and fetched
 SKILL.md documents retain their complete Preview/Source content.
 
 The left pane lists up to ten ranked groups with a colour-coded similarity bar,
-skill name, repository/path, and shared terms. Each bar spans 0–100%, fills in
-proportion to the rounded score, and displays that percentage inside it. Show
+skill name, and repository/path. Shared-term lists are not displayed. Each bar
+spans 0–100%, fills in proportion to the rounded score, and displays that
+percentage inside it. Show
 0% and 100% endpoints. Use red for 0–39%, amber for 40–69%, and green for 70–100%,
 based on the same rounded value displayed in the bar. The numeric text must
 remain readable against every fill and track colour; colour is supplementary.
@@ -133,7 +134,7 @@ A keyboard-accessible **How similarity scores work** disclosure explains weights
 colour bands, rounding, and limitations. The percentage is a similarity measure,
 not a probability or quality rating. Show **No similar skills found** when no
 candidates reach the cutoff, separately from missing-source and catalog errors.
-Escape names, paths, and shared terms. Keep source identity and selected result
+Escape names and paths. Keep source identity and selected result
 identity in the URL. Browser reload and Back restore state using the current
 catalog, including changes from CLI scans. Expand a group containing the restored
 selection. Stack panes on narrow screens and preserve keyboard selection, focus
@@ -367,8 +368,8 @@ Implementation must cover these user-visible outcomes:
     outside the checkout, and existing CLI behavior remains intact.
 11. Similarity search follows the [ranking acceptance criteria](similar-skills.md#acceptance-and-verification),
     preserves its source while selecting matches, displays accessible percentage
-    bars and grouped locations, omits metadata descriptions and retired controls,
-    and handles reload, Back, stale responses, keyboard selection, document errors,
+    bars and grouped locations, omits metadata descriptions, shared-term lists,
+    and retired controls, and handles reload, Back, stale responses, keyboard selection, document errors,
     and narrow layouts.
 
 Follow [the repository testing rules](../../AGENTS.md). Use unit tests for query

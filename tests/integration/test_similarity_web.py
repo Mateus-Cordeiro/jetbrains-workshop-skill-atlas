@@ -32,7 +32,7 @@ def test_catalog_similarity_is_read_only_and_does_not_fetch_documents(
     assert 'min="0" max="100"' in response.text
     assert fixture.source.description not in response.text
     assert "Same metadata · 3 locations" in response.text
-    assert "Shared terms:" in response.text
+    assert "Shared terms:" not in response.text
     for removed in ("Other repositories only", "Apply filter", "Refresh results"):
         assert removed not in response.text
     assert "selected_path=review+%23%3F%2FSKILL.md" in response.text

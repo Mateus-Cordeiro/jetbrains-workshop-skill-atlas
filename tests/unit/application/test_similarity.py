@@ -28,7 +28,6 @@ def test_relevance_prefers_purpose_to_name_and_omits_unrelated():
     assert matches[0].score == pytest.approx(80)
     assert matches[1].score == pytest.approx(20)
     assert [match.display_score for match in matches] == [80, 20]
-    assert "code changes" in matches[0].shared_terms
     # The best result remains 80, even when it is the only candidate.
     assert search(source, purpose)[0].display_score == 80
 
@@ -69,7 +68,6 @@ def test_names_split_separators_and_preserve_technical_tokens(name):
     candidate = skill("code review", "C++ C# Python", "other")
     match = search(source, candidate)[0]
     assert match.display_score == 100
-    assert any("c++" in term or "c#" in term for term in match.shared_terms)
     c_only = skill("different", "C", "plain")
     assert search(source, c_only) == ()
 
@@ -80,7 +78,7 @@ def test_phrases_reward_adjacent_words():
     reordered = skill("candidate", "code review", "reordered")
     matches = search(source, reordered, adjacent)
     assert [match.skill for match in matches] == [adjacent, reordered]
-    assert "review code" in matches[0].shared_terms
+    assert matches[0].score > matches[1].score
 
 
 def test_repetition_does_not_create_unbounded_scores():
@@ -97,19 +95,18 @@ def test_empty_vocabularies_are_finite_and_do_not_manufacture_matches(descriptio
     assert search(source) == ()
 
 
-def test_ties_limit_and_explanations_are_deterministic():
+def test_ties_and_limit_are_deterministic():
     source = skill("review", "alpha beta gamma delta")
     candidates = [skill(f"candidate{i:02}", source.description, f"path{i:02}") for i in range(15)]
     matches = search(source, *reversed(candidates))
     assert len(matches) == 10
     assert [match.skill for match in matches] == candidates[:10]
     assert matches == search(source, *candidates)
-    assert matches[0].shared_terms == ("alpha", "alpha beta", "beta")
 
 
 def test_display_rounding_and_missing_source():
     candidate = skill("test", "description")
-    assert SimilarMatch((candidate,), 82.5, ()).display_score == 83
+    assert SimilarMatch((candidate,), 82.5).display_score == 83
     with pytest.raises(MissingSimilaritySource, match="starting skill"):
         SimilarSkills(SimpleNamespace(all_skills=lambda: ())).search(REPO, "missing")
 

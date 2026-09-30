@@ -39,6 +39,7 @@ def test_find_similar_from_metadata_score_bars_grouping_and_history(
     expect(page.get_by_role("meter").first).to_have_attribute("aria-valuetext", "100% similarity")
     expect(page.locator(".score-value").first).to_have_text("100%")
     expect(page.get_by_text(fixture.source.description, exact=True)).to_have_count(0)
+    expect(page.get_by_text("Shared terms:", exact=False)).to_have_count(0)
     for removed in ("Refresh results", "Apply filter"):
         expect(page.get_by_role("button", name=removed)).to_have_count(0)
     expect(page.get_by_label("Other repositories only")).to_have_count(0)

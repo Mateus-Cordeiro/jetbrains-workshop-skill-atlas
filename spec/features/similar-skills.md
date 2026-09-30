@@ -42,9 +42,6 @@ starting skill, across the complete catalog. Copies must not change scores or co
 - Return at most ten groups with an unrounded score of at least 10. Sort by
   unrounded score descending, then representative name (case-folded), canonical
   repository URL, and exact path. Sort locations by that same identity order.
-- Show up to three shared terms/phrases with the highest weighted contributions,
-  breaking equal contributions alphabetically. These explain lexical overlap,
-  not an inferred semantic judgment.
 
 Display the score as a percentage in a colour-coded bar spanning 0–100%, rounded
 to the nearest integer (halves up). The [Web UI](web-ui.md#similar-skills) owns
@@ -67,15 +64,15 @@ after evaluation against the lexical baseline.
    empty vocabularies have deterministic finite scores. Scores are not rescaled
    to make the highest result 100.
 3. Source identity exclusion, same- and cross-repository results, matching metadata
-   groups, stable ties, top-ten limits, and explanation contributions are tested.
+   groups, stable ties, and top-ten limits are tested.
    Adding copies does not change existing scores.
 4. Existing catalogs work without rescanning or schema changes. Missing,
    corrupt, unsupported, concurrently replaced, and zero-skill catalogs preserve
    the shared read and error contracts. Search does not persist data.
 5. Browser tests cover entry from metadata even after document failure, result
    selection without losing the source, grouping, percentage bars and colour bands,
-   score explanations, absence of metadata descriptions and retired controls,
-   keyboard/mobile behavior, refresh/back, stale/deleted selections, and late
+   score guidance, absence of metadata descriptions, shared-term lists, and retired
+   controls, keyboard/mobile behavior, refresh/back, stale/deleted selections, and late
    responses. Documents retain commit-pinned retrieval and safe rendering.
 6. Installed-wheel checks exercise the new page and fragment. Benchmark a
    synthetic catalog of thousands of skills to check on-demand ranking latency;

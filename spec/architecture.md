@@ -92,7 +92,7 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. |
 | `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
-| `application/similarity.py` | Rank catalog metadata with local TF-IDF, group matching metadata, and explain scores. |
+| `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
 | `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
 | `runtime.py` | Composition root: select adapters and own HTTP, Git, scanner, and Web application resource lifetimes. |
 | `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |

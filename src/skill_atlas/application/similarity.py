@@ -27,7 +27,6 @@ class MissingSimilaritySource(AtlasError):
 class SimilarMatch:
     locations: tuple[Skill, ...]
     score: float
-    shared_terms: tuple[str, ...]
 
     @property
     def skill(self) -> Skill:
@@ -127,7 +126,6 @@ class SimilarSkills:
             score = min(100.0, max(0.0, 100 * sum(contributions.values())))
             if score < _MIN_SCORE:
                 continue
-            shared = tuple(sorted(contributions, key=lambda term: (-contributions[term], term))[:3])
-            matches.append(SimilarMatch(locations, score, shared))
+            matches.append(SimilarMatch(locations, score))
         matches.sort(key=lambda match: (-match.score, _order(match.skill)))
         return SimilarityResult(source, tuple(matches[:_LIMIT]))
