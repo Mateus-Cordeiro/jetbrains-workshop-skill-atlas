@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Similar to {{ result.source.name }} · Skill Atlas{% endblock %}
 {% block content %}
-<a class="back-link" href="{{ url('/repository', repository_url=result.source.repository.url, skill_path=result.source.path, q=q) }}">← Starting skill</a>
+<a class="back-link" href="{{ return_to }}">← Back</a>
 {% include 'fragments/similar.html' %}
 {% endblock %}

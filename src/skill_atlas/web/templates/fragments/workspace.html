@@ -1,8 +1,8 @@
 <section id="workspace" data-repository="{{ repository.url }}" data-selected-path="{{ selected.path if selected else '' }}">
-<div class="repository-heading"><div><p class="eyebrow">REPOSITORY</p><h1>{{ repository.full_name }}</h1><p class="muted">{{ skills|length }} skill{% if skills|length != 1 %}s{% endif %}</p></div></div>
+<div class="repository-heading"><div><p class="eyebrow">REPOSITORY</p><h1>{{ repository.full_name }}</h1></div></div>
 {% if skills %}
 <div class="split-view"><aside class="skills-pane" aria-label="Skills">
-<div class="pane-heading">SKILLS
+<div class="pane-heading"><span id="skill-count" role="status">{% include 'fragments/skill-count.html' %}</span>
 {% set filter_label = 'Filter skills in this repository' %}
 {% include 'fragments/filter.html' %}
 </div>

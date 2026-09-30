@@ -1,5 +1,4 @@
-<p class="filter-count" role="status">{% if q.strip() %}{{ matches|length }} of {% endif %}{{ skills|length }} skill{% if skills|length != 1 %}s{% endif %}</p>
-<nav class="skills-list" aria-label="Select a skill">
+<nav class="skills-list" aria-label="Select a skill" data-skill-count="{% include 'fragments/skill-count.html' %}">
 {% for skill in matches %}
 {% with document_selection=true %}{% include 'fragments/skill-entry.html' %}{% endwith %}
 {% else %}

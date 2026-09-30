@@ -305,3 +305,39 @@ def test_home_scan_refresh_preserves_filter_and_manual_collapse(
     expect(page.get_by_role("searchbox")).to_have_value("review")
     page.locator(".repository-toggle").click()
     expect(page.locator(".catalog-skill:visible")).to_have_count(2)
+
+
+@pytest.mark.parametrize("width", [1360, 390])
+def test_repository_has_one_live_count_above_filter(
+    browser_page, web_environment, scan_result, width
+):
+    page = browser_page
+    web_environment.catalog.replace_repository(scan_result)
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.goto(repository_url(page, scan_result))
+    count = page.get_by_role("status")
+    expect(count).to_have_count(1)
+    expect(count).to_have_text("2 skills")
+    expect(page.get_by_text("2 skills", exact=True)).to_have_count(1)
+    expect(page.locator(".repository-heading")).not_to_contain_text("2 skills")
+    if width == 390:
+        page.get_by_role("button", name="Search skills", exact=True).click()
+    field = page.get_by_role("searchbox")
+    label_box, field_box = count.bounding_box(), field.bounding_box()
+    assert label_box["y"] + label_box["height"] < field_box["y"]
+    for query, expected in (("review", "1 of 2 skills"), ("absent", "0 of 2 skills")):
+        field.fill(query)
+        expect(count).to_have_text(expected)
+        expect(page.get_by_text(expected, exact=True)).to_have_count(1)
+        expect(field).to_be_focused()
+    page.reload()
+    expect(count).to_have_text("0 of 2 skills")
+    field.press("Escape")
+    expect(count).to_have_text("2 skills")
+    page.route("**/fragments/skills?*", lambda route: route.fulfill(status=500))
+    field.fill("review")
+    expect(page.locator("#filter-error")).to_contain_text("Previous results are still shown")
+    expect(count).to_have_text("2 skills")
+    page.unroute("**/fragments/skills?*")
+    page.get_by_role("button", name="Retry", exact=True).click()
+    expect(count).to_have_text("1 of 2 skills")

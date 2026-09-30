@@ -1,5 +1,6 @@
 import sqlite3
 from dataclasses import replace
+from html import escape
 from threading import Event, Thread
 from urllib.parse import urlencode
 
@@ -169,3 +170,38 @@ def test_similarity_read_sees_complete_snapshot_during_replacement(web_environme
         thread.join(5)
     assert not thread.is_alive() and not failures
     assert catalog.skills() == ()
+
+
+@pytest.mark.parametrize("route", ["/similar", "/fragments/similar"])
+@pytest.mark.parametrize("origin", ["/", "/repository", "/similar"])
+def test_similarity_retains_safe_return_url(route, origin, client, similar_catalog):
+    fixture = similar_catalog
+    return_to = origin + "?" + urlencode({**selection(fixture.remote), "q": "code & <review>"})
+    response = client.get(route, params={**selection(fixture.source), "return_to": return_to})
+    assert response.status_code == 200
+    assert f'data-return-to="{escape(return_to, quote=True)}"' in response.text
+    assert urlencode({"return_to": return_to}) in response.text  # Candidate selection links.
+    if route == "/similar":
+        assert f'href="{escape(return_to, quote=True)}">← Back</a>' in response.text
+
+
+@pytest.mark.parametrize(
+    "return_to",
+    [
+        "",
+        "https://evil.test/",
+        "//evil.test/",
+        "javascript:alert(1)",
+        "/static/app.js",
+        "/?q=\nunsafe",
+        "/?q=\\unsafe",
+    ],
+)
+def test_similarity_return_falls_back_to_source(client, similar_catalog, return_to):
+    source = similar_catalog.source
+    response = client.get(
+        "/similar", params={**selection(source), "q": "review", "return_to": return_to}
+    )
+    fallback = "/repository?" + urlencode({**selection(source), "q": "review"})
+    assert response.status_code == 200
+    assert f'href="{escape(fallback, quote=True)}">← Back</a>' in response.text

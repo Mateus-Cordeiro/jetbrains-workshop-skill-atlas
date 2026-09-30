@@ -25,14 +25,20 @@ def test_similarity_from_filtered_catalog_preserves_return_context(
     page, fixture = browser_page, similar_catalog
     start = page.base_url
     if entry_page == "repository":
-        start += "/repository?" + urlencode({"repository_url": fixture.source.repository.url})
+        start += "/repository?" + urlencode(
+            {"repository_url": fixture.source.repository.url, "skill_path": fixture.source.path}
+        )
     page.goto(start)
     page.get_by_role("searchbox").fill("code-review")
     expect(page.get_by_role("status")).to_have_text(
         "4 matching skills across 2 repositories" if entry_page == "home" else "2 of 3 skills"
     )
     expect(page.get_by_text("patch-audit", exact=True)).to_have_count(0)
-    assert not web_environment.requests
+    if entry_page == "home":
+        assert not web_environment.requests
+    else:
+        expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
+    return_url = page.url
     page.locator('.similar-link[href*="skill_path=review%2FSKILL.md"]').click()
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
     expect(page.get_by_role("searchbox")).to_have_count(0)
@@ -43,10 +49,15 @@ def test_similarity_from_filtered_catalog_preserves_return_context(
     assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
     page.reload()
     expect(page.locator('.skill-link[aria-current="true"]')).to_contain_text("patch-audit")
-    page.get_by_role("link", name="Starting skill", exact=False).click()
+    page.get_by_role("link", name="← Back", exact=True).click()
     expect(page.get_by_role("searchbox")).to_have_value("code-review")
-    expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
-    expect(page.get_by_role("status")).to_have_text("2 of 3 skills")
+    expect(page).to_have_url(return_url)
+    if entry_page == "home":
+        expect(page.get_by_role("heading", name="Repositories")).to_be_visible()
+        expect(page.get_by_role("status")).to_have_text("4 matching skills across 2 repositories")
+    else:
+        expect(page.locator(".document-toolbar strong")).to_have_text("code-review")
+        expect(page.get_by_role("status")).to_have_text("2 of 3 skills")
     page.go_back()
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
     expect(page.locator('.skill-link[aria-current="true"]')).to_contain_text("patch-audit")
@@ -100,7 +111,7 @@ def test_similarity_link_keeps_query_while_filter_response_is_pending(
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
     assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
     assert len(held) == 1
-    page.get_by_role("link", name="Starting skill", exact=False).click()
+    page.get_by_role("link", name="← Back", exact=True).click()
     expect(page.get_by_role("searchbox")).to_have_value("code-review")
     expect(page.get_by_role("status")).to_have_text("2 of 3 skills")
 
@@ -165,13 +176,16 @@ def test_similar_refresh_stale_commit_and_removed_selection(
     state.catalog.replace_repository(
         ScanResult(fixture.source.repository, fixture.source.commit_sha, (fixture.source,))
     )
-    page.goto(similar_url(page, fixture.source, q="code-review"))
+    page.goto(similar_url(page, fixture.source, q="code-review", return_to="/?q=code-review"))
     updated = replace(fixture.alternative, commit_sha="d" * 40)
     state.catalog.replace_repository(ScanResult(updated.repository, updated.commit_sha, (updated,)))
     page.locator('.skill-link[data-skill-path="alternative/SKILL.md"]').click()
     expect(page.locator(".document-toolbar strong")).to_have_text("patch-audit")
     expect(page.get_by_role("link", name="View on GitHub")).to_have_attribute(
         "href", re.compile("/blob/" + "d" * 40 + "/")
+    )
+    expect(page.get_by_role("link", name="← Back", exact=True)).to_have_attribute(
+        "href", "/?q=code-review"
     )
     assert urlsplit(page.url).path == "/similar"
     assert parse_qs(urlsplit(page.url).query)["skill_path"] == [fixture.source.path]
@@ -316,3 +330,35 @@ def test_similarity_bars_show_low_medium_and_high_scores(
         assert abs(label["x"] + label["width"] - track["x"] - track["width"]) <= 1
     page.set_viewport_size({"width": 1360, "height": 1400})
     page.screenshot(path="test-results/similar-colours.png", full_page=True)
+
+
+@pytest.mark.parametrize("width", [1360, 390])
+def test_similarity_back_from_expanded_home_and_nested_search(browser_page, similar_catalog, width):
+    page = browser_page
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.goto(page.base_url)
+    page.get_by_role("button", name="Toggle skills in Acme/skills").click()
+    page.locator('.similar-link[href*="skill_path=review%2FSKILL.md"]').click()
+    expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
+    first_search = page.url
+    page.locator('.skill-link[data-skill-path="alternative/SKILL.md"]').click()
+    expect(page.locator(".document-toolbar strong")).to_have_text("patch-audit")
+    selected_search = page.url
+    page.get_by_role("link", name="Similar skills to patch-audit").click()
+    expect(page.get_by_role("heading", name="Similar to “patch-audit”")).to_be_visible()
+    page.reload()
+    page.get_by_role("link", name="← Back", exact=True).click()
+    expect(page).to_have_url(selected_search)
+    expect(page.locator(".document-toolbar strong")).to_have_text("patch-audit")
+    # Back leaves the workspace, rather than stepping through candidate selections.
+    page.get_by_role("link", name="← Back", exact=True).click()
+    expect(page).to_have_url(page.base_url + "/")
+    expect(page.get_by_role("heading", name="Repositories")).to_be_visible()
+    # Links also retain their return target when opened in a fresh browsing history.
+    fresh = page.context.new_page()
+    try:
+        fresh.goto(first_search)
+        fresh.get_by_role("link", name="← Back", exact=True).click()
+        expect(fresh).to_have_url(page.base_url + "/")
+    finally:
+        fresh.close()
