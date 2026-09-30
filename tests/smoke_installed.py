@@ -113,6 +113,9 @@ with (
             and '<meter class="similarity-meter score-high"' in matches.text
         )
         assert 'aria-valuetext="100% similarity"' in matches.text
+        assert 'class="skill-description"' in matches.text
+        assert original.description in matches.text
+        assert 'class="description-toggle"' in matches.text
         assert "acme/skills" in client.get("/fragments/repositories").text
         filtered = client.get("/", params={"q": "installed wheel"})
         assert "2 matching skills across 1 repository" in filtered.text

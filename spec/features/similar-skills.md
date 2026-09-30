@@ -73,9 +73,10 @@ after evaluation against the lexical baseline.
    the shared read and error contracts. Search does not persist data.
 5. Browser tests cover entry from metadata even after document failure, result
    selection without losing the source, grouping, percentage bars and colour bands,
-   score guidance, absence of metadata descriptions, shared-term lists, and retired
-   controls, keyboard/mobile behavior, refresh/back, stale/deleted selections, and late
-   responses. Documents retain commit-pinned retrieval and safe rendering.
+   score guidance, shared skill cards with expandable description previews, absence
+   of shared-term lists and retired controls, keyboard/mobile behavior, refresh/back,
+   stale/deleted selections, and late responses. Documents retain commit-pinned
+   retrieval and safe rendering.
 6. Installed-wheel checks exercise the new page and fragment. Benchmark a
    synthetic catalog of thousands of skills to check on-demand ranking latency;
    avoid timing assertions in CI. Follow [AGENTS.md](../../AGENTS.md) for delivery.

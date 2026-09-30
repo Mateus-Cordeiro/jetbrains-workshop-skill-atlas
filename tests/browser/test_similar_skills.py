@@ -35,9 +35,9 @@ def test_similarity_from_filtered_catalog_preserves_return_context(
     page.locator('.similar-link[href*="skill_path=review%2FSKILL.md"]').click()
     expect(page.get_by_role("heading", name="Similar to “code-review”")).to_be_visible()
     expect(page.get_by_role("searchbox")).to_have_count(0)
-    expect(page.locator(".description-toggle")).to_have_count(0)
+    expect(page.locator(".skill-description")).to_have_count(2)
     # The catalog query is return context, never a restriction on candidates.
-    page.get_by_role("link", name="patch-audit", exact=False).click()
+    page.locator(".skill-link").filter(has_text="patch-audit").click()
     expect(page.locator(".document-toolbar strong")).to_have_text("patch-audit")
     assert parse_qs(urlsplit(page.url).query)["q"] == ["code-review"]
     page.reload()
@@ -123,7 +123,7 @@ def test_find_similar_from_metadata_score_bars_grouping_and_history(
     expect(page.get_by_role("meter").first).to_have_attribute("value", "100")
     expect(page.get_by_role("meter").first).to_have_attribute("aria-valuetext", "100% similarity")
     expect(page.locator(".score-value").first).to_have_text("100%")
-    expect(page.get_by_text(fixture.source.description, exact=True)).to_have_count(0)
+    expect(page.locator(".skill-description")).to_have_text([fixture.source.description] * 2)
     expect(page.get_by_text("Shared terms:", exact=False)).to_have_count(0)
     for removed in ("Refresh results", "Apply filter"):
         expect(page.get_by_role("button", name=removed)).to_have_count(0)
@@ -306,10 +306,12 @@ def test_similarity_bars_show_low_medium_and_high_scores(
         assert (
             meter.evaluate("el => getComputedStyle(el).getPropertyValue('--score-color')") == colour
         )
-        expect(card.get_by_text(skill.description, exact=True)).to_have_count(0)
-        # The percentage sits inside the meter, including when the fill is short.
-        track = card.locator(".score-track").bounding_box()
-        label = card.locator(".score-value span").bounding_box()
-        assert track["x"] <= label["x"] < label["x"] + label["width"] <= track["x"] + track["width"]
+        expect(card.locator(".skill-description")).to_have_text(skill.description)
+        # A slim meter keeps the numeric label clear of every fill colour.
+        track = meter.bounding_box()
+        label = card.locator(".score-value").bounding_box()
+        assert track["height"] <= 8
+        assert label["y"] + label["height"] <= track["y"]
+        assert abs(label["x"] + label["width"] - track["x"] - track["width"]) <= 1
     page.set_viewport_size({"width": 1360, "height": 1400})
     page.screenshot(path="test-results/similar-colours.png", full_page=True)
