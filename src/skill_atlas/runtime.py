@@ -116,7 +116,7 @@ def create_similarity(settings: Settings) -> SimilarSkills:
     return SimilarSkills(SQLiteCatalog(settings.database_path))
 
 
-def _ollama_limits(settings: Settings) -> tuple[float, int, int]:
+def _ollama_limits(settings: Settings) -> tuple[float, int | None, int]:
     timeout_error = "SKILL_ATLAS_OLLAMA_TIMEOUT must be a finite positive number of seconds."
     try:
         timeout = float(settings.ollama_timeout)
@@ -135,9 +135,13 @@ def _ollama_limits(settings: Settings) -> tuple[float, int, int]:
             raise GroupingError(message)
         return parsed
 
-    context = positive_integer(settings.ollama_context, "SKILL_ATLAS_OLLAMA_CONTEXT")
+    context = (
+        positive_integer(settings.ollama_context, "SKILL_ATLAS_OLLAMA_CONTEXT")
+        if settings.ollama_context is not None
+        else None
+    )
     output = positive_integer(settings.ollama_output_tokens, "SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS")
-    if output >= context:
+    if context is not None and output >= context:
         raise GroupingError(
             "SKILL_ATLAS_OLLAMA_CONTEXT must be greater than SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS."
         )

@@ -352,6 +352,7 @@ def test_context_must_exceed_output_tokens(web_environment, scan_result, monkeyp
 
     state = web_environment
     state.catalog.replace_repository(scan_result)
+    monkeypatch.setenv("SKILL_ATLAS_OLLAMA_CONTEXT", "32768")
     monkeypatch.setenv("SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS", output)
     settings = replace(Settings.from_environment(), database_path=state.catalog.path)
     with TestClient(create_web_app(settings), base_url="http://127.0.0.1") as client:
@@ -488,3 +489,72 @@ def test_explore_return_context_survives_repository_workspace_refresh(
         page = client.get(route, params=params)
         assert page.status_code == 200 and 'data-from-explore="topics"' in page.text
         assert 'data-selected-path="review/SKILL.md"' in page.text
+
+
+def test_default_context_generates_complete_large_catalog(
+    monkeypatch, web_environment, scan_result
+):
+    import json
+
+    from skill_atlas.runtime import create_web_app
+
+    state = web_environment
+    skills = tuple(
+        replace(scan_result.skills[0], path=f"skill-{i}/SKILL.md", description="Review code. " * 50)
+        for i in range(61)
+    )
+    state.catalog.replace_repository(replace(scan_result, skills=skills))
+    monkeypatch.delenv("SKILL_ATLAS_OLLAMA_CONTEXT", raising=False)
+    settings = replace(Settings.from_environment(), database_path=state.catalog.path)
+    assert settings.ollama_context is None
+    with TestClient(create_web_app(settings), base_url="http://127.0.0.1") as configured:
+        generate(configured)
+    assert len(state.grouping_version_requests) == 1
+    assert len(state.grouping_requests) == 2
+    for request in state.grouping_requests:
+        payload = json.loads(request.content)
+        assert "num_ctx" not in payload["options"]
+        assert payload["truncate"] is False and payload["shift"] is False
+        content = payload["messages"][1]["content"]
+        assert len(content.encode()) > 32768
+        assert len(json.loads(content)) == 61
+    for perspective in Perspective:
+        view = SkillGroups(SQLiteGroups(state.catalog)).browse(perspective)
+        assert view.skill_count == 61 and len(view.groups[0].skills) == 61
+    assert state.requests == []
+
+
+@pytest.mark.parametrize("perspective", ["topics", "capabilities"])
+def test_provider_context_failure_preserves_both_saved_groups(
+    client, web_environment, scan_result, perspective
+):
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    generate(client)
+    before = SQLiteGroups(state.catalog).read_all()
+    state.grouping_errors[perspective] = "the input length exceeds the context length: private"
+    failure = generate(client, expected="failed").text
+    assert f"{perspective.title()} generation failed" in failure
+    assert "context window" in failure and "SKILL_ATLAS_OLLAMA_CONTEXT" in failure
+    assert "Previous groups are unchanged" in failure and "private" not in failure
+    assert SQLiteGroups(state.catalog).read_all() == before
+
+
+@pytest.mark.parametrize("failure", ["old_server", "unfinished"])
+def test_unverified_server_and_exhausted_context_preserve_saved_groups(
+    client, web_environment, scan_result, failure
+):
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    generate(client)
+    before = SQLiteGroups(state.catalog).read_all()
+    requests = len(state.grouping_requests)
+    if failure == "old_server":
+        state.grouping_version = "0.12.99"
+        message = "Ollama 0.13.0 or newer"
+    else:
+        state.grouping_done_reason = "length"
+        message = "did not finish"
+    assert message in generate(client, expected="failed").text
+    assert len(state.grouping_requests) == requests + (failure == "unfinished")
+    assert SQLiteGroups(state.catalog).read_all() == before
