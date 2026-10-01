@@ -81,7 +81,10 @@ discard it and use the same temporary partial Git reader as scanning, fetching
 the exact commit and verifying its tree. Only the selected bundle's blobs are
 read. Existing private-repository credential precedence and error handling apply.
 
-Validate all relative paths; reject absolute, traversal, backslash, control,
+Filter the listing to the selected directory before decoding or validating filenames;
+unrelated repository paths do not constrain a nested bundle. Compare raw directory
+prefixes before path normalization, and validate each bundle-relative path before
+reading its blob. Reject absolute, traversal, backslash, control,
 `.git`, and nonportable filenames, including trailing dots/spaces and Windows
 reserved punctuation. Reject case/Unicode-normalization collisions and file/directory
 collisions. Require a regular root `SKILL.md`. Limit a bundle to 10,000 files and
@@ -105,7 +108,10 @@ collisions. Require a regular root `SKILL.md`. Limit a bundle to 10,000 files an
    an installation updated since the form was rendered.
 
 Operations run in the server thread pool, outside the async event loop. The page
-shows pending state, blocks duplicate form submission, then refreshes after
+keeps mutation buttons disabled until its protected POST handler is attached,
+preserving conflict-disabled actions. With JavaScript unavailable, explain that
+it is required for mutations; browsing remains available. The page shows pending
+state, blocks duplicate form submission, then refreshes after
 success. Errors stay visible with focus and preserve the selection. Network failure
 explains that an operation may have completed and recommends refreshing status.
 No credentials or repository bodies enter browser storage. Cross-origin protection
@@ -147,5 +153,6 @@ Use [AGENTS.md](../../AGENTS.md) for required checks and delivery. Verify:
   interrupted publication, recovery on reopening, and edits after interruption.
 - CLI explicit paths and Git-root defaults; Web registration, destination preview,
   stale selections, CLI/Web parity, request protection, keyboard/mobile use,
-  refresh/Back, and visible errors. Tests use temporary projects and mock remote
-  boundaries. Installed-wheel smoke tests cover packaged management routes/assets.
+  refresh/Back, delayed script loading, and visible errors. Tests use temporary
+  projects and mock remote boundaries. Installed-wheel smoke tests cover packaged
+  management routes/assets.

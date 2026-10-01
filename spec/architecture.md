@@ -408,8 +408,10 @@ The [feature specification](features/skill-groups.md) owns grouping and graph be
 and remote resource creation occur only when a new bundle must be downloaded.
 The GitHub reader resolves the recorded commit (never a branch) and exposes all
 regular files and modes. `adapters/bundles.py` selects the bundle and falls back
-to the existing exact-commit Git reader only for truncated listings. It retains
-no persistent remote cache. Scanning still reads only SKILL.md definitions.
+to the existing exact-commit Git reader only for truncated listings. The Git reader
+filters raw filename bytes to the selected directory before UTF-8 decoding;
+the bundle adapter validates unnormalized bundle-relative paths before blob reads.
+It retains no persistent remote cache. Scanning still reads only SKILL.md definitions.
 
 Policy remains in the application and shared values; routes and commands only
 adapt arguments/results. The project transaction adapter coordinates the narrow

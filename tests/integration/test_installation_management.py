@@ -47,6 +47,7 @@ def installation_env(tmp_path, monkeypatch):
         catalog=catalog,
         requests=[],
         source="nested/review/SKILL.md",
+        outside_paths=["outside.txt"],
         fail=False,
     )
     state.revisions = {
@@ -103,7 +104,10 @@ def installation_env(tmp_path, monkeypatch):
                 dict(path=root + "submodule", type="commit", mode="160000", sha="d" * 40),
             ]
             if root:
-                tree.append(dict(path="outside.txt", type="blob", mode="100644", sha="e" * 40))
+                tree.extend(
+                    dict(path=path, type="blob", mode="100644", sha="e" * 40)
+                    for path in state.outside_paths
+                )
             return httpx.Response(200, json={"truncated": False, "tree": tree})
         sha = path.rsplit("/", 1)[-1]
         return httpx.Response(
@@ -158,6 +162,46 @@ def test_full_bundle_pinned_private_bytes_modes_and_offline_lifecycle(
     assert e.service.list(e.project)[0].state == "source unavailable"
     assert e.uninstall().startswith("Uninstalled")
     assert not destination.exists()
+    assert e.service.list(e.project) == ()
+
+
+@pytest.mark.parametrize(
+    "outside_path",
+    ["docs/2024-01-01T10:00.md", "nested/reviewer/bad?.txt", "unrelated\\file", "trailing. "],
+)
+def test_nested_bundle_ignores_unsupported_paths_outside_its_directory(
+    installation_env, outside_path
+):
+    e = installation_env
+    e.outside_paths = [outside_path]
+    e.install()
+    target = e.project / ".agents/skills/review"
+    assert {p.relative_to(target).as_posix() for p in target.rglob("*") if p.is_file()} == set(
+        e.revisions["a" * 40]
+    )
+    assert len([r for r in e.requests if "/git/blobs/" in r.url.path]) == 3
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "../escape.txt",
+        "docs/../escape.txt",
+        "./alias.txt",
+        "docs//alias.txt",
+        "/absolute.txt",
+        "bad?.txt",
+    ],
+)
+def test_bundle_paths_are_validated_without_normalization_before_blob_reads(installation_env, path):
+    e = installation_env
+    content = b"Unsupported bundle file"
+    e.revisions["a" * 40][path] = (content, False)
+    with pytest.raises(InstallationError, match="Unsafe relative path"):
+        e.install()
+    sha = hashlib.sha1(content).hexdigest()
+    assert not any(r.url.path.endswith("/git/blobs/" + sha) for r in e.requests)
+    assert not (e.project / ".agents").exists()
     assert e.service.list(e.project) == ()
 
 

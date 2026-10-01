@@ -43,4 +43,7 @@
       buttons.forEach((button, index) => { button.disabled = states[index]; });
     }
   });
+  // Native submission must remain inert until the protected POST handler is ready.
+  document.querySelectorAll("form[data-installation-action] button:not([data-conflict])")
+    .forEach(button => { button.disabled = false; });
 })();

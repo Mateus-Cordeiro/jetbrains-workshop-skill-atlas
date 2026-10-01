@@ -22,8 +22,12 @@ The [Git integration tests](../tests/integration/test_git.py) retain the origina
 scan behavior when extending listing to supporting files: scanning filters to
 SKILL.md before decoding unrelated paths. Build non-UTF-8 filename fixtures with
 `git mktree`/`commit-tree`, not filesystem writes; APFS cannot create the same
-non-UTF-8 paths that Git trees can represent. Bundle retrieval can reject an
-unsupported path without making unrelated scan discovery fail.
+non-UTF-8 paths that Git trees can represent. The parameterized unusual-filename
+fixture also verifies that nested bundles ignore unsupported paths outside their
+directory, while root bundles still reject them. Git must filter raw bytes before
+decoding, and the bundle adapter must validate raw relative strings before
+`PurePosixPath` could erase repeated separators or `.` segments. API regressions
+verify that unsafe selected paths fail before their blobs are requested.
 
 Temporary project paths must be canonical before constructing expected absolute
 destinations. macOS `/tmp` and `/var` aliases differ from their resolved `/private`

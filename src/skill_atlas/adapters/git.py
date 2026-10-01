@@ -188,11 +188,12 @@ class GitSnapshotReader:
         )
 
     def regular_files(
-        self, snapshot: Snapshot, *, skills_only: bool = False
+        self, snapshot: Snapshot, *, skills_only: bool = False, prefix: str = ""
     ) -> tuple[RepositoryFile, ...]:
         repository = self._repository(snapshot)
         listing = self._run(repository, "ls-tree", "-r", "-z", "--full-tree", snapshot.commit_sha)
         files = []
+        raw_prefix = prefix.encode("utf-8")
         try:
             for entry in listing.split(b"\0"):
                 if not entry:
@@ -202,6 +203,9 @@ class GitSnapshotReader:
                 if kind != b"blob" or mode not in (b"100644", b"100755"):
                     continue
                 if skills_only and path.split(b"/")[-1] != b"SKILL.md":
+                    continue
+                # Git paths are arbitrary bytes. Decode only the selected bundle.
+                if not path.startswith(raw_prefix):
                     continue
                 if not re.fullmatch(b"[0-9a-f]{40}", sha):
                     raise ValueError("Invalid blob SHA")

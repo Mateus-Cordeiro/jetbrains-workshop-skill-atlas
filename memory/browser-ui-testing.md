@@ -121,3 +121,20 @@ selection form disables autocomplete so the server-rendered URL selection remain
 authoritative, without deferred JavaScript resetting live edits. The document-to-Claude
 flow in [installation browser tests](../tests/browser/test_installations.py) checks
 agent selection, preview, installation and Back navigation.
+
+An element's presence does not mean a deferred script has attached submit handlers.
+The original mutation forms could submit a native GET when Enter arrived early;
+the failure reproduced in Linux CI after a successful macOS suite. The delayed-script
+regression holds `installations.js` with a one-shot route and reloads only to
+`commit`, then verifies all mutation buttons stay disabled and implicit Enter
+does not navigate. Release the script before teardown and check that conflict
+buttons remain disabled. Keyboard tests must wait for the action to become enabled
+before focusing it. This verifies the UI safeguard rather than hiding the race
+with sleeps or a test-only readiness marker.
+
+When injecting a local edit after a successful installation/no-op, wait for its
+page refresh to finish first. The success notice can briefly appear in the old
+document before reload. Injecting during that interval makes the new page correctly
+disable Uninstall, instead of exercising a conflict that appeared after rendering.
+The lifecycle regression wraps the no-op click in `expect_navigation` before
+writing the local file.

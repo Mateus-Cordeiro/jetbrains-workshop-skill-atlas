@@ -39,6 +39,7 @@ def test_registration_destination_install_conflict_update_uninstall(
     assert not state.requests
     register_and_preview(page, project, source)
     assert not (project / ".agents").exists()
+    expect(page.get_by_role("button", name="Install skill", exact=True)).to_be_enabled()
     page.get_by_role("button", name="Install skill", exact=True).focus()
     page.keyboard.press("Enter")
     expect(page.locator(".installation-status")).to_have_text("current")
@@ -46,7 +47,8 @@ def test_registration_destination_install_conflict_update_uninstall(
     assert (target / "SKILL.md").read_text() == state.source
     page.reload()
     expect(page.locator(".installation-status")).to_have_text("current")
-    page.get_by_role("button", name="Install skill", exact=True).click()
+    with page.expect_navigation(wait_until="domcontentloaded"):
+        page.get_by_role("button", name="Install skill", exact=True).click()
     expect(page.locator("#installation-feedback")).to_contain_text("Already installed")
     (target / "notes.txt").write_text("Keep my work")
     page.get_by_role("button", name="Uninstall skill", exact=True).click()
@@ -112,3 +114,52 @@ def test_document_install_link_explicit_project_and_claude_destination(
     assert (project / ".claude/skills/code-review/SKILL.md").exists()
     page.go_back()
     expect(page.get_by_label("Agent", exact=True)).to_have_value("codex")
+
+
+@pytest.mark.parametrize("modified", [False, True])
+def test_mutations_wait_for_script_and_preserve_conflict_disabling(
+    browser_page, web_environment, scan_result, tmp_path, modified
+):
+    page, state = browser_page, web_environment
+    state.catalog.replace_repository(scan_result)
+    project = tmp_path / "project"
+    project.mkdir()
+    page.goto(page.base_url + "/installations")
+    register_and_preview(page, project, scan_result.skills[0])
+    page.get_by_role("button", name="Install skill", exact=True).click()
+    expect(page.locator(".installation-status")).to_have_text("current")
+    target = project / ".agents/skills/code-review"
+    if modified:
+        (target / "notes.txt").write_text("Local work")
+
+    held = []
+    page.route("**/static/installations.js", lambda route: held.append(route), times=1)
+    url = page.url
+    page.reload(wait_until="commit")
+    buttons = page.locator("form[data-installation-action] button")
+    try:
+        expect(buttons).to_have_count(4)
+        for button in buttons.all():
+            expect(button).to_be_disabled()
+        # Implicit keyboard submission must also stay inert while the script is held.
+        page.get_by_label("Register local project").fill(str(project))
+        page.get_by_label("Register local project").press("Enter")
+        expect(page).to_have_url(url)
+        expect(page.locator(".installation-status")).to_have_text(
+            "modified" if modified else "current"
+        )
+        assert (target / "SKILL.md").read_text() == state.source
+    finally:
+        for route in held:
+            route.continue_()
+    expect(page.get_by_role("button", name="Install skill", exact=True)).to_be_enabled()
+    uninstall = page.get_by_role("button", name="Uninstall skill", exact=True)
+    if modified:
+        expect(uninstall).to_be_disabled()
+        assert (target / "notes.txt").read_text() == "Local work"
+    else:
+        expect(uninstall).to_be_enabled()
+        uninstall.focus()
+        page.keyboard.press("Enter")
+        expect(page.get_by_text("No skills installed in this project.")).to_be_visible()
+        assert not target.exists()
