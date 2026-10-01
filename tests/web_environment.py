@@ -8,6 +8,7 @@ from unittest.mock import patch
 def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
     """Real Web composition; only GitHub and credential lookup are substituted."""
     import base64
+    import json
     from threading import Event
     from types import SimpleNamespace
 
@@ -27,6 +28,11 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
         zero=False,
         commit="a" * 40,
         requests=[],
+        grouping_requests=[],
+        grouping_status=200,
+        grouping_content=None,
+        grouping_content_by_perspective={},
+        grouping_gate=Event(),
         scan_gate=Event(),
         document_gate=Event(),
         listing_gate=Event(),
@@ -36,11 +42,10 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
     )
     state.scan_gate.set()
     state.document_gate.set()
+    state.grouping_gate.set()
     state.listing_gate.set()
 
     def organization_listing(request):
-        import json
-
         login = json.loads(request.content)["variables"]["login"]
         nodes = [
             {
@@ -60,6 +65,41 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
         return httpx.Response(200, json={"data": {"repositoryOwner": owner}})
 
     def handler(request):
+        if request.url.host == "127.0.0.1":
+            assert request.url.path == "/api/chat"
+            assert "Authorization" not in request.headers
+            state.grouping_requests.append(request)
+            assert state.grouping_gate.wait(gate_timeout), "Grouping gate was not released"
+            data = json.loads(json.loads(request.content)["messages"][1]["content"])
+            prompt = json.loads(request.content)["messages"][0]["content"]
+            perspective = "topics" if "subject area" in prompt else "capabilities"
+            content = state.grouping_content_by_perspective.get(perspective, state.grouping_content)
+            content = (
+                content
+                if content is not None
+                else {
+                    "groups": [{"title": "Improve software", "skill_ids": [s["id"] for s in data]}]
+                }
+            )
+            # Scenarios describe memberships; only this transport boundary translates
+            # them to Ollama's per-skill response format. Omitted skills stay omitted.
+            if isinstance(content, dict) and set(content) == {"groups"}:
+                assignments = {}
+                for index, group in enumerate(content["groups"], 1):
+                    for skill_id in group["skill_ids"]:
+                        assignments.setdefault(skill_id, []).append(index)
+                content = {
+                    "titles": [group["title"] for group in content["groups"]],
+                    "assignments": assignments,
+                }
+            return httpx.Response(
+                state.grouping_status,
+                json={
+                    "done": True,
+                    "done_reason": "stop",
+                    "message": {"content": json.dumps(content)},
+                },
+            )
         state.requests.append(request)
         assert request.headers["Authorization"] == "Bearer fixture-token"
         path = request.url.path
@@ -113,3 +153,4 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
         finally:
             state.scan_gate.set()
             state.document_gate.set()
+            state.grouping_gate.set()

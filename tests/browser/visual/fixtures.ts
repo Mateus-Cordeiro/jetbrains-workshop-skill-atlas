@@ -48,6 +48,11 @@ class AtlasServer {
     expect(await this.response()).toEqual({ ok: true });
   }
 
+  async graph() {
+    this.child.stdin.write(JSON.stringify({ command: 'graph' }) + '\n');
+    expect(await this.response()).toEqual({ ok: true });
+  }
+
   async requests() {
     this.child.stdin.write(JSON.stringify({ command: 'requests' }) + '\n');
     const response = await this.response();

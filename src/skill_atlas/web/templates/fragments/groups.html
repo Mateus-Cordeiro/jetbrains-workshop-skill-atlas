@@ -1,0 +1,37 @@
+<section id="workspace" class="graph-workspace" data-mode="groups" data-perspective="{{ perspective }}">
+  <header class="catalog-heading group-heading">
+    <h1>Explore</h1>
+    <button id="generate-groups" type="button" class="primary" hx-post="/explore/generate" hx-target="#group-status" hx-swap="outerHTML" hx-disabled-elt="this" {% if not view.skill_count or (group_job and group_job.state in ('queued', 'running')) %}disabled{% endif %} data-has-skills="{{ 'true' if view.skill_count else 'false' }}">{{ 'Regenerate groups' if has_groups else 'Generate groups' }}</button>
+  </header>
+  <div class="explore-toolbar">
+    <div class="view-toggle" role="group" aria-label="Group skills by">
+      <button type="button" data-perspective="capabilities" aria-pressed="{{ 'true' if perspective == 'capabilities' else 'false' }}">Capabilities</button>
+      <button type="button" data-perspective="topics" aria-pressed="{{ 'true' if perspective == 'topics' else 'false' }}">Topics</button>
+    </div>
+    <p class="graph-summary"><strong>{{ view.skill_count }}</strong> skills in your catalog <span class="toolbar-separator">/</span> <span id="graph-count"></span></p>
+  </div>
+  {% if group_job %}{% include 'fragments/group-status.html' %}{% else %}<div id="group-status" role="status" aria-live="polite"></div>{% endif %}
+  <p id="graph-stale" class="group-stale" {% if not view.stale %}hidden{% endif %}>The catalog has changed. Regenerate groups to include all current skills.</p>
+  <div id="explore-data" data-graph="{{ graph_data|tojson|forceescape }}" hidden></div>
+  <div class="explore-layout">
+    <section class="graph-stage" aria-label="Interactive skill graph">
+      <div class="graph-corner"><span class="signal-dot"></span> <span id="graph-mode">{{ perspective|upper }}</span><span class="graph-local">LOCAL ATLAS</span></div>
+      <div id="skill-graph" aria-hidden="true"></div>
+      <div id="graph-empty" class="graph-empty" {% if view.groups %}hidden{% endif %}>
+        <div class="empty-orbit" aria-hidden="true"><span>✧</span></div>
+        <h2>{% if not view.skill_count %}No saved skills{% elif not has_groups %}Discover the connections{% else %}No {{ perspective }} generated yet{% endif %}</h2>
+        <p>{% if not view.skill_count %}<a href="/">Scan a repository</a> to start exploring.{% else %}Generate topics and capabilities to explore your skill graph.{% endif %}</p>
+      </div>
+      <div id="graph-tooltip" class="graph-tooltip" role="tooltip" hidden></div>
+      <div class="graph-bottom"><span>DRAG TO EXPLORE <span class="toolbar-separator">/</span> CLICK TO EXPAND</span><div class="graph-controls" role="group" aria-label="Graph controls"><button type="button" data-graph-action="out" aria-label="Zoom out">−</button><button type="button" data-graph-action="in" aria-label="Zoom in">+</button><button type="button" data-graph-action="fit" aria-label="Fit graph">⌗</button><button type="button" data-graph-action="reset" aria-label="Reset layout">↺</button></div></div>
+    </section>
+    <aside class="graph-directory" aria-label="Browse graph groups">
+      <div class="directory-heading"><p class="eyebrow">EXPLORE CONNECTIONS</p><h2 id="directory-title">{{ perspective|capitalize }}</h2><p>Open a group. Follow a skill.</p></div>
+      <div id="group-directory">
+      {% for group in view.groups %}<details><summary>{{ group.title }} · {{ group.skills|length }}</summary>{% for skill in group.skills %}<a href="{{ url('/repository', repository_url=skill.repository.url, skill_path=skill.path, from_explore=perspective) }}">{{ skill.name }}</a>{% endfor %}</details>{% endfor %}
+      </div>
+      <p class="directory-note">One skill can connect to multiple groups.</p>
+    </aside>
+  </div>
+  <p id="graph-announcement" class="sr-only" role="status" aria-live="polite"></p>
+</section>

@@ -16,6 +16,9 @@ Provide a browser page where the user can:
 - Select a repository and see its skills in a left pane.
 - Select a skill and read its `SKILL.md` in a right pane.
 - Find similar skills across the catalog, see scores, and inspect matches.
+- Explicitly generate both topic/capability views and explore their overlapping
+  memberships in the G6 graph;
+  [Skill groups](skill-groups.md) owns their model, persistence, and HTTP contracts.
 
 The first version runs on the user's machine and shares the CLI's SQLite
 catalog and GitHub credentials. Public and private GitHub repositories follow
@@ -35,7 +38,9 @@ the existing access rules. This is a single-user local application.
   document viewing.
 - Add catalog read operations separately from the scanner's write interface.
 
-No database schema migration or backfill is required for this feature. Existing
+The original browsing and document features require no backfill. Optional
+[skill grouping](skill-groups.md) adds derived persistence through a numbered
+migration on explicit writes, while preserving reads of existing catalogs. Existing
 catalogs can supply the repository list, skill metadata, and document locations
 without rescanning.
 
@@ -61,7 +66,12 @@ Preserve the existing `scan` command and its terminal presentation. Register
 
 ### Homepage
 
-Start the homepage with a compact **Repositories** heading and count, a search
+Offer **Repositories** and **Explore** catalog navigation. Keep the shared light
+color scheme when navigating between catalog, Explore, and document pages.
+Repositories and Explore share one catalog template and navigation layout; their
+content uses the same width, padding, headings, buttons, and toggle styles.
+Switching tabs must not move or resize the navigation, including on wide desktops.
+Start the repository content with a compact **Repositories** heading and count, a search
 field, and **+ Add repository**. Omit the introductory hero and permanent scan
 card so the catalog is immediately visible. **Add repository** toggles a compact
 URL input and **Scan repository** button below the toolbar, focusing the URL
@@ -194,7 +204,8 @@ document. It opens a dedicated two-pane workspace with the starting skill's
 name, repository, and path above the results. A **Back** link returns to the page
 that opened the search, including the homepage, repository selection, or previous
 similarity search. Links carry that page's URL in `return_to`, preserving its filter
-and selection. Only local homepage, repository, and similarity URLs are accepted;
+and selection. Only local homepage, repository, similarity, and topic/capability
+Explore and legacy group URLs are accepted;
 a direct link without valid return context falls back to the starting skill's
 repository selection. Candidate selection, reload, and automatic refresh retain
 this destination, so Back leaves the workspace rather than stepping through its
@@ -534,9 +545,9 @@ Playwright with Chromium and a temporary loopback server; all GitHub requests
 are mocked. CI also verifies the installed command and packaged Web assets
 outside the checkout.
 
-The desktop visual pilot supplements these checks with three Playwright Test
+The desktop visual pilot supplements these checks with four Playwright Test
 scenarios: catalog filtering, description expansion and document preview/source,
-and scan progress with failure and retry. Named checkpoints compare the browser
+scan progress with failure and retry, and graph exploration. Named checkpoints compare the browser
 directly against reviewed screenshot baselines; recording mode produces videos
 from those same scenarios. Mobile baselines and migration of the remaining
 Python browser tests are outside the pilot. See the

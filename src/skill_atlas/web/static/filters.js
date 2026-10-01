@@ -37,7 +37,7 @@
       url.searchParams.set('return_to', location.pathname + location.search);
       link.href = url;
     });
-    if (pane?.dataset.mode === 'similar') return;
+    if (['similar', 'groups'].includes(pane?.dataset.mode)) return;
     if (!pane) return;
     let visible = false;
     document.querySelectorAll('.skill-link').forEach(link => {
@@ -47,7 +47,9 @@
         link.setAttribute('aria-current', 'true');
         visible = true;
       }
-      link.href = setQuery(new URL(link.href), query());
+      const target = setQuery(new URL(link.href), query());
+      if (pane.dataset.fromExplore) target.searchParams.set('from_explore', pane.dataset.fromExplore);
+      link.href = target;
     });
     const notice = document.querySelector('#selection-filter-notice');
     if (notice) notice.hidden = !pane.dataset.selectedPath || visible || !query().trim();

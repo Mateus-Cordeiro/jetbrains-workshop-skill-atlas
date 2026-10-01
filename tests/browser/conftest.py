@@ -51,6 +51,7 @@ def browser_page(web_environment):
     finally:
         state.scan_gate.set()
         state.document_gate.set()
+        state.grouping_gate.set()
         server.should_exit = True
         thread.join(timeout=10)
         sock.close()

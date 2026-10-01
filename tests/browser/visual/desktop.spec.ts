@@ -124,3 +124,34 @@ test('scan progress failure and retry', async ({ page, atlas, checkpoint }) => {
   await page.getByRole('link', { name: 'View results', exact: false }).click();
   await expect(page.locator('.skill-link')).toHaveCount(2);
 });
+
+
+test('explore skill connections', async ({ page, atlas, checkpoint }) => {
+  await atlas.graph();
+  await page.goto('/explore');
+  await page.getByRole('button', { name: 'Generate groups', exact: true }).click();
+  const ready = async () => {
+    await expect(page.locator('#skill-graph')).toHaveAttribute('data-ready', 'true');
+  };
+  await expect(page.getByRole('button', { name: 'Ship with confidence, 4 skills' })).toBeVisible();
+  await ready();
+  await checkpoint('explore-capabilities');
+  await page.getByRole('button', { name: 'Ship with confidence, 4 skills' }).click();
+  await ready();
+  await page.getByRole('button', { name: 'Secure systems, 2 skills' }).click();
+  await ready();
+  await expect(page.locator('#graph-count')).toHaveText('4 groups · 5 visible skills');
+  await checkpoint('explore-overlap');
+  await page.getByRole('link', { name: 'code-review Acme/skills', exact: true }).click();
+  await expect(page.locator('.markdown h1')).toHaveText('Review changes');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(page.locator('#document-source')).toContainText('name: code-review');
+  await page.getByRole('link', { name: 'Back to Explore', exact: false }).click();
+  await ready();
+  await expect(page.getByRole('button', { name: 'Secure systems, 2 skills' })).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('button', { name: 'Topics', exact: true }).click();
+  await ready();
+  await page.getByRole('button', { name: 'Reliability, 3 skills' }).click();
+  await ready();
+  await checkpoint('explore-topics');
+});

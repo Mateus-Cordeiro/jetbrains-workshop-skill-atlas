@@ -17,6 +17,10 @@ class CatalogError(AtlasError):
     """Catalog access, migration, or persistence failed."""
 
 
+class GroupingError(AtlasError):
+    """Explicit group generation failed without changing saved groups."""
+
+
 class RateLimitError(RepositoryError):
     """GitHub refused a request because a rate limit was reached."""
 

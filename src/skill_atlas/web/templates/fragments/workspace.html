@@ -1,4 +1,4 @@
-<section id="workspace" data-repository="{{ repository.url }}" data-selected-path="{{ selected.path if selected else '' }}">
+<section id="workspace" data-from-explore="{{ from_explore|default('') }}" data-repository="{{ repository.url }}" data-selected-path="{{ selected.path if selected else '' }}">
 <div class="repository-heading"><div><p class="eyebrow">REPOSITORY</p><h1>{{ repository.full_name }}</h1></div></div>
 {% if skills %}
 <div class="split-view"><aside class="skills-pane" aria-label="Skills">

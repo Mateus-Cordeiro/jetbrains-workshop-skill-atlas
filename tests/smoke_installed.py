@@ -27,6 +27,24 @@ REPOSITORY = "https://github.com/acme/skills"
 
 
 def github_response(request):
+    if request.url.host == "127.0.0.1":
+        assert request.url.path == "/api/chat" and "Authorization" not in request.headers
+        payload = json.loads(request.content)
+        skills = json.loads(payload["messages"][1]["content"])
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "titles": ["Installed capability"],
+                            "assignments": {s["id"]: [1] for s in skills},
+                        }
+                    )
+                },
+            },
+        )
     assert request.url.host == "api.github.com"
     assert "Authorization" not in request.headers
     if request.url.path == "/repos/acme/skills/contents/SKILL.md":
@@ -96,7 +114,17 @@ with (
         assert "Repositories" in page.text
         assert 'id="add-repository"' in page.text
         assert 'aria-controls="repository-form"' in page.text
-        for asset in ("htmx.min.js", "HTMX-LICENSE.txt", "app.js", "filters.js", "app.css"):
+        for asset in (
+            "htmx.min.js",
+            "HTMX-LICENSE.txt",
+            "app.js",
+            "filters.js",
+            "app.css",
+            "g6.min.js",
+            "g6-LICENSE.txt",
+            "explore.js",
+            "explore.css",
+        ):
             response = client.get(f"/static/{asset}")
             assert response.status_code == 200 and response.content
         accepted = client.post(
@@ -126,6 +154,23 @@ with (
                 original.repository, COMMIT, (original, replace(original, path="copy/SKILL.md"))
             )
         )
+        accepted_group = client.post(
+            "/explore/generate",
+            headers={"Origin": "http://127.0.0.1", "X-Atlas-Request": "1"},
+        )
+        assert accepted_group.status_code == 202
+        deadline = monotonic() + 5
+        while True:
+            status = client.get(accepted_group.headers["Location"])
+            if 'data-state="succeeded"' in status.text:
+                break
+            assert 'data-state="failed"' not in status.text and monotonic() < deadline, status.text
+            sleep(0.01)
+        for perspective in ("topics", "capabilities"):
+            for prefix in ("", "/fragments"):
+                grouped = client.get(f"{prefix}/explore", params={"perspective": perspective})
+                assert grouped.status_code == 200 and "Installed capability" in grouped.text
+                assert "installed-skill" in grouped.text and "Regenerate groups" in grouped.text
         environment = dict(os.environ, SKILL_ATLAS_DB=str(catalog.path))
         for options in ([], ["--no-interactive"], ["--json"]):
             command = subprocess.run(

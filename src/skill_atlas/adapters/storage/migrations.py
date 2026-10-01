@@ -29,6 +29,19 @@ MIGRATIONS = (
             """,
         ),
     ),
+    Migration(
+        version=2,
+        statements=(
+            """
+            CREATE TABLE skill_groupings (
+                perspective TEXT PRIMARY KEY CHECK (perspective IN ('topics', 'capabilities')),
+                fingerprint TEXT NOT NULL,
+                model TEXT NOT NULL,
+                groups_json TEXT NOT NULL
+            )
+            """,
+        ),
+    ),
 )
 
 

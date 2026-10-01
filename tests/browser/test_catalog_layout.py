@@ -8,6 +8,42 @@ from playwright.sync_api import expect
 pytestmark = pytest.mark.allow_hosts(["127.0.0.1"])
 
 
+@pytest.mark.parametrize("width", [390, 1360, 1920])
+def test_catalog_navigation_keeps_its_layout_between_pages(
+    browser_page, web_environment, scan_result, width
+):
+    page = browser_page
+    web_environment.catalog.replace_repository(scan_result)
+    web_environment.grouping_content = {
+        "groups": [{"title": "Software engineering", "skill_ids": ["s1", "s2"]}]
+    }
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.goto(page.base_url)
+
+    def navigation_geometry():
+        return page.locator(".catalog-navigation, .catalog-navigation a").evaluate_all(
+            """nodes => nodes.map(node => {
+                const {x, y, width, height} = node.getBoundingClientRect();
+                return {x, y, width, height};
+            })"""
+        )
+
+    original = navigation_geometry()
+    Path("test-results").mkdir(exist_ok=True)
+    page.screenshot(path=f"test-results/catalog-navigation-repositories-{width}.png")
+    page.get_by_role("link", name="Explore", exact=True).click()
+    page.wait_for_url(page.base_url + "/explore", wait_until="domcontentloaded")
+    assert navigation_geometry() == original
+    page.get_by_role("button", name="Generate groups", exact=True).click()
+    expect(page.get_by_role("button", name="Software engineering, 2 skills")).to_be_visible()
+    expect(page.locator("#skill-graph")).to_have_attribute("data-ready", "true")
+    assert navigation_geometry() == original
+    page.screenshot(path=f"test-results/catalog-navigation-explore-{width}.png")
+    page.get_by_role("link", name="Repositories", exact=True).click()
+    page.wait_for_url(page.base_url + "/", wait_until="domcontentloaded")
+    assert navigation_geometry() == original
+
+
 @pytest.mark.parametrize("width", [1360, 390], ids=["desktop", "mobile"])
 def test_compact_home_add_form_and_search(browser_page, web_environment, scan_result, width):
     page, state = browser_page, web_environment

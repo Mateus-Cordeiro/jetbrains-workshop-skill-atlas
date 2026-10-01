@@ -201,9 +201,75 @@ five seconds; failed scans stay available for retry or dismissal. Both completed
 states have a dismiss button, and dismissed notices stay hidden in the same tab.
 
 The interface is local and binds only to loopback. Templates, CSS, JavaScript,
-and HTMX are bundled with the Python package; no frontend build or CDN is needed.
+and HTMX/G6 are bundled with the Python package; no frontend build or CDN is needed.
 See [the Web UI specification](spec/features/web-ui.md) for behavior and
 architecture.
+
+## AI topic and capability groups
+
+Choose **Explore** in the Web catalog, then **Generate groups** to create both
+perspectives. Switch instantly between **Capabilities** and **Topics** above the
+graph. Click a group to reveal its skills, drag nodes, and pan or zoom the canvas.
+Hover highlights connections and shows details. Generation creates **at most 12
+groups for each perspective**, preferring broader, coherent groups. Every skill
+is included and can connect to multiple groups; a distinct skill can have a group
+of its own within the limit. Previously saved larger groupings remain available
+until you regenerate them.
+
+The directory beside the graph provides the same groups and skill links for
+keyboard use, and moves below the graph on mobile. Clicking a skill opens the
+existing Preview/Source viewer; **Back to Explore** restores your expanded groups
+and node positions in the same browser tab. Use **Fit graph** to frame the nodes or
+**Reset layout** to reposition them. Motion respects reduced-motion preferences.
+Generation uses names and descriptions, not document bodies.
+
+Install and start [Ollama](https://ollama.com/), and make the model available:
+
+```sh
+ollama pull qwen3.6:latest
+# If the Ollama application is not already serving:
+ollama serve
+```
+
+Run `skill-atlas serve` as usual. The default model is `qwen3.6:latest`; use an
+already-installed local model if preferred. No model is downloaded automatically.
+Only explicit generation calls Ollama. Saved groups work while Ollama is stopped,
+and ordinary scanning, filtering, and similarity search do not require it.
+
+Configure the backend before starting the server:
+
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `SKILL_ATLAS_OLLAMA_MODEL` | `qwen3.6:latest` | Installed local model tag. |
+| `SKILL_ATLAS_OLLAMA_URL` | `http://127.0.0.1:11434` | Loopback HTTP Ollama origin; remote endpoints and embedded credentials are rejected. |
+| `SKILL_ATLAS_OLLAMA_TIMEOUT` | `600` | Inference request timeout in seconds. |
+| `SKILL_ATLAS_OLLAMA_CONTEXT` | `32768` | Requested model context tokens. |
+| `SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS` | `8192` | Reserved maximum output tokens. |
+
+Use positive numeric seconds for timeout and positive whole numbers for token
+limits (for example, `600` and `32768`, rather than `10m` and `32k`). Context must
+exceed the output limit. These settings are validated only when you generate
+groups; a bad value appears in the job error and does not prevent scanning,
+filtering, similarity search, or starting the Web UI.
+
+Larger catalogs may require more context and output tokens, subject to the model
+and available memory. A conservative UTF-8 byte budget rejects oversized input
+before sending it; it can reject text that a tokenizer would fit. Skills are never
+silently omitted. Incomplete, malformed, or failed responses preserve previous
+groups and offer retry. Skill Atlas sends metadata only to the configured local
+Ollama server; use a local model, not an Ollama cloud model. GitHub credentials
+are never forwarded.
+
+The response schema requires an assignment for every skill. Failures identify
+Topics or Capabilities and explain the rejected rule, such as missing assignments
+or invalid group references, without exposing raw model output.
+
+**Regenerate groups** makes two sequential Ollama calls from one catalog snapshot
+and replaces both saved views together only after both validate. It may reorganize
+or rename groups. Catalog changes show a regeneration notice;
+removed skills disappear, and new skills join groups after regeneration. If either request or save fails, both previous views remain available. Jobs survive browser
+navigation, but do not resume after server restart. See the
+[grouping specification](spec/features/skill-groups.md) for behavior and limits.
 
 ## Installation
 
@@ -285,7 +351,7 @@ or specify the checkout with `uv run --project /path/to/checkout skill-atlas ...
 Start with the [specification index](spec/README.md). The
 [shared architecture](spec/architecture.md) records the adopted stack, component
 boundaries, catalog contracts, and extension patterns. Feature specs describe
-scan, filtering, Web UI, and similarity-search behavior and their acceptance
+scan, filtering, Web UI, AI grouping, and similarity-search behavior and their acceptance
 criteria. The [Filter specification](spec/features/filter.md) owns matching rules
 shared by the CLI and Web UI.
 
@@ -302,8 +368,8 @@ walkthroughs for [scanning](spec/architecture.md#following-a-scan),
 ### Desktop visual tests
 
 The desktop pilot uses Playwright Test with Chromium for catalog filtering,
-description expansion and document preview/source, and scan progress with
-failure and retry. Each scenario uses a real local app and temporary catalog,
+description expansion and document preview/source, scan progress with
+failure and retry, and graph exploration. Each scenario uses a real local app and temporary catalog,
 with synthetic GitHub responses. Existing Python browser tests, including mobile
 coverage, remain in place.
 
@@ -368,7 +434,7 @@ workflow artifacts. The stable aggregate status check is **CI required**; select
 it in GitHub branch protection or a ruleset to require passing CI before merging.
 
 The existing browser job runs Python Playwright tests. A separate required
-desktop visual job runs the three pilot scenarios in the pinned Docker image,
+desktop visual job runs the four pilot scenarios in the pinned Docker image,
 compares screenshot baselines, and uploads the HTML/JUnit reports, checkpoint
 images, and failure diagnostics. Both feed into **CI required**.
 
@@ -401,7 +467,7 @@ uv run --locked playwright install chromium
 uv run --locked pytest tests/browser
 ```
 
-Browser tests permit loopback connections only and mock GitHub. They cover
+Browser tests permit loopback connections only and mock GitHub and Ollama. They cover
 selection, preview/source switching, navigation, narrow layouts, scan states,
 retry, stale selections, and delayed responses. CI runs them in Chromium on Linux.
 Screenshots are written to the ignored `test-results/` directory.
@@ -409,5 +475,17 @@ Screenshots are written to the ignored `test-results/` directory.
 After `uv build`, install the wheel into a temporary virtual environment and
 run `tests/smoke_installed.py` with that environment's Python from outside the
 checkout. It verifies the installed `filter` and `similar` commands, including
-help and catalog queries, plus packaged templates and static assets. CI also checks
+help and catalog queries, plus AI grouping generation/persistence with mocked Ollama and packaged templates
+and static assets. CI also checks
 `skill-atlas serve --help` in that installed environment.
+
+### Updating the bundled graph library
+
+G6 is pinned in `package.json` and `package-lock.json`. After an intentional version
+update, run `npm ci` and `npm run vendor:g6`. Commit the regenerated
+`src/skill_atlas/web/static/g6.min.js` and `g6-LICENSE.txt` with the lockfile changes.
+The script copies the published distribution and includes dependency license
+notices. `npm run check:vendor` checks reproducibility without writing; the desktop
+visual job runs it before its TypeScript and browser checks. Run the Web, installed-wheel, and visual checks in
+[AGENTS.md](AGENTS.md#required-local-checks). End users do not need Node or npm;
+the Python wheel contains the graph library and all assets.

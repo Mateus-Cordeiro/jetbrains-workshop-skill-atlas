@@ -2,12 +2,15 @@
   "name": "skill-atlas-browser-tests",
   "private": true,
   "scripts": {
-    "check:visual": "tsc --noEmit -p tests/browser/visual/tsconfig.json",
+    "check:visual": "npm run check:vendor && tsc --noEmit -p tests/browser/visual/tsconfig.json",
     "test:visual": "npm run check:visual && playwright test --config tests/browser/visual/playwright.config.ts",
     "test:visual:container": "bash tests/browser/visual/run-container.sh",
-    "demo:visual": "ATLAS_DEMO=1 bash tests/browser/visual/run-container.sh"
+    "demo:visual": "ATLAS_DEMO=1 bash tests/browser/visual/run-container.sh",
+    "vendor:g6": "node scripts/vendor-g6.mjs",
+    "check:vendor": "node scripts/vendor-g6.mjs --check"
   },
   "devDependencies": {
+    "@antv/g6": "5.1.1",
     "@playwright/test": "1.63.0",
     "@types/node": "24.10.1",
     "typescript": "5.9.3"

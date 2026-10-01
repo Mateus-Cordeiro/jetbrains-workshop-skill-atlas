@@ -16,6 +16,9 @@ to maintain them.
   before checking widget geometry in headless tests.
 - [Browser UI testing](browser-ui-testing.md): starting a homepage scan and
   returning to a workspace before completion, plus controlled-clock settling
-  for desktop visual checkpoints.
+  for desktop visual checkpoints, G6/HTMX lifecycle, graph fixtures, and wide-screen
+  navigation geometry checks.
+- [Group generation](group-generation.md): diagnosing missing assignments,
+  Ollama schema/context handling, and fixture wire-format boundaries.
 - [Python test suite](python-testing.md): unique test module basenames, and
   deterministic organization scan tests for rate limits, parallel workers, and Ctrl+C.

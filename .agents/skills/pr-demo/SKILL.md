@@ -54,7 +54,8 @@ records the same interactions with review pacing. See the
 baseline review, report, and artifact commands. Preserve videos needed for
 delivery under `test-results/pr-demo/` before another run replaces the report.
 Disclose the fixture-controlled scan delays and failures in captions. The pilot
-covers desktop filtering, descriptions/document views, and scan failure/retry;
+covers desktop filtering, descriptions/document views, scan failure/retry, and
+graph exploration;
 do not imply it covers every browser flow or mobile visuals.
 
 For other browser scenarios, prefer the project's existing Playwright
