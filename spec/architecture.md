@@ -132,7 +132,7 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `grouping.py` | Immutable grouping perspectives, identities, saved-result values, and shared group limit. |
 | `application/grouping.py` | Complete-membership validation, metadata fingerprints, explicit generation, and current-catalog group views. |
 | `application/grouping_jobs.py` | One process-local job generates both perspectives; duplicate submissions reuse it. |
-| `adapters/ollama.py` | Structured local model requests, per-skill assignment translation, context budgeting, and provider error adaptation. |
+| `adapters/ollama.py` | Structured local model requests, per-skill assignment translation, context options, truncation protection, and provider error adaptation. |
 | `adapters/storage/grouping.py` | Atomic saved-group writes and consistent group/catalog read snapshots. |
 | `web/grouping_routes.py` | Explore pages, workspace fragments, legacy redirects, and explicit generation/status HTTP adaptation. |
 | `web/exploration.py` | Graph presentation serialization: opaque node IDs, memberships, metadata, and encoded navigation links. |
@@ -312,17 +312,27 @@ new persistence, embedding model, or remote service is introduced. See the
 HTTPX/Ollama adapter. Ollama numeric environment values remain unparsed in shared
 settings until this explicit job starts. The composition root validates positive,
 finite timeouts and positive integer token limits before creating a client;
-context must exceed the output limit. Invalid values raise `GroupingError` naming
-the variable, without affecting scans, filtering, similarity, or Web startup.
+an explicit context override must exceed the output limit. Invalid values raise
+`GroupingError` naming the variable, without affecting scans, filtering,
+similarity, or Web startup.
 The application reads metadata once, invokes the provider
 sequentially for both perspectives, validates both complete memberships, and saves
-them atomically. Provider prompts, schemas, budgets and failures remain in the
+them atomically. Provider prompts, schemas, context handling and failures remain in the
 adapter; completeness, identity, and group-count policy remain in the application.
 The Ollama schema requires every skill's assignment and caps proposed titles at
 12. The adapter translates numbered assignments into the shared membership format,
 discarding unused proposed titles. The application independently validates all
 published groups and identifies the failing perspective in errors. Neither the
 provider wire format nor its translation changes saved catalog identities.
+
+Context defaults to Ollama's model/server configuration; the adapter sends `num_ctx`
+only for an explicit override. Ollama enforces the actual token limit with input
+truncation and context shifting disabled, replacing the former UTF-8 byte estimate.
+The adapter verifies a stable Ollama release of at least 0.13.0 once per generation,
+before sending metadata, because older servers may ignore these flags. This keeps
+model-specific tokenization and resource defaults with Ollama while preserving
+complete input and atomic publication on context failures. Output and timeout
+limits remain explicit; no tokenizer library or model-discovery service is added.
 
 Graph reads use one SQLite transaction for both saved perspectives and current
 skill rows. Fingerprints detect scans from any process. `web/exploration.py`
@@ -524,8 +534,8 @@ presentation must not expose tokens, raw subprocess output, or tracebacks.
 ### Local model configuration
 
 Optional Ollama settings select the loopback HTTP endpoint, installed model tag,
-request timeout, context size, and reserved output tokens; defaults and environment
-variables are documented in [README](../README.md#ai-topic-and-capability-groups).
+request timeout, optional context override, and reserved output tokens; defaults
+and environment variables are documented in [README](../README.md#ai-topic-and-capability-groups).
 Only explicit generation constructs an Ollama client. It uses no GitHub headers
 or credentials, follows no redirects, and ignores environment proxy settings.
 Only loopback HTTP endpoints without embedded credentials, paths, or queries are

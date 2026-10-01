@@ -44,15 +44,27 @@ and graph presentation remain unchanged. Existing results with more than 12
 groups remain readable until explicit regeneration replaces them.
 
 One explicit action makes two sequential requests, one per perspective, using
-the same complete catalog snapshot. Each request has a
-conservative UTF-8 byte budget that includes instructions, metadata, chat
-headroom, and reserved output tokens. If it exceeds configured context, fail
-before calling Ollama; never silently omit skills or split into unrelated
-batches. The `format` schema constrains decoding and is not added to prompt text.
-Ollama receives explicit context/output limits and a bounded timeout.
+the same complete catalog snapshot. Omit `options.num_ctx` by default so Ollama
+selects context from its model/server configuration. Only an explicit
+`SKILL_ATLAS_OLLAMA_CONTEXT` adds the override. Do not estimate token counts from
+UTF-8 bytes or reject catalogs against a guessed default, even with an override.
+Send `truncate: false` and `shift: false` so Ollama's tokenizer and runner reject
+oversized input or stop at context exhaustion without discarding metadata. Report
+context-overflow errors with settings guidance; a length-limited response fails
+before publication even if it contains valid, complete JSON. Never silently omit
+skills or split into unrelated batches. The `format` schema constrains decoding
+and is not added to prompt text. Output limits and the request timeout remain
+explicit.
+
+Before the first inference in each generation, check `/api/version` for Ollama
+0.13.0 or newer, which supports both protection flags. Reject older,
+unrecognized, or prerelease versions before sending catalog metadata, since
+older servers can silently ignore unsupported fields. Cache this check only in
+the generation's provider instance, shared by its two perspective calls.
 Validate numeric settings only when generation is explicitly requested. Reject
 malformed values, nonpositive or nonfinite timeouts, nonpositive integer token
-limits, and context no greater than the output limit before contacting Ollama.
+limits, and an explicit context no greater than the output limit before contacting
+Ollama.
 The failed job identifies the setting to correct and preserves saved groups;
 invalid Ollama settings never prevent unrelated commands or catalog browsing.
 Do not download models or start Ollama automatically. Report connection, missing
@@ -161,13 +173,17 @@ specify an upstream endpoint, model, credential, or arbitrary skill body.
 
 - Unit tests cover complete coverage, overlap, singleton/duplicate identities,
   required per-skill assignments, the 12-group boundary, unused proposed titles,
-  invalid output, topic/capability prompts, context limits, structured requests,
-  sanitized provider failures, deduplicated jobs, retries, and shutdown.
+  invalid output, topic/capability prompts, default/overridden context, full metadata
+  beyond the former byte limit, server compatibility, truncation/shift protection,
+  structured requests, sanitized provider failures, deduplicated jobs, retries,
+  and shutdown.
 - Integration tests use real SQLite, the real Web composition, and mocked Ollama
   and GitHub transports. Cover version-1 reads/migration, paired perspectives and second-result failure,
   rollback, corruption, persistence across service instances, same-name/path
   identities, escaped output, explicit generation only, no credential forwarding,
   stale generation during concurrent scans, removals, and commit-only changes.
+  Context failures in either perspective, context exhaustion, and unsupported servers
+  preserve both saved results; default-context generation covers catalogs above the old limit.
 - Browser tests cover both perspectives, generation/retry/navigation during work,
   shared skill nodes, pointer drag/hover/expand, zoom controls, source/preview,
   refresh/back and restored positions, stale catalog data, keyboard use, reduced

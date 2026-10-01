@@ -29,7 +29,11 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
         commit="a" * 40,
         requests=[],
         grouping_requests=[],
+        grouping_version_requests=[],
+        grouping_version="0.13.0",
         grouping_status=200,
+        grouping_errors={},
+        grouping_done_reason="stop",
         grouping_content=None,
         grouping_content_by_perspective={},
         grouping_gate=Event(),
@@ -66,13 +70,19 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
 
     def handler(request):
         if request.url.host == "127.0.0.1":
-            assert request.url.path == "/api/chat"
             assert "Authorization" not in request.headers
+            if request.url.path == "/api/version":
+                assert request.method == "GET"
+                state.grouping_version_requests.append(request)
+                return httpx.Response(200, json={"version": state.grouping_version})
+            assert request.url.path == "/api/chat"
             state.grouping_requests.append(request)
             assert state.grouping_gate.wait(gate_timeout), "Grouping gate was not released"
             data = json.loads(json.loads(request.content)["messages"][1]["content"])
             prompt = json.loads(request.content)["messages"][0]["content"]
             perspective = "topics" if "subject area" in prompt else "capabilities"
+            if perspective in state.grouping_errors:
+                return httpx.Response(400, json={"error": state.grouping_errors[perspective]})
             content = state.grouping_content_by_perspective.get(perspective, state.grouping_content)
             content = (
                 content
@@ -96,7 +106,7 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
                 state.grouping_status,
                 json={
                     "done": True,
-                    "done_reason": "stop",
+                    "done_reason": state.grouping_done_reason,
                     "message": {"content": json.dumps(content)},
                 },
             )

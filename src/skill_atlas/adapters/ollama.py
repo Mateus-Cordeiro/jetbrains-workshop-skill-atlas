@@ -1,6 +1,7 @@
 """Explicit structured generation using Ollama's native chat API."""
 
 import json
+import re
 
 import httpx
 
@@ -77,15 +78,51 @@ def _groups(payload: object, skill_ids: tuple[str, ...]) -> object:
 
 class OllamaGrouping:
     def __init__(
-        self, client: httpx.Client, model: str, *, context: int = 32768, output_tokens: int = 8192
+        self,
+        client: httpx.Client,
+        model: str,
+        *,
+        context: int | None = None,
+        output_tokens: int = 8192,
     ) -> None:
         self.client = client
         self.model = model
         self.context = context
         self.output_tokens = output_tokens
+        self._version_checked = False
+
+    def _check_version(self) -> None:
+        # Older servers silently ignore truncate/shift, so coverage in the output
+        # schema alone cannot prove the model received every skill's metadata.
+        if self._version_checked:
+            return
+        response = self.client.get("/api/version")
+        message = (
+            "Ollama 0.13.0 or newer is required to protect complete catalog input. "
+            "Could not verify a supported release; update Ollama and retry generation."
+        )
+        if response.status_code == 404:
+            raise GroupingError(message)
+        response.raise_for_status()
+        try:
+            version = response.json()["version"]
+        except (ValueError, TypeError, KeyError) as error:
+            raise GroupingError(message) from error
+        match = (
+            re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:\+[\w.-]+)?", version)
+            if isinstance(version, str)
+            else None
+        )
+        if match is None or tuple(map(int, match.groups())) < (0, 13, 0):
+            raise GroupingError(message)
+        self._version_checked = True
 
     def group(self, skills: tuple[Skill, ...], perspective: Perspective) -> object:
-        if not self.model.strip() or self.output_tokens < 1 or self.context <= self.output_tokens:
+        if (
+            not self.model.strip()
+            or self.output_tokens < 1
+            or (self.context is not None and self.context <= self.output_tokens)
+        ):
             raise GroupingError("Check the Ollama model, context, and output token settings.")
         lens = (
             "topic: the domain or subject area, such as databases or security"
@@ -117,17 +154,11 @@ class OllamaGrouping:
         )
         skill_ids = tuple(f"s{i}" for i in range(1, len(skills) + 1))
         schema = _schema(skill_ids)
-        # UTF-8 bytes give a deliberately conservative budget without a model tokenizer.
-        # Reserve chat-template headroom and complete output; never truncate input.
-        # Ollama's format schema constrains decoding, rather than becoming prompt text.
-        input_budget = len((system + content).encode()) + 1024
-        if input_budget + self.output_tokens > self.context:
-            raise GroupingError(
-                "The catalog exceeds the configured Ollama context budget. Increase "
-                "SKILL_ATLAS_OLLAMA_CONTEXT for a model and machine that support it. "
-                "No skills were omitted."
-            )
+        options = {"temperature": 0, "num_predict": self.output_tokens}
+        if self.context is not None:
+            options["num_ctx"] = self.context
         try:
+            self._check_version()
             response = self.client.post(
                 "/api/chat",
                 json={
@@ -139,11 +170,10 @@ class OllamaGrouping:
                     "format": schema,
                     "stream": False,
                     "think": False,
-                    "options": {
-                        "temperature": 0,
-                        "num_ctx": self.context,
-                        "num_predict": self.output_tokens,
-                    },
+                    # Let Ollama's tokenizer enforce the actual context window.
+                    "truncate": False,
+                    "shift": False,
+                    "options": options,
                 },
             )
             if response.status_code == 404:
@@ -155,8 +185,9 @@ class OllamaGrouping:
             payload = response.json()
             if payload.get("done") is not True or payload.get("done_reason") == "length":
                 raise GroupingError(
-                    "Ollama did not finish the grouping response. Increase "
-                    "SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS (and context if needed), then retry."
+                    "Ollama did not finish the grouping response. Check its context size "
+                    "and SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS; increase the limiting setting "
+                    "and retry. SKILL_ATLAS_OLLAMA_CONTEXT can override Ollama's context."
                 )
             return _groups(json.loads(payload["message"]["content"]), skill_ids)
         except httpx.TimeoutException as error:
@@ -164,6 +195,12 @@ class OllamaGrouping:
                 "Ollama generation timed out. Retry or increase SKILL_ATLAS_OLLAMA_TIMEOUT."
             ) from error
         except httpx.HTTPStatusError as error:
+            if _context_overflow(error.response):
+                raise GroupingError(
+                    "The catalog does not fit Ollama's context window. Increase Ollama's "
+                    "context or set SKILL_ATLAS_OLLAMA_CONTEXT for a model and machine "
+                    "that support it, then retry. No skills were omitted."
+                ) from error
             raise GroupingError(
                 "Ollama could not generate groups. Check its server and model."
             ) from error
@@ -175,3 +212,18 @@ class OllamaGrouping:
             raise GroupingError(
                 "Ollama returned invalid JSON. Retry generation or choose another model."
             ) from error
+
+
+def _context_overflow(response: httpx.Response) -> bool:
+    """Recognize provider context errors without displaying upstream content."""
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    message = payload.get("error") if isinstance(payload, dict) else None
+    if not isinstance(message, str):
+        return False
+    message = message.lower()
+    return any(
+        term in message for term in ("context length", "context size", "context window")
+    ) and any(term in message for term in ("exceed", "longer", "too long", "full"))

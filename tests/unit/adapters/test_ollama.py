@@ -9,12 +9,26 @@ from skill_atlas.errors import GroupingError
 from skill_atlas.grouping import Perspective
 
 
+@pytest.fixture
+def ollama_transport():
+    def transport(handler):
+        def respond(request):
+            if request.url.path == "/api/version":
+                assert request.method == "GET" and "authorization" not in request.headers
+                return httpx.Response(200, json={"version": "0.13.0"})
+            return handler(request)
+
+        return httpx.MockTransport(respond)
+
+    return transport
+
+
 @pytest.mark.parametrize(
     "perspective,term",
     [(Perspective.TOPICS, "subject area"), (Perspective.CAPABILITIES, "helps accomplish")],
 )
 def test_native_request_has_schema_complete_metadata_and_no_credentials(
-    scan_result, perspective, term
+    scan_result, perspective, term, ollama_transport
 ):
     def respond(request):
         assert request.url == "http://127.0.0.1:11434/api/chat"
@@ -22,6 +36,8 @@ def test_native_request_has_schema_complete_metadata_and_no_credentials(
         payload = json.loads(request.content)
         assert payload["model"] == "fixture-model"
         assert payload["stream"] is False and payload["think"] is False
+        assert payload["truncate"] is False and payload["shift"] is False
+        assert payload["options"] == {"temperature": 0, "num_predict": 8192}
         schema = payload["format"]
         assert schema["required"] == ["titles", "assignments"]
         assert schema["properties"]["titles"]["maxItems"] == 12
@@ -54,7 +70,7 @@ def test_native_request_has_schema_complete_metadata_and_no_credentials(
         )
 
     with httpx.Client(
-        base_url="http://127.0.0.1:11434", transport=httpx.MockTransport(respond)
+        base_url="http://127.0.0.1:11434", transport=ollama_transport(respond)
     ) as client:
         assert OllamaGrouping(client, "fixture-model").group(scan_result.skills, perspective) == {
             "groups": [
@@ -64,9 +80,10 @@ def test_native_request_has_schema_complete_metadata_and_no_credentials(
         }
 
 
-def test_schema_requires_all_45_skills_including_the_previously_omitted_id(scan_result):
-    # About 20 KB of metadata still fits the default conservative context budget;
-    # the decoding schema is not extra prompt text.
+def test_schema_requires_all_45_skills_including_the_previously_omitted_id(
+    scan_result, ollama_transport
+):
+    # Coverage must be encoded for every input, including catalogs with many skills.
     skills = tuple(
         replace(
             scan_result.skills[0], path=f"skill-{i}/SKILL.md", description="Review changes. " * 27
@@ -92,9 +109,7 @@ def test_schema_requires_all_45_skills_including_the_previously_omitted_id(scan_
             },
         )
 
-    with httpx.Client(
-        base_url="http://127.0.0.1", transport=httpx.MockTransport(respond)
-    ) as client:
+    with httpx.Client(base_url="http://127.0.0.1", transport=ollama_transport(respond)) as client:
         result = OllamaGrouping(client, "model").group(skills, Perspective.CAPABILITIES)
     assert result == {
         "groups": [{"title": "Review code", "skill_ids": [f"s{i}" for i in range(1, 46)]}]
@@ -126,10 +141,12 @@ def test_schema_requires_all_45_skills_including_the_previously_omitted_id(scan_
         ],
     ],
 )
-def test_invalid_assignments_fail_without_exposing_model_content(payload, message, scan_result):
+def test_invalid_assignments_fail_without_exposing_model_content(
+    payload, message, scan_result, ollama_transport
+):
     response = httpx.Response(200, json={"done": True, "message": {"content": json.dumps(payload)}})
     with httpx.Client(
-        base_url="http://127.0.0.1", transport=httpx.MockTransport(lambda _: response)
+        base_url="http://127.0.0.1", transport=ollama_transport(lambda _: response)
     ) as client:
         with pytest.raises(GroupingError, match=message) as error:
             OllamaGrouping(client, "model").group(scan_result.skills, Perspective.TOPICS)
@@ -149,9 +166,11 @@ def test_invalid_assignments_fail_without_exposing_model_content(payload, messag
         (httpx.Response(200, json={"done": True, "done_reason": "length"}), "did not finish"),
     ],
 )
-def test_errors_are_actionable_and_do_not_expose_response(response, message, scan_result):
+def test_errors_are_actionable_and_do_not_expose_response(
+    response, message, scan_result, ollama_transport
+):
     with httpx.Client(
-        base_url="http://127.0.0.1", transport=httpx.MockTransport(lambda _: response)
+        base_url="http://127.0.0.1", transport=ollama_transport(lambda _: response)
     ) as client:
         with pytest.raises(GroupingError, match=message) as error:
             OllamaGrouping(client, "model").group(scan_result.skills, Perspective.TOPICS)
@@ -161,11 +180,11 @@ def test_errors_are_actionable_and_do_not_expose_response(response, message, sca
 @pytest.mark.parametrize(
     "exception,message", [(httpx.ConnectError, "Could not reach"), (httpx.ReadTimeout, "timed out")]
 )
-def test_transport_errors(exception, message, scan_result):
+def test_transport_errors(exception, message, scan_result, ollama_transport):
     def fail(request):
         raise exception("secret upstream error", request=request)
 
-    with httpx.Client(base_url="http://127.0.0.1", transport=httpx.MockTransport(fail)) as client:
+    with httpx.Client(base_url="http://127.0.0.1", transport=ollama_transport(fail)) as client:
         with pytest.raises(GroupingError, match=message):
             OllamaGrouping(client, "model").group(scan_result.skills, Perspective.TOPICS)
 
@@ -173,16 +192,149 @@ def test_transport_errors(exception, message, scan_result):
 @pytest.mark.parametrize(
     "options,message",
     [
-        ({"context": 1000, "output_tokens": 100}, "context budget"),
         ({"context": 10, "output_tokens": 100}, "settings"),
         ({"output_tokens": 0}, "settings"),
         ({"model": ""}, "settings"),
     ],
 )
-def test_invalid_settings_and_context_overflow_do_not_make_requests(options, message, scan_result):
+def test_invalid_settings_do_not_make_requests(options, message, scan_result):
     with httpx.Client(
         transport=httpx.MockTransport(lambda _: pytest.fail("Unexpected request"))
     ) as client:
         model = options.pop("model", "model")
         with pytest.raises(GroupingError, match=message):
             OllamaGrouping(client, model, **options).group(scan_result.skills, Perspective.TOPICS)
+
+
+@pytest.mark.parametrize("context", [None, 32768])
+def test_large_catalog_uses_complete_metadata_without_byte_budget(
+    scan_result, ollama_transport, context
+):
+    skills = tuple(
+        replace(scan_result.skills[0], path=f"skill-{i}/SKILL.md", description="安全 review. " * 50)
+        for i in range(61)
+    )
+
+    def respond(request):
+        payload = json.loads(request.content)
+        content = payload["messages"][1]["content"]
+        assert len(content.encode()) > 32768
+        assert json.loads(content) == [
+            dict(id=f"s{i}", name=s.name, description=s.description)
+            for i, s in enumerate(skills, 1)
+        ]
+        if context is None:
+            assert "num_ctx" not in payload["options"]
+        else:
+            assert payload["options"]["num_ctx"] == context
+        assert payload["truncate"] is False and payload["shift"] is False
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "titles": ["Review code"],
+                            "assignments": {f"s{i}": [1] for i in range(1, 62)},
+                        }
+                    )
+                },
+            },
+        )
+
+    with httpx.Client(base_url="http://127.0.0.1", transport=ollama_transport(respond)) as client:
+        result = OllamaGrouping(client, "model", context=context).group(skills, Perspective.TOPICS)
+    assert result["groups"][0]["skill_ids"] == [f"s{i}" for i in range(1, 62)]
+
+
+@pytest.mark.parametrize("version", ["0.13.0", "0.34.4", "1.0.0", "0.13.0+build.1"])
+def test_supported_server_checked_once_per_provider(scan_result, version):
+    requests = []
+
+    def respond(request):
+        requests.append(request.url.path)
+        if request.url.path == "/api/version":
+            return httpx.Response(200, json={"version": version})
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "content": json.dumps(
+                        {"titles": ["Code"], "assignments": {"s1": [1], "s2": [1]}}
+                    )
+                },
+            },
+        )
+
+    with httpx.Client(
+        base_url="http://127.0.0.1", transport=httpx.MockTransport(respond)
+    ) as client:
+        provider = OllamaGrouping(client, "model")
+        for perspective in Perspective:
+            provider.group(scan_result.skills, perspective)
+    assert requests == ["/api/version", "/api/chat", "/api/chat"]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        *[
+            httpx.Response(200, json={"version": version})
+            for version in ("0.12.99", "0.13.0-rc1", "unknown", "", None, 13)
+        ],
+        httpx.Response(200, json={}),
+        httpx.Response(200, json=[]),
+        httpx.Response(200, text="private invalid version"),
+        httpx.Response(404, text="private missing endpoint"),
+    ],
+)
+def test_unverified_server_never_receives_catalog(scan_result, response):
+    def respond(request):
+        assert request.url.path == "/api/version"
+        assert request.method == "GET" and not request.content
+        return response
+
+    with httpx.Client(
+        base_url="http://127.0.0.1", transport=httpx.MockTransport(respond)
+    ) as client:
+        with pytest.raises(GroupingError, match="Ollama 0.13.0 or newer") as error:
+            OllamaGrouping(client, "model").group(scan_result.skills, Perspective.TOPICS)
+    assert "private" not in str(error.value)
+
+
+@pytest.mark.parametrize("status", [400, 500])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "the input length exceeds the context length",
+        "the prompt is longer than the context length currently available to the model",
+        "request (10000 tokens) exceeds the available context size (4096 tokens)",
+    ],
+)
+def test_context_failure_is_actionable_and_sanitized(
+    scan_result, ollama_transport, status, message
+):
+    with httpx.Client(
+        base_url="http://127.0.0.1",
+        transport=ollama_transport(
+            lambda _: httpx.Response(status, json={"error": message + "; private metadata"})
+        ),
+    ) as client:
+        with pytest.raises(GroupingError, match="does not fit Ollama's context window") as error:
+            OllamaGrouping(client, "model").group(scan_result.skills, Perspective.TOPICS)
+    assert "SKILL_ATLAS_OLLAMA_CONTEXT" in str(error.value)
+    assert "private metadata" not in str(error.value)
+
+
+@pytest.mark.parametrize("payload", [[], {"error": None}, {"error": "private model error"}])
+def test_other_provider_errors_do_not_claim_context_overflow(
+    scan_result, ollama_transport, payload
+):
+    with httpx.Client(
+        base_url="http://127.0.0.1",
+        transport=ollama_transport(lambda _: httpx.Response(400, json=payload)),
+    ) as client:
+        with pytest.raises(GroupingError, match="could not generate groups"):
+            OllamaGrouping(client, "model").group(scan_result.skills, Perspective.TOPICS)

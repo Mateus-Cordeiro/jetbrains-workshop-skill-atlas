@@ -28,8 +28,13 @@ REPOSITORY = "https://github.com/acme/skills"
 
 def github_response(request):
     if request.url.host == "127.0.0.1":
-        assert request.url.path == "/api/chat" and "Authorization" not in request.headers
+        assert "Authorization" not in request.headers
+        if request.url.path == "/api/version":
+            return httpx.Response(200, json={"version": "0.13.0"})
+        assert request.url.path == "/api/chat"
         payload = json.loads(request.content)
+        assert "num_ctx" not in payload["options"]
+        assert payload["truncate"] is False and payload["shift"] is False
         skills = json.loads(payload["messages"][1]["content"])
         return httpx.Response(
             200,

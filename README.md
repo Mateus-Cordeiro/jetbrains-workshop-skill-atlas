@@ -223,7 +223,7 @@ and node positions in the same browser tab. Use **Fit graph** to frame the nodes
 **Reset layout** to reposition them. Motion respects reduced-motion preferences.
 Generation uses names and descriptions, not document bodies.
 
-Install and start [Ollama](https://ollama.com/), and make the model available:
+Install and start [Ollama](https://ollama.com/) 0.13.0 or newer, and make the model available:
 
 ```sh
 ollama pull qwen3.6:latest
@@ -243,22 +243,31 @@ Configure the backend before starting the server:
 | `SKILL_ATLAS_OLLAMA_MODEL` | `qwen3.6:latest` | Installed local model tag. |
 | `SKILL_ATLAS_OLLAMA_URL` | `http://127.0.0.1:11434` | Loopback HTTP Ollama origin; remote endpoints and embedded credentials are rejected. |
 | `SKILL_ATLAS_OLLAMA_TIMEOUT` | `600` | Inference request timeout in seconds. |
-| `SKILL_ATLAS_OLLAMA_CONTEXT` | `32768` | Requested model context tokens. |
+| `SKILL_ATLAS_OLLAMA_CONTEXT` | Unset (Ollama default) | Optional context-token override; omit to use the model/server configuration. |
 | `SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS` | `8192` | Reserved maximum output tokens. |
 
 Use positive numeric seconds for timeout and positive whole numbers for token
-limits (for example, `600` and `32768`, rather than `10m` and `32k`). Context must
-exceed the output limit. These settings are validated only when you generate
-groups; a bad value appears in the job error and does not prevent scanning,
-filtering, similarity search, or starting the Web UI.
+limits (for example, `600` and `32768`, rather than `10m` and `32k`). An explicit
+context override must exceed the output limit. Leave `SKILL_ATLAS_OLLAMA_CONTEXT`
+unset to use Ollama's default; an empty value is invalid. These settings are
+validated only when you generate groups; a bad value appears in the job error and
+does not prevent scanning, filtering, similarity search, or starting the Web UI.
 
-Larger catalogs may require more context and output tokens, subject to the model
-and available memory. A conservative UTF-8 byte budget rejects oversized input
-before sending it; it can reject text that a tokenizer would fit. Skills are never
-silently omitted. Incomplete, malformed, or failed responses preserve previous
-groups and offer retry. Skill Atlas sends metadata only to the configured local
-Ollama server; use a local model, not an Ollama cloud model. GitHub credentials
-are never forwarded.
+Context selection defaults to Ollama's model/server configuration, including its
+hardware-dependent defaults. Skill Atlas sends the complete metadata and asks
+Ollama to reject oversized input using its tokenizer, with input truncation and
+context shifting disabled. There is no byte-based size estimate. Generation checks
+Ollama's version once before inference and requires 0.13.0 or newer, since older
+servers can silently ignore these flags; unrecognized or prerelease versions also
+fail the compatibility check.
+
+If Ollama reports a context overflow, configure more context in Ollama or set
+`SKILL_ATLAS_OLLAMA_CONTEXT` before restarting Skill Atlas. Larger contexts require
+model support and available memory. If generation reaches its output or context
+limit, adjust that limit and retry. Skills are never silently omitted. Incomplete,
+malformed, or failed responses preserve previous groups and offer retry. Skill
+Atlas sends metadata only to the configured local Ollama server; use a local
+model, not an Ollama cloud model. GitHub credentials are never forwarded.
 
 The response schema requires an assignment for every skill. Failures identify
 Topics or Capabilities and explain the rejected rule, such as missing assignments
