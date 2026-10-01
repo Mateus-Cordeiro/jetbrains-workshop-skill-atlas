@@ -156,6 +156,7 @@ def test_sort_uses_total_counts_in_full_pages_and_fragments(
         assert "3 matching starred skills across 3 repositories" in response.text
     direction = {"none": "none", "asc": "ascending", "desc": "descending"}[sort]
     assert f'role="columnheader" aria-sort="{direction}"' in response.text
+    assert f'data-sort="{sort}"' in response.text
     assert 'id="repository-sort" type="button"' in response.text
     if route == "/":
         assert 'id="repository-remove-dialog"' in response.text

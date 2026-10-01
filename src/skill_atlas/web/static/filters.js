@@ -35,6 +35,13 @@
     return url;
   }
 
+  function setSort(value) {
+    const url = new URL(location.href);
+    if (value === 'none') url.searchParams.delete('sort');
+    else url.searchParams.set('sort', value);
+    history.replaceState(history.state, '', url);
+  }
+
   function setFilters(url) {
     setQuery(url, query());
     if (starred()) url.searchParams.set('starred', '1');
@@ -135,8 +142,9 @@
     const pane = document.querySelector('#workspace');
     const target = document.querySelector(pane ? '#skill-results' : '#repositories');
     if (!target) return;
+    const requestedSort = sort();
     const params = new URLSearchParams({q: query()});
-    if (!pane && sort() !== 'none') params.set('sort', sort());
+    if (!pane && requestedSort !== 'none') params.set('sort', requestedSort);
     if (starred()) params.set('starred', '1');
     if (pane) {
       params.set('repository_url', pane.dataset.repository);
@@ -157,7 +165,13 @@
       return true;
     } catch {
       if (current !== revision || !target.isConnected) return;
-      document.querySelector('#filter-error').innerHTML = '<p>Could not update skills. Previous results are still shown. <button type="button" data-retry-filter>Retry</button></p>';
+      const error = document.querySelector('#filter-error');
+      error.innerHTML = '<p>Could not update skills. Previous results are still shown. <button type="button" data-retry-filter>Retry</button></p>';
+      if (!pane) {
+        // Keep the next header activation aligned with the order still on screen.
+        setSort(target.querySelector('.repository-results').dataset.sort);
+        error.querySelector('[data-retry-filter]').dataset.retrySort = requestedSort;
+      }
       return false;
     } finally {
       if (current === revision) target.removeAttribute('aria-busy');
@@ -201,10 +215,7 @@
   document.addEventListener('click', event => {
     if (event.target.closest('#repository-sort')) {
       const next = {none: 'asc', asc: 'desc', desc: 'none'}[sort()];
-      const url = new URL(location.href);
-      if (next === 'none') url.searchParams.delete('sort');
-      else url.searchParams.set('sort', next);
-      history.replaceState(history.state, '', url);
+      setSort(next);
       changed(true);
     }
     const search = event.target.closest('.search-toggle');
@@ -224,7 +235,11 @@
       starredInput().focus();
       changed(true);
     }
-    if (event.target.closest('[data-retry-filter]')) refresh();
+    const retryFilter = event.target.closest('[data-retry-filter]');
+    if (retryFilter) {
+      if (retryFilter.dataset.retrySort) setSort(retryFilter.dataset.retrySort);
+      refresh();
+    }
     const toggle = event.target.closest('.repository-toggle');
     if (toggle) {
       const group = toggle.closest('.repository-group');

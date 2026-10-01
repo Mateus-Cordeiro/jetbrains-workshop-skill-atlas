@@ -110,6 +110,10 @@ part of the header, with no separate toolbar control. Enter and Space activate
 the header; expose the current direction with `aria-sort` and describe the next
 action accessibly. Preserve keyboard focus across a sort-driven list refresh,
 unless the user has moved to another control while the request was pending.
+If a list request fails, keep the previous rows and header state and restore the
+URL's sort to that displayed order. The next header activation follows the action
+it still announces; **Retry** repeats the failed sort choice. An older request's
+failure must not roll back a newer sort or replace its feedback.
 None is the default canonical repository URL order. Count sorting uses total
 stored skills, even when filtering or showing starred skills, with canonical URL
 ascending to break ties. Keep the table header available in empty states. Store active

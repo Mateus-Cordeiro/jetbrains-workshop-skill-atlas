@@ -1,4 +1,4 @@
-<div class="repository-results" data-repository-count="{{ view.repositories|length }}">
+<div class="repository-results" data-repository-count="{{ view.repositories|length }}" data-sort="{{ sort }}">
 {% if filtering %}<p class="filter-count" role="status">{{ view.matching_count }} matching {{ 'starred ' if starred }}skill{% if view.matching_count != 1 %}s{% endif %} across {{ view.repositories|length }} repositor{{ 'y' if view.repositories|length == 1 else 'ies' }}</p>{% endif %}
 <div class="repository-table" role="table" aria-label="Repositories">
   <div class="table-heading" role="row">

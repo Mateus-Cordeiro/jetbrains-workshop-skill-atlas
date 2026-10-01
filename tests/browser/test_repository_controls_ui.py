@@ -227,29 +227,59 @@ def test_sort_header_stays_available_in_empty_results(
     assert state.requests == []
 
 
-def test_sort_failure_preserves_order_and_retry_updates_header(
-    browser_page, web_environment, scan_result
+@pytest.mark.parametrize("initial", ["none", "asc", "desc"])
+@pytest.mark.parametrize("recovery", ["header", "retry"])
+def test_sort_failure_keeps_announced_next_action_and_retry_choice(
+    browser_page, web_environment, scan_result, initial, recovery
 ):
     page, state = browser_page, web_environment
     seed(state, scan_result)
-    page.goto(page.base_url)
+    page.goto(
+        page.base_url + "/?q=review&starred=1" + (f"&sort={initial}" if initial != "none" else "")
+    )
+    directions = {"none": "none", "asc": "ascending", "desc": "descending"}
+    orders = {
+        "none": ["alpha", "beta", "gamma"],
+        "asc": ["beta", "gamma", "alpha"],
+        "desc": ["alpha", "beta", "gamma"],
+    }
+    actions = {
+        "none": "Sort by total skills, ascending",
+        "asc": "Sort by total skills, descending",
+        "desc": "Restore repository name order",
+    }
+    next_sort = {"none": "asc", "asc": "desc", "desc": "none"}[initial]
     page.route("**/fragments/repositories?*", lambda route: route.fulfill(status=500))
     sort = page.get_by_role("button", name="Sort by skills", exact=True)
     sort.press("Enter")
     expect(page.locator("#filter-error")).to_contain_text("Previous results are still shown")
-    expect_order(page, ["alpha", "beta", "gamma"])
-    expect_sort(page, "none")
+    expect_order(page, orders[initial])
+    expect_sort(page, directions[initial])
+    expect(sort).to_have_attribute("title", actions[initial])
+    expect(page.locator("#repository-sort-status")).to_contain_text(actions[initial])
+    expect(sort.locator("span")).to_have_text({"none": "↕", "asc": "↑", "desc": "↓"}[initial])
     expect(sort).to_be_focused()
+    params = parse_qs(urlsplit(page.url).query)
+    assert params.get("sort", ["none"]) == [initial]
+    assert params["q"] == ["review"] and params["starred"] == ["1"]
     page.unroute("**/fragments/repositories?*")
-    page.get_by_role("button", name="Retry", exact=True).click()
-    expect_order(page, ["beta", "gamma", "alpha"])
-    expect_sort(page, "ascending")
+    if recovery == "header":
+        sort.press("Enter")
+    else:
+        page.get_by_role("button", name="Retry", exact=True).click()
+    expect_order(page, orders[next_sort])
+    expect_sort(page, directions[next_sort])
+    assert parse_qs(urlsplit(page.url).query).get("sort", ["none"]) == [next_sort]
     expect(page.locator("#filter-error")).to_be_empty()
+    page.reload()
+    expect_order(page, orders[next_sort])
+    expect_sort(page, directions[next_sort])
     assert state.requests == []
 
 
+@pytest.mark.parametrize("late_failure", [False, True], ids=["success", "failure"])
 def test_late_sort_cannot_replace_newer_header_or_steal_focus(
-    browser_page, web_environment, scan_result
+    browser_page, web_environment, scan_result, late_failure
 ):
     page, state = browser_page, web_environment
     seed(state, scan_result)
@@ -271,8 +301,13 @@ def test_late_sort_cannot_replace_newer_header_or_steal_focus(
     field.focus()
     assert len(held) == 1
     route, response = held.pop()
-    route.fulfill(response=response)
+    if late_failure:
+        route.fulfill(status=500)
+    else:
+        route.fulfill(response=response)
     expect_sort(page, "descending")
+    assert parse_qs(urlsplit(page.url).query)["sort"] == ["desc"]
+    expect(page.locator("#filter-error")).to_be_empty()
     expect_order(page, ["alpha", "beta", "gamma"])
     expect(field).to_be_focused()
     assert state.requests == []
