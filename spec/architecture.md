@@ -128,10 +128,10 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, and repository grouping with consistent counts. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
 | `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
-| `grouping.py` | Immutable grouping perspectives, identities, and saved-result values. |
+| `grouping.py` | Immutable grouping perspectives, identities, saved-result values, and shared group limit. |
 | `application/grouping.py` | Complete-membership validation, metadata fingerprints, explicit generation, and current-catalog group views. |
 | `application/grouping_jobs.py` | One process-local job generates both perspectives; duplicate submissions reuse it. |
-| `adapters/ollama.py` | Structured local model requests, context budgeting, and provider error adaptation. |
+| `adapters/ollama.py` | Structured local model requests, per-skill assignment translation, context budgeting, and provider error adaptation. |
 | `adapters/storage/grouping.py` | Atomic saved-group writes and consistent group/catalog read snapshots. |
 | `web/grouping_routes.py` | Explore pages, workspace fragments, legacy redirects, and explicit generation/status HTTP adaptation. |
 | `web/exploration.py` | Graph presentation serialization: opaque node IDs, memberships, metadata, and encoded navigation links. |
@@ -262,7 +262,12 @@ new persistence, embedding model, or remote service is introduced. See the
 HTTPX/Ollama adapter. The application reads metadata once, invokes the provider
 sequentially for both perspectives, validates both complete memberships, and saves
 them atomically. Provider prompts, schemas, budgets and failures remain in the
-adapter; completeness and identity policy remain in the application.
+adapter; completeness, identity, and group-count policy remain in the application.
+The Ollama schema requires every skill's assignment and caps proposed titles at
+12. The adapter translates numbered assignments into the shared membership format,
+discarding unused proposed titles. The application independently validates all
+published groups and identifies the failing perspective in errors. Neither the
+provider wire format nor its translation changes saved catalog identities.
 
 Graph reads use one SQLite transaction for both saved perspectives and current
 skill rows. Fingerprints detect scans from any process. `web/exploration.py`

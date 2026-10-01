@@ -5,7 +5,14 @@ import json
 from dataclasses import dataclass
 
 from skill_atlas.errors import GroupingError
-from skill_atlas.grouping import Grouping, GroupingCatalog, Perspective, SkillGroup, SkillIdentity
+from skill_atlas.grouping import (
+    MAX_GROUPS,
+    Grouping,
+    GroupingCatalog,
+    Perspective,
+    SkillGroup,
+    SkillIdentity,
+)
 from skill_atlas.models import Skill
 from skill_atlas.ports import GroupingProvider, GroupingStore
 
@@ -17,40 +24,46 @@ def fingerprint(skills: tuple[Skill, ...]) -> str:
 
 
 def validate_groups(payload: object, skills: tuple[Skill, ...]) -> tuple[SkillGroup, ...]:
-    invalid = GroupingError(
-        "The model returned incomplete or invalid groups. Previous groups are unchanged. "
-        "Retry generation or choose another model."
-    )
+    def invalid(reason: str) -> GroupingError:
+        return GroupingError(
+            f"The model returned incomplete or invalid groups: {reason} "
+            "Retry generation or choose another model."
+        )
+
     if not isinstance(payload, dict) or set(payload) != {"groups"}:
-        raise invalid
+        raise invalid("Expected only a groups field.")
     groups = payload["groups"]
     if not isinstance(groups, list) or not groups:
-        raise invalid
+        raise invalid("Expected a nonempty list of groups.")
+    if len(groups) > MAX_GROUPS:
+        raise invalid(f"Returned {len(groups)} groups; the maximum is {MAX_GROUPS}.")
     identities = {f"s{i}": SkillIdentity.of(skill) for i, skill in enumerate(skills, 1)}
     seen: set[str] = set()
     titles: set[str] = set()
     result = []
     for group in groups:
         if not isinstance(group, dict) or set(group) != {"title", "skill_ids"}:
-            raise invalid
+            raise invalid("Each group must contain only a title and skill IDs.")
         title, members = group["title"], group["skill_ids"]
         if not isinstance(title, str) or not title.strip() or len(title) > 160:
-            raise invalid
+            raise invalid("Titles must contain 1 to 160 characters.")
         title = " ".join(title.split())
         key = title.casefold()
-        if key in titles or key in {"other", "miscellaneous", "uncertain", "uncategorized"}:
-            raise invalid
+        if key in titles:
+            raise invalid("Group titles must be unique.")
+        if key in {"other", "miscellaneous", "uncertain", "uncategorized"}:
+            raise invalid("Generic catch-all group titles are not allowed.")
         if not isinstance(members, list) or not members:
-            raise invalid
+            raise invalid("Every group must contain skills.")
         if any(not isinstance(member, str) or member not in identities for member in members):
-            raise invalid
+            raise invalid("A group contains an unknown or invalid skill ID.")
         if len(set(members)) != len(members):
-            raise invalid
+            raise invalid("A skill occurs more than once in the same group.")
         titles.add(key)
         seen.update(members)
         result.append(SkillGroup(title, tuple(identities[member] for member in members)))
     if seen != set(identities):
-        raise invalid
+        raise invalid(f"Missing {len(set(identities) - seen)} of {len(identities)} skills.")
     return tuple(result)
 
 
@@ -79,10 +92,17 @@ class SkillGroups:
         if not skills:
             raise GroupingError("No saved skills to group. Scan a repository first.")
         version = fingerprint(skills)
-        groupings = tuple(
-            Grouping(p, version, provider.model, validate_groups(provider.group(skills, p), skills))
-            for p in Perspective
-        )
+        results = []
+        for perspective in Perspective:
+            try:
+                groups = validate_groups(provider.group(skills, perspective), skills)
+            except GroupingError as error:
+                raise GroupingError(
+                    f"{perspective.value.title()} generation failed: {error} "
+                    "Previous groups are unchanged."
+                ) from error
+            results.append(Grouping(perspective, version, provider.model, groups))
+        groupings = tuple(results)
         self.store.save(groupings)
         return groupings
 

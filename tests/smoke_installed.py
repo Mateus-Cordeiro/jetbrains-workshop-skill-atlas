@@ -38,12 +38,8 @@ def github_response(request):
                 "message": {
                     "content": json.dumps(
                         {
-                            "groups": [
-                                {
-                                    "title": "Installed capability",
-                                    "skill_ids": [s["id"] for s in skills],
-                                }
-                            ]
+                            "titles": ["Installed capability"],
+                            "assignments": {s["id"]: [1] for s in skills},
                         }
                     )
                 },

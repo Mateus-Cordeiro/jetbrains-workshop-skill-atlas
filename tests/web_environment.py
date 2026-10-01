@@ -57,6 +57,17 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
                     "groups": [{"title": "Improve software", "skill_ids": [s["id"] for s in data]}]
                 }
             )
+            # Scenarios describe memberships; only this transport boundary translates
+            # them to Ollama's per-skill response format. Omitted skills stay omitted.
+            if isinstance(content, dict) and set(content) == {"groups"}:
+                assignments = {}
+                for index, group in enumerate(content["groups"], 1):
+                    for skill_id in group["skill_ids"]:
+                        assignments.setdefault(skill_id, []).append(index)
+                content = {
+                    "titles": [group["title"] for group in content["groups"]],
+                    "assignments": assignments,
+                }
             return httpx.Response(
                 state.grouping_status,
                 json={

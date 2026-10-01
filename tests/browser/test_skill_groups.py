@@ -142,9 +142,13 @@ def test_failure_retry_retains_both_views_and_navigation_resumes_work(
     page, state = browser_page, web_environment
     seed(state, scan_result)
     generate(page)
-    state.grouping_content_by_perspective["capabilities"] = {"groups": []}
+    state.grouping_content_by_perspective["capabilities"] = {
+        "groups": [{"title": "Review code", "skill_ids": ["s1"]}]
+    }
     page.get_by_role("button", name="Regenerate groups", exact=True).click()
     expect(page.get_by_role("button", name="Retry generation")).to_be_visible()
+    expect(page.locator("#group-status")).to_contain_text("Capabilities generation failed")
+    expect(page.locator("#group-status")).to_contain_text("missing 1 of 2 skills")
     expect(page.get_by_role("button", name="Review code, 1 skill")).to_be_visible()
     page.get_by_role("button", name="Topics", exact=True).click()
     expect(page.get_by_role("button", name="Software engineering, 2 skills")).to_be_visible()

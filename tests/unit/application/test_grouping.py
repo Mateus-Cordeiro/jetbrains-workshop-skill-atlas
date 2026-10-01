@@ -61,6 +61,25 @@ def test_invalid_or_incomplete_response_rejected(payload, scan_result):
         validate_groups(payload, scan_result.skills)
 
 
+@pytest.mark.parametrize("count", [12, 13])
+def test_group_limit_preserves_coverage_and_overlap_without_truncation(count, scan_result):
+    payload = {
+        "groups": [{"title": f"Capability {i}", "skill_ids": ["s1", "s2"]} for i in range(count)]
+    }
+    if count == 13:
+        with pytest.raises(GroupingError, match="13 groups; the maximum is 12"):
+            validate_groups(payload, scan_result.skills)
+    else:
+        groups = validate_groups(payload, scan_result.skills)
+        assert len(groups) == 12
+        assert all(len(group.members) == 2 for group in groups)
+
+
+def test_missing_skill_error_reports_count_without_metadata(scan_result):
+    with pytest.raises(GroupingError, match="Missing 1 of 2 skills"):
+        validate_groups({"groups": [{"title": "Code", "skill_ids": ["s1"]}]}, scan_result.skills)
+
+
 def test_metadata_fingerprint_ignores_order_and_commit_only_changes(scan_result):
     skills = scan_result.skills
     assert fingerprint(skills) == fingerprint(
@@ -109,6 +128,6 @@ def test_invalid_second_perspective_does_not_publish_first(scan_result):
     store = SimpleNamespace(
         read_all=lambda: GroupingSnapshot(scan_result.skills, ()), save=saved.append
     )
-    with pytest.raises(GroupingError):
+    with pytest.raises(GroupingError, match="Capabilities generation failed.*Expected only"):
         SkillGroups(store).generate(SimpleNamespace(model="test", group=group))
     assert saved == []

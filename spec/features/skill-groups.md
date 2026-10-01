@@ -19,26 +19,42 @@ not sent to the model. Instructions treat metadata as untrusted classification
 input, including descriptions that contain commands or attempts to override the
 prompt. Generation never executes skills or retrieves documents.
 
-Require structured JSON with only `groups`, each containing `title` and
-`skill_ids`. Every input skill must occur at least once; overlapping membership
+Generate at most **12 groups per perspective**, using fewer when sufficient.
+Consolidate related purposes into broad, coherent groups rather than one group
+per skill. Every input skill must occur at least once; overlapping membership
 is allowed, repetition within a group is rejected. Titles must be nonempty,
 unique ignoring case and collapsed whitespace, and at most 160 characters.
-Distinct skills receive a specific singleton group when necessary. The model is
+Distinct skills receive a specific singleton group when necessary, within the
+limit; never omit skills or truncate groups to meet it. The model is
 instructed not to create miscellaneous or uncertainty buckets; the generic titles
 Other, Miscellaneous, Uncertain, and Uncategorized are rejected. Missing/unknown
-IDs, empty groups, extra fields, malformed output, and unfinished/truncated
+IDs, empty published groups, extra fields, malformed output, and unfinished/truncated
 responses fail the entire generation. Structural validation does not certify
 semantic quality. No automatic retries, fallback model, or partial publication.
 
+Ollama's structured response contains an ordered `titles` array (1–12 entries)
+and an `assignments` object. Its request-specific schema requires every opaque
+skill ID as a key, with a nonempty list of group numbers indexing `titles` from
+1. This encodes coverage in the schema instead of relying on a prose instruction
+to include all skills in a group-centric response. Reject unknown IDs, invalid
+indices, and missing assignments. Discard unused proposed titles without changing
+memberships, then translate into the shared `groups` format (`title`, `skill_ids`)
+for provider-independent validation, including the 12-group limit. Saved formats
+and graph presentation remain unchanged. Existing results with more than 12
+groups remain readable until explicit regeneration replaces them.
+
 One explicit action makes two sequential requests, one per perspective, using
 the same complete catalog snapshot. Each request has a
-conservative UTF-8 byte budget that includes instructions, metadata, schema, chat
+conservative UTF-8 byte budget that includes instructions, metadata, chat
 headroom, and reserved output tokens. If it exceeds configured context, fail
 before calling Ollama; never silently omit skills or split into unrelated
-batches. Ollama receives explicit context/output limits and a bounded timeout.
+batches. The `format` schema constrains decoding and is not added to prompt text.
+Ollama receives explicit context/output limits and a bounded timeout.
 Do not download models or start Ollama automatically. Report connection, missing
 model, timeout, malformed output, and storage failures without raw upstream
-responses or credentials.
+responses or credentials. Generation errors identify the failing perspective;
+validation errors explain the rule and include missing-skill counts where relevant,
+without returning skill metadata or raw output.
 
 ## Saved results and explicit updates
 
@@ -138,6 +154,7 @@ specify an upstream endpoint, model, credential, or arbitrary skill body.
 ## Acceptance and verification
 
 - Unit tests cover complete coverage, overlap, singleton/duplicate identities,
+  required per-skill assignments, the 12-group boundary, unused proposed titles,
   invalid output, topic/capability prompts, context limits, structured requests,
   sanitized provider failures, deduplicated jobs, retries, and shutdown.
 - Integration tests use real SQLite, the real Web composition, and mocked Ollama

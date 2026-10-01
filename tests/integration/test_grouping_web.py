@@ -131,7 +131,8 @@ def test_failed_regeneration_preserves_previous_generation_and_is_retryable(
     generate(client)
     before = state.catalog.path.read_bytes()
     state.grouping_content = {"groups": [{"title": "Missing a skill", "skill_ids": ["s1"]}]}
-    assert "incomplete or invalid" in generate(client, expected="failed").text
+    failure = generate(client, expected="failed").text
+    assert "Topics generation failed" in failure and "missing 1 of 2 skills" in failure
     assert state.catalog.path.read_bytes() == before
     assert "Improve software" in client.get("/groups/capabilities").text
     state.grouping_status = 404
@@ -335,9 +336,51 @@ def test_invalid_second_result_keeps_both_saved_perspectives(client, web_environ
         "topics": {"groups": [{"title": "New topics", "skill_ids": ["s1", "s2"]}]},
         "capabilities": {"groups": [{"title": "Incomplete", "skill_ids": ["s1"]}]},
     }
-    assert "incomplete or invalid" in generate(client, expected="failed").text
+    failure = generate(client, expected="failed").text
+    assert "Capabilities generation failed" in failure and "missing 1 of 2 skills" in failure
     assert SQLiteGroups(state.catalog).read_all() == before
     assert len(state.grouping_requests) == 4
+
+
+@pytest.mark.parametrize("perspective", ["topics", "capabilities"])
+def test_group_limit_is_enforced_before_atomic_publication(
+    client, web_environment, scan_result, perspective
+):
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    generate(client)
+    before = SQLiteGroups(state.catalog).read_all()
+    state.grouping_content_by_perspective[perspective] = {
+        "groups": [{"title": f"Group {i}", "skill_ids": ["s1", "s2"]} for i in range(13)]
+    }
+    failure = generate(client, expected="failed").text
+    assert f"{perspective.title()} generation failed" in failure
+    assert "between 1 and 12" in failure
+    assert SQLiteGroups(state.catalog).read_all() == before
+    state.grouping_content_by_perspective[perspective]["groups"].pop()
+    generate(client)
+    after = SkillGroups(SQLiteGroups(state.catalog)).browse(Perspective(perspective))
+    assert len(after.groups) == 12
+    assert all(len(group.skills) == 2 for group in after.groups)
+
+
+def test_duplicate_assignment_is_rejected_but_unused_titles_are_not_published(
+    client, web_environment, scan_result
+):
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    state.grouping_content = {
+        "groups": [
+            {"title": "Unused proposal", "skill_ids": []},
+            {"title": "Development", "skill_ids": ["s1", "s2"]},
+        ]
+    }
+    generate(client)
+    before = SQLiteGroups(state.catalog).read_all()
+    assert all([g.title for g in saved.groups] == ["Development"] for saved in before.groupings)
+    state.grouping_content["groups"][1]["skill_ids"].append("s1")
+    assert "more than once" in generate(client, expected="failed").text
+    assert SQLiteGroups(state.catalog).read_all() == before
 
 
 def test_graph_assets_local_and_legacy_navigation_is_safe(client, web_environment, scan_result):

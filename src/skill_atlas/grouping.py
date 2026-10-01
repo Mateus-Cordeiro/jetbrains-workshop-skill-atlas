@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from skill_atlas.models import Skill
 
+MAX_GROUPS = 12
+
 
 class Perspective(StrEnum):
     TOPICS = "topics"

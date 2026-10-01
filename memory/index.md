@@ -18,3 +18,5 @@ to maintain them.
   returning to a workspace before completion, plus controlled-clock settling
   for desktop visual checkpoints, G6/HTMX lifecycle, graph fixtures, and wide-screen
   navigation geometry checks.
+- [Group generation](group-generation.md): diagnosing missing assignments,
+  Ollama schema/context handling, and fixture wire-format boundaries.

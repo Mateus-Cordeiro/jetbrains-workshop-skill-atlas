@@ -176,8 +176,11 @@ architecture.
 Choose **Explore** in the Web catalog, then **Generate groups** to create both
 perspectives. Switch instantly between **Capabilities** and **Topics** above the
 graph. Click a group to reveal its skills, drag nodes, and pan or zoom the canvas.
-Hover highlights connections and shows details. A skill can connect to multiple
-groups; a distinct skill can have a group of its own.
+Hover highlights connections and shows details. Generation creates **at most 12
+groups for each perspective**, preferring broader, coherent groups. Every skill
+is included and can connect to multiple groups; a distinct skill can have a group
+of its own within the limit. Previously saved larger groupings remain available
+until you regenerate them.
 
 The directory beside the graph provides the same groups and skill links for
 keyboard use, and moves below the graph on mobile. Clicking a skill opens the
@@ -216,6 +219,10 @@ silently omitted. Incomplete, malformed, or failed responses preserve previous
 groups and offer retry. Skill Atlas sends metadata only to the configured local
 Ollama server; use a local model, not an Ollama cloud model. GitHub credentials
 are never forwarded.
+
+The response schema requires an assignment for every skill. Failures identify
+Topics or Capabilities and explain the rejected rule, such as missing assignments
+or invalid group references, without exposing raw model output.
 
 **Regenerate groups** makes two sequential Ollama calls from one catalog snapshot
 and replaces both saved views together only after both validate. It may reorganize
