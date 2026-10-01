@@ -68,10 +68,14 @@ test('scan progress failure and retry', async ({ page, atlas, checkpoint }) => {
   await page.clock.install({ time: new Date('2026-01-01T12:00:00Z') });
   await page.clock.pauseAt(new Date('2026-01-01T12:00:01Z'));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Add repository' }).click();
+  await page.getByRole('button', { name: 'Scan GitHub…' }).click();
   await atlas.scan(404, true);
-  const input = page.getByRole('textbox', { name: 'GitHub repository URL' });
+  const input = page.getByRole('textbox', { name: 'GitHub URL' });
+  await input.fill('https://github.com/acme');
+  await expect(page.getByRole('button', { name: 'Scan organization', exact: true })).toBeVisible();
+  await checkpoint('scan-organization-dialog');
   await input.fill(repository);
+  await checkpoint('scan-repository-dialog');
   await page.getByRole('button', { name: 'Scan repository', exact: true }).click();
   const tick = async () => { await page.clock.runFor(1000); };
   const settle = async () => {
@@ -87,6 +91,7 @@ test('scan progress failure and retry', async ({ page, atlas, checkpoint }) => {
     return page.locator('.job[data-state="running"]').count();
   }).toBe(1);
   await settle();
+  await page.getByRole('button', { name: 'Scan GitHub…' }).click();
   await input.fill('https://github.com/acme/new');
   await page.getByRole('button', { name: 'Scan repository', exact: true }).click();
   await expect(page.locator('.job[data-state="queued"]')).toBeVisible();

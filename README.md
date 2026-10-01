@@ -171,13 +171,17 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000), or use
 From a development checkout, use `uv run --locked skill-atlas serve`.
 
 The homepage opens directly onto repositories in the same catalog used by CLI
-scans. Choose **+ Add repository** to reveal the URL field and **Scan repository**
-button; the form starts open when the catalog is empty. Submit a GitHub repository
-URL to scan it, or an organization URL to scan all of its repositories. Then open a repository, and select a skill in the left pane to read its definition in the right pane. **Preview** renders Markdown;
+scans. Choose **Scan GitHub…** to open the **Scan repository or organization**
+dialog. Enter a GitHub URL; the action becomes **Scan repository** or
+**Scan organization** to match. Organization scans exclude forks and archived
+repositories. An empty catalog offers the same action without opening the dialog
+automatically. Once accepted, the dialog closes and progress appears above the
+catalog. Then open a repository, and select a skill in the left pane to read its
+definition in the right pane. **Preview** renders Markdown;
 **Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
 background while you browse. To update an existing entry, submit its URL again
-through the homepage form or run the CLI `scan` command. Repository pages have
-no scan/rescan control. Commit hashes are omitted from the lists and document
+through the homepage scan dialog or run the CLI `scan` command. Repository pages
+have no scan/rescan control. Commit hashes are omitted from the lists and document
 viewer; **View on GitHub** still opens the exact scanned version.
 
 Skill descriptions on homepage, repository, and similarity lists show up to two

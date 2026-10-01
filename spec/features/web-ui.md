@@ -75,14 +75,28 @@ Repositories and Explore share one catalog template and navigation layout; their
 content uses the same width, padding, headings, buttons, and toggle styles.
 Switching tabs must not move or resize the navigation, including on wide desktops.
 Start the repository content with a compact **Repositories** heading and count, a search
-field, and **+ Add repository**. Omit the introductory hero and permanent scan
-card so the catalog is immediately visible. **Add repository** toggles a compact
-URL input and **Scan repository** button below the toolbar, focusing the URL
-input when opened. Keep entered text when collapsed. Show the form immediately
-for an unfiltered empty catalog, including after the last repository is removed.
-A query with no matches is not an empty catalog and must not open the form.
-Keep the toolbar and form in place when results refresh, updating the heading's
-repository count with the list. Each repository displays:
+field, and **Scan GitHub…**. Omit the introductory hero and permanent scan card
+so the catalog is immediately visible. The scan action opens a modal dialog
+headed **Scan repository or organization**, focusing its **GitHub URL** field.
+Show examples of both URL forms. The submit button starts as **Start scan** and
+changes to **Scan repository** or **Scan organization** based on the entered URL
+shape; the server remains authoritative for validation. For an organization,
+show **Scans repositories in this organization, excluding forks and archived
+repositories.** before submission.
+
+Keep focus inside the modal. Escape, Cancel, and the close button dismiss it,
+restore focus to the opener, and retain the entered URL. Opening the dialog must
+not move the repository list. Keep submission and connection errors inside the
+open dialog, preserving the input for correction or retry. After the server
+accepts the scan, close the dialog and show progress in the existing activity
+area. If the user closes it while submission is pending, report any later error
+above the catalog rather than hiding it in the closed dialog.
+
+An unfiltered empty catalog offers the same **Scan GitHub…** action in its empty
+state. Do not open the dialog automatically on arrival, a filter update, or when
+the last repository disappears. Keep the toolbar and dialog in place when
+results refresh, updating the heading's repository count with the list.
+Each repository displays:
 
 - Its `owner/repository` name.
 - Its number of stored skills.
@@ -90,13 +104,13 @@ repository count with the list. Each repository displays:
 
 Sort repositories deterministically by their canonical repository URL. Do not
 display a last-scan time: the current catalog does not contain that information.
-An empty catalog shows an explanation and the scan form.
+An empty catalog shows an explanation and an action to open the scan dialog.
 Do not display commit hashes or a rescan action in the repository list.
 A catalog read failure shows an error rather than being presented as an empty catalog.
 
 Validate and normalize submitted URLs with the same rules as the CLI. The same
-field accepts an [organization URL](scan.md#organization-scans); its visible
-labels and placeholder are unchanged, and its accessible label names both forms.
+field accepts an [organization URL](scan.md#organization-scans); its examples
+and organization hint make both scopes visible.
 Invalid input receives an inline error naming both URL forms and does not start
 a scan.
 
@@ -160,7 +174,7 @@ Show the repository name and navigation back to the repository list above a
 two-pane view. Show the skill count once, in the left-pane heading above search.
 Do not display a snapshot hash, scan/rescan button,
 or a replacement rescan menu action. Scanning remains available through the
-homepage URL form, including repeated submissions of an existing repository.
+homepage scan dialog, including repeated submissions of an existing repository.
 
 | Left pane: skills | Right pane: selected `SKILL.md` |
 | --- | --- |
@@ -286,7 +300,7 @@ repository. The repository view uses its filtered count and hidden-selection
 notice. Empty states read **No starred skills.**, or **No starred skills match
 “…”.** with a query, and offer **Show all skills** to clear starred-only and,
 with a query, **Clear filter**. An empty starred view is not an empty catalog
-and does not open the scan form. Changing a star while starred-only is active
+and does not open the scan dialog. Changing a star while starred-only is active
 refreshes the list; if the changed card disappears, focus moves to the checkbox.
 
 ### Empty results
@@ -405,7 +419,9 @@ services; templates and HTMX return pages and fragments. Use
 Keep selection history and document response handling in `web/static/app.js`,
 filtering, the starred-only state, expansions, and independent list response
 handling in `web/static/filters.js`, and star toggle requests in
-`web/static/stars.js`. Star routes adapt `application/stars.py`. Package the required templates and static assets so the installed command works outside
+`web/static/stars.js`. Star routes adapt `application/stars.py`. Dialog focus,
+URL scope hints, and submission lifecycle live in `web/static/scan.js`. Package
+the required templates and static assets so the installed command works outside
 the checkout.
 
 The scanner continues to use the catalog-write port. The document service uses
@@ -459,7 +475,7 @@ into URLs.
 
 | Method and route | Behavior |
 | --- | --- |
-| `GET /?q=...` | Repository page, optional skill filter, and scan form. |
+| `GET /?q=...` | Repository page, optional skill filter, and scan dialog. |
 | `GET /repository?repository_url=...&skill_path=...&q=...` | Repository detail; skill selection is optional. |
 | `GET /fragments/repositories?q=...` | Catalog-derived repository list with matching skills when filtering. |
 | `GET /fragments/repository?repository_url=...&skill_path=...&q=...` | Refresh the two-pane workspace; skill selection is optional. |
@@ -509,7 +525,13 @@ provide arbitrary upstream content URLs or credentials for the server to fetch.
 Implementation must cover these user-visible outcomes:
 
 1. Starting with no catalog displays an empty repository page and accepts a
-   valid scan. Invalid input starts no job.
+   valid scan through the modal. Opening or closing it preserves list geometry,
+   entered text, and keyboard focus; Tab stays inside, and Escape/Cancel/close
+   return to the opener. Repository and organization URLs update the submit
+   label and organization scope hint. Invalid input starts no job; submission
+   and connection failures stay visible in the dialog and allow retry. Accepted
+   scans close it and show queued/running progress. Empty-catalog refreshes and
+   reloads do not automatically open it. These flows work at narrow widths.
 2. Existing CLI-populated catalogs display repositories, counts, commits, and
    deterministically sorted skills without rescanning or changing the schema.
    Homepage, repository, and similarity skill descriptions use two-line previews
@@ -551,8 +573,8 @@ Implementation must cover these user-visible outcomes:
     clearing restores earlier expansions. Successful rescans reapply filters and
     late list/expansion responses cannot replace newer state. All controls work
     with keyboard navigation and narrow layouts without external requests.
-12. The compact homepage reveals the add form with keyboard-accessible controls,
-    shows it for an empty catalog, and keeps it stable during filtering/scans.
+12. The compact homepage opens the scan dialog through keyboard-accessible controls,
+    offers it from an empty catalog, and keeps it stable during filtering/scans.
     Search is visible on desktop and expandable on mobile; active queries remain
     visible across navigation, refresh, and resizing. Repository counts update
     with results. The repository skill count appears once above search and updates

@@ -201,7 +201,9 @@ def test_starred_only_empty_states_offer_recovery(client, catalog, scan_result):
     home = client.get("/", params={"starred": "1"}).text
     assert "No starred skills." in home and "Star a skill to find it here." in home
     assert "data-clear-starred" in home and "data-clear-filter>Clear filter" not in home
-    assert 'class="scan-form" hidden' in home  # Not an empty catalog.
+    dialog = re.search(r"<dialog\b[^>]*>", home)
+    assert dialog is not None and " open" not in dialog[0]
+    assert home.count("data-open-scan") == 1  # No empty-catalog scan prompt.
     both = client.get("/fragments/repositories", params={"starred": "1", "q": "notes"}).text
     assert "No starred skills match “notes”." in both
     assert "data-clear-filter>Clear filter" in both and "data-clear-starred" in both

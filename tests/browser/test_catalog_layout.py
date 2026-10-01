@@ -45,7 +45,7 @@ def test_catalog_navigation_keeps_its_layout_between_pages(
 
 
 @pytest.mark.parametrize("width", [1360, 390], ids=["desktop", "mobile"])
-def test_compact_home_add_form_and_search(browser_page, web_environment, scan_result, width):
+def test_compact_home_scan_dialog_and_search(browser_page, web_environment, scan_result, width):
     page, state = browser_page, web_environment
     state.catalog.replace_repository(scan_result)
     page.set_viewport_size({"width": width, "height": 1000})
@@ -54,18 +54,20 @@ def test_compact_home_add_form_and_search(browser_page, web_environment, scan_re
     expect(page.locator(".repository-row code")).to_have_count(0)
     assert page.locator(".repository-row").bounding_box()["y"] < 300
     expect(page.get_by_text("Your skill library.", exact=True)).to_have_count(0)
-    add = page.get_by_role("button", name="Add repository")
-    url = page.get_by_role("textbox", name="GitHub repository URL")
+    add = page.locator("#scan-github")
+    url = page.get_by_role("textbox", name="GitHub URL")
     expect(url).to_be_hidden()
     add.focus()
     page.keyboard.press("Enter")
-    expect(add).to_have_attribute("aria-expanded", "true")
+    expect(page.get_by_role("dialog")).to_be_visible()
     expect(url).to_be_focused()
     url.fill("https://github.com/example/new")
-    add.click()
+    page.keyboard.press("Escape")
     expect(url).to_be_hidden()
+    expect(add).to_be_focused()
     add.click()
     expect(url).to_have_value("https://github.com/example/new")
+    page.get_by_role("button", name="Cancel", exact=True).click()
 
     field = page.get_by_role("searchbox")
     search = page.get_by_role("button", name="Search skills", exact=True)
@@ -80,7 +82,9 @@ def test_compact_home_add_form_and_search(browser_page, web_environment, scan_re
         expect(search).to_be_hidden()
     field.fill("notes")
     expect(page.get_by_role("status")).to_have_text("1 matching skill across 1 repository")
+    add.click()
     expect(url).to_have_value("https://github.com/example/new")
+    page.keyboard.press("Escape")
     field.fill("missing")
     expect(page.get_by_role("heading", name="Repositories 0")).to_be_visible()
     field.press("Escape")
@@ -137,23 +141,24 @@ def test_mobile_search_visibility_history_and_resize(
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
 
 
-def test_empty_catalog_opens_form_but_no_matches_does_not(
+def test_empty_catalog_offers_scan_without_opening_dialog_on_refresh(
     browser_page, web_environment, scan_result
 ):
     page, state = browser_page, web_environment
     page.goto(page.base_url)
-    field = page.get_by_role("textbox", name="GitHub repository URL")
-    expect(field).to_be_visible()
-    expect(page.get_by_role("button", name="Add repository")).to_have_attribute(
-        "aria-expanded", "true"
-    )
+    field = page.get_by_role("textbox", name="GitHub URL")
+    expect(field).to_be_hidden()
+    page.locator(".empty").get_by_role("button", name="Scan GitHub…").click()
+    expect(field).to_be_focused()
+    page.get_by_role("button", name="Close scan dialog").click()
     state.catalog.replace_repository(scan_result)
     page.goto(page.base_url + "/?q=absent")
     expect(field).to_be_hidden()
     expect(page.get_by_text("No skills match “absent”.")).to_be_visible()
     state.catalog.replace_repository(replace(scan_result, skills=()))
     page.get_by_role("searchbox").press("Escape")
-    expect(field).to_be_visible()
+    expect(field).to_be_hidden()
+    expect(page.locator(".empty").get_by_role("button", name="Scan GitHub…")).to_be_visible()
     expect(page.get_by_role("heading", name="Repositories 0")).to_be_visible()
     assert not state.requests
 

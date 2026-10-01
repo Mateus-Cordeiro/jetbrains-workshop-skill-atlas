@@ -42,7 +42,7 @@ def test_pages_and_packaged_assets(client, web_environment, scan_result):
     assert "Select a skill" in detail.text
     assert detail.text.index("code-review") < detail.text.index("release-notes")
     assert not web_environment.requests
-    for asset in ("app.css", "app.js", "filters.js", "htmx.min.js", "HTMX-LICENSE.txt"):
+    for asset in ("app.css", "app.js", "filters.js", "scan.js", "htmx.min.js", "HTMX-LICENSE.txt"):
         assert client.get(f"/static/{asset}").status_code == 200
     assert "script-src 'self'" in home.headers["Content-Security-Policy"]
     assert home.headers["cache-control"] == "no-store"
@@ -64,11 +64,14 @@ def test_pages_and_packaged_assets(client, web_environment, scan_result):
 
 def test_catalog_controls_and_commit_metadata(client, web_environment, scan_result):
     empty = client.get("/").text
-    assert 'id="add-repository" type="button" aria-expanded="true"' in empty
+    assert 'aria-haspopup="dialog" aria-controls="scan-dialog"' in empty
+    assert "Scan repository or organization" in empty
     web_environment.catalog.replace_repository(scan_result)
     home = client.get("/").text
-    assert 'id="add-repository" type="button" aria-expanded="false"' in home
-    assert 'class="scan-form" hidden' in home
+    assert '<dialog id="scan-dialog"' in home
+    assert '<label for="repository-url">GitHub URL</label>' in home
+    assert "https://github.com/organization" in home
+    assert 'data-error-target="#scan-dialog-feedback"' in home
     assert "COMMIT" not in home and scan_result.commit_sha[:8] not in home
     assert "Your skill library" not in home
     for skills in (scan_result.skills, ()):

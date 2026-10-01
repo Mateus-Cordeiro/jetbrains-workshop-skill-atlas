@@ -224,8 +224,8 @@ def test_home_scan_refresh_reinitializes_description_controls(
     state.source = f"---\nname: refreshed\ndescription: {LONG_DESCRIPTION}\n---\n# Refreshed\n"
     page.goto(page.base_url + "/?q=UniqueTail")
     expect(page.locator(".catalog-skill")).to_have_count(0)
-    page.get_by_role("button", name="Add repository").click()
-    page.get_by_role("textbox", name="GitHub repository URL").fill(scan_result.repository.url)
+    page.locator("#scan-github").click()
+    page.get_by_role("textbox", name="GitHub URL").fill(scan_result.repository.url)
     page.get_by_role("button", name="Scan repository").click()
     expect(page.get_by_role("status")).to_have_text("2 matching skills across 1 repository")
     card = page.locator(".skill-item").first

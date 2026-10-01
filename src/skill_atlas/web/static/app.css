@@ -184,14 +184,67 @@ input::placeholder{
   flex:1;
   min-width:0;
 }
-.scan-form{
-  display:flex;
-  gap:10px;
-  padding:16px;
-  margin-bottom:20px;
+#scan-dialog{
+  width:min(540px,calc(100% - 32px));
+  max-height:calc(100% - 32px);
+  padding:28px;
   border:1px solid var(--line);
-  border-radius:8px;
+  border-radius:12px;
+  background:var(--paper);
+  color:var(--ink);
+  box-shadow:0 20px 70px #24322f33;
+}
+#scan-dialog::backdrop{
+  background:#24322f66;
+}
+.scan-dialog-heading{
+  display:flex;
+  align-items:start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:12px;
+}
+.scan-dialog-heading h2{
+  margin:4px 0 0;
+  font-size:22px;
+  line-height:1.3;
+}
+.scan-dialog-heading button{
+  padding:4px 10px;
+  font-size:20px;
+}
+#scan-dialog-description{
+  font-size:14px;
+  margin-bottom:24px;
+}
+#repository-form label{
+  display:block;
+  margin-bottom:8px;
+  font-size:13px;
+  font-weight:600;
+}
+#scan-url-examples,#scan-scope{
+  font-size:13px;
+  margin:10px 0 0;
+  overflow-wrap:anywhere;
+}
+#scan-url-examples{
+  color:#59685f;
+}
+#scan-scope:empty{
+  display:none;
+}
+#scan-scope{
+  padding:12px;
   background:var(--tint);
+  border-radius:6px;
+}
+.scan-dialog-actions{
+  display:flex;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:24px;
 }
 .count{
   display:inline-block;
@@ -589,8 +642,15 @@ footer{
   h1{
     font-size:36px;
   }
-  .scan-form{
-    flex-direction:column;
+  #scan-dialog{
+    padding:20px;
+  }
+  .scan-dialog-heading button{
+    min-width:44px;
+    min-height:44px;
+  }
+  #repository-url{
+    font-size:16px;
   }
   .table-heading,.repository-row{
     grid-template-columns:minmax(0,1fr) 70px;
@@ -964,7 +1024,7 @@ footer{
     justify-self:start;
     grid-row:1;
   }
-  #add-repository,.pane-heading .search-toggle{
+  #scan-github,.pane-heading .search-toggle{
     grid-column:2;
     grid-row:1;
   }

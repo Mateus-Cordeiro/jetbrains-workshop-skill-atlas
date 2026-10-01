@@ -152,10 +152,12 @@ def test_scan_queue_failure_retry_and_zero_results(
     page, state = browser_page, web_environment
     page.goto(page.base_url)
     state.scan_gate.clear()
-    page.get_by_role("textbox", name="GitHub repository URL").fill(scan_result.repository.url)
+    page.locator("#scan-github").click()
+    page.get_by_role("textbox", name="GitHub URL").fill(scan_result.repository.url)
     page.get_by_role("button", name="Scan repository").click()
     expect(page.locator('.job[data-state="running"]')).to_be_visible()
-    page.get_by_role("textbox", name="GitHub repository URL").fill("https://github.com/acme/other")
+    page.locator("#scan-github").click()
+    page.get_by_role("textbox", name="GitHub URL").fill("https://github.com/acme/other")
     page.get_by_role("button", name="Scan repository").click()
     expect(page.locator('.job[data-state="queued"]')).to_be_visible()
     state.scan_gate.set()
@@ -251,9 +253,9 @@ def test_delayed_workspace_refresh_preserves_new_selection(
 
 
 def submit_repository(page, repository):
-    if not page.get_by_role("textbox", name="GitHub repository URL").is_visible():
-        page.get_by_role("button", name="Add repository").click()
-    page.get_by_role("textbox", name="GitHub repository URL").fill(repository)
+    if not page.get_by_role("textbox", name="GitHub URL").is_visible():
+        page.locator("#scan-github").click()
+    page.get_by_role("textbox", name="GitHub URL").fill(repository)
     page.get_by_role("button", name="Scan repository").click()
 
 
@@ -319,8 +321,9 @@ def test_organization_scan_progress_and_partial_failure_refresh_the_catalog(
     state.failed_repositories = {"Acme/tools"}
     page.goto(page.base_url)
     state.scan_gate.clear()
-    page.get_by_role("textbox", name="GitHub repository URL").fill("https://github.com/Acme")
-    page.get_by_role("button", name="Scan repository").click()
+    page.locator("#scan-github").click()
+    page.get_by_role("textbox", name="GitHub URL").fill("https://github.com/Acme")
+    page.get_by_role("button", name="Scan organization").click()
     expect(page.locator(".job-status")).to_have_text("Scanning 0 of 2 repositories")
     state.scan_gate.set()
     failed = page.locator('.job[data-state="failed"]')

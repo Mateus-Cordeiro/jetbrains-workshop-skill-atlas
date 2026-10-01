@@ -6,11 +6,15 @@ Last verified: 2026-10-01.
 
 The `scan_from_home` fixture in
 [browser conftest](../tests/browser/conftest.py) submits through the real homepage
-form, then returns to the original workspace URL before allowing the scan to
+scan dialog, then returns to the original workspace URL before allowing the scan to
 finish. It holds `web_environment.scan_gate` during navigation so the destination
 page receives a running job and exercises polling plus automatic workspace
 refresh. Use it for scan-driven selection, filtering, and description tests;
-repository detail pages have no scan control.
+repository detail pages have no scan control. Accepted submissions close the
+modal, so open it again before each subsequent submission. Use `#scan-github`
+for the toolbar opener: the empty catalog also has a **Scan GitHub…** button.
+Role locators exclude controls in a closed dialog; reopen it when checking
+retained input, as in [the layout tests](../tests/browser/test_catalog_layout.py).
 
 The helper reloads the destination page. For a race involving an in-memory
 interaction, perform that interaction after the helper returns and hold the
