@@ -43,6 +43,10 @@ class StarWriter(Protocol):
     def set_starred(self, repository: Repository, path: str, starred: bool) -> Skill | None: ...
 
 
+class RepositoryRemover(Protocol):
+    def remove_repository(self, repository: Repository) -> None: ...
+
+
 class CatalogReader(Protocol):
     def repositories(self) -> tuple[RepositorySummary, ...]: ...
 

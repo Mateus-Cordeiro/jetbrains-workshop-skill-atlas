@@ -101,8 +101,34 @@ Each repository displays:
 - Its `owner/repository` name.
 - Its number of stored skills.
 - An action to open its skills.
+- A right-side X button labelled **Remove owner/repository from catalog**.
 
-Sort repositories deterministically by their canonical repository URL. Do not
+Offer **Sort by skills** with **None**, **Ascending**, and **Descending** in the
+homepage toolbar, keeping the repository list immediately visible on desktop
+and mobile. Wrap the toolbar below the heading when needed to avoid overflow.
+None is the default canonical repository URL order. Count sorting uses total
+stored skills, even when filtering or showing starred skills, with canonical URL
+ascending to break ties. Keep the control available in empty states. Store active
+sorting as `sort=asc` or `sort=desc` in the homepage URL using replacement history;
+None omits the parameter. Refresh, browser Back, filtering, star changes, and
+scan/removal refreshes preserve sorting and existing expansion choices. Sorting
+never reads GitHub or changes catalog data.
+
+The X button asks for confirmation naming the repository and explaining that its
+local skills and stars will be deleted, GitHub is unaffected, and a later scan
+can add it again. Cancel leaves the catalog and list unchanged. Confirm submits
+an idempotent removal; while pending, duplicate submissions are suppressed.
+Refresh the list and counts using the current filters and sort after success,
+discard the removed repository's expansion state, and focus the sort control.
+Show failures visibly and allow retry without discarding the previous list. If
+removal succeeds but the list refresh fails, explain that removal succeeded and
+the displayed catalog needs refreshing. Removing the final repository shows the
+normal empty state without opening the scan dialog. Deletion follows the shared
+[write consistency contract](../architecture.md#write-consistency), including
+last-successful-write behavior with in-flight scans. Saved Explore memberships
+resolve against the current catalog without automatic regeneration.
+
+Do not
 display a last-scan time: the current catalog does not contain that information.
 An empty catalog shows an explanation and an action to open the scan dialog.
 Do not display commit hashes or a rescan action in the repository list.
@@ -417,9 +443,10 @@ Web routes adapt HTTP requests to catalog queries, scan jobs, and document
 services; templates and HTMX return pages and fragments. Use
 `application/catalog.py` for shared matching and grouped read results.
 Keep selection history and document response handling in `web/static/app.js`,
-filtering, the starred-only state, expansions, and independent list response
-handling in `web/static/filters.js`, and star toggle requests in
-`web/static/stars.js`. Star routes adapt `application/stars.py`. Dialog focus,
+filtering, starred-only state, repository sorting, expansions, and independent
+list response handling in `web/static/filters.js`,
+star toggle requests in `web/static/stars.js`, and repository removal confirmation
+and submission in `web/static/repositories.js`. Star routes adapt `application/stars.py`. Dialog focus,
 URL scope hints, and submission lifecycle live in `web/static/scan.js`. Package
 the required templates and static assets so the installed command works outside
 the checkout.
@@ -475,9 +502,9 @@ into URLs.
 
 | Method and route | Behavior |
 | --- | --- |
-| `GET /?q=...` | Repository page, optional skill filter, and scan dialog. |
+| `GET /?q=...&sort=...` | Repository page, optional skill filter and count sorting, and scan dialog. |
 | `GET /repository?repository_url=...&skill_path=...&q=...` | Repository detail; skill selection is optional. |
-| `GET /fragments/repositories?q=...` | Catalog-derived repository list with matching skills when filtering. |
+| `GET /fragments/repositories?q=...&sort=...` | Catalog-derived repository list with optional count sorting and matching skills when filtering. |
 | `GET /fragments/repository?repository_url=...&skill_path=...&q=...` | Refresh the two-pane workspace; skill selection is optional. |
 | `GET /fragments/repository-skills?repository_url=...&q=...` | Inline skill metadata for an expanded homepage repository. |
 | `GET /fragments/skills?repository_url=...&skill_path=...&q=...` | Filtered repository skill list and counts without replacing the document. |
@@ -485,11 +512,12 @@ into URLs.
 | `GET /fragments/similar?repository_url=...&skill_path=...` | Refresh similarity workspace with the same optional parameters. |
 | `GET /fragments/document?repository_url=...&skill_path=...&commit_sha=...` | Document fragment containing escaped source and safe rendered content. |
 | `POST /scans` | Validate form-encoded `repository_url` as a repository or organization URL; return `202` with scan activity fragments and a job status URL in `Location`. |
+| `POST /repositories/remove` | Validate form-encoded `repository_url`; atomically remove its local skills and stars, returning `204`, including for an absent repository/catalog. |
 | `POST /stars` | Validate form-encoded `repository_url`, exact `skill_path`, and requested `starred` (`1` or `0`); return `200` with the updated star toggle fragment. |
 | `GET /scans/{job_id}` | Job status fragment with identity, state, and outcome or error. |
 
 Return escaped HTML errors with a stable `data-error-code` and user-facing
-message. Invalid input uses `400`; missing catalog entries (including star
+message. Invalid input, including a sort other than `none`, `asc`, or `desc`, uses `400`; missing catalog entries (including star
 requests, with `missing_skill`) and unknown job IDs use `404`; stale
 document selections use `409`. Similarity searches use `404` with
 `missing_similarity_source` for a removed starting skill; a missing or no-longer
@@ -504,8 +532,8 @@ capacity or shutdown rejections use `503`. HTMX displays error fragments in
 the relevant panel; stale selections refresh the workspace before loading again.
 
 Bind only to loopback in this version. Validate allowed Host and Origin values
-and protect scan and star submissions against cross-origin requests. Every
-`POST`, including `POST /stars`, requires a matching Origin and the custom
+and protect scan, star, and removal submissions against cross-origin requests. Every
+`POST`, including star and repository removal requests, requires a matching Origin and the custom
 `X-Atlas-Request: 1` header sent by the UI. Do not enable
 permissive CORS. Browser requests can select existing catalog entries but cannot
 provide arbitrary upstream content URLs or credentials for the server to fetch.
@@ -601,6 +629,15 @@ Implementation must cover these user-visible outcomes:
     back/forward through `starred=1`, carries across catalog navigation, and has
     distinct empty states. Cross-origin star requests are rejected without
     writes, and starring never contacts GitHub or starts a scan.
+
+15. Repository count sorting supports all three choices with deterministic ties,
+    total counts under text/starred filtering, expansion retention, refresh, and
+    browser Back. X removal confirms the named repository, supports cancellation
+    and keyboard/mobile use, updates counts and empty states, and survives reload.
+    Failures preserve stored skills and stars and allow retry; late list responses
+    cannot restore deleted entries. Removal is local, atomic, idempotent, protected
+    against cross-origin requests, and isolated to one repository. Saved groups
+    become stale and omit removed memberships without inference.
 
 Follow [the repository testing rules](../../AGENTS.md). Use unit tests for query
 and job policies and document handling, and integration tests with temporary

@@ -122,12 +122,13 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | --- | --- |
 | `cli/app.py`, `cli/commands/` | Register subcommands and adapt arguments, exit codes, and presentation. |
 | `models.py` | Immutable repository, organization, scan target, snapshot, organization listing, skill file, metadata, skill (including its local star), scan result, and repository summary values. |
-| `ports.py` | Narrow reader, organization-reader, parser, catalog-write, star-write, catalog-read, and document-reader interfaces. |
+| `ports.py` | Narrow reader, organization-reader, parser, catalog-write, repository-removal, star-write, catalog-read, and document-reader interfaces. |
 | `errors.py` | Shared operational error types translated by adapters and presented by interfaces. |
 | `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. Starts from a repository or an already resolved snapshot. |
 | `application/organization_scan.py` | List an organization once, apply eligibility rules, run per-repository scans through a bounded worker pool, and aggregate per-repository outcomes, progress, rate-limit stops, and cancellation. |
 | `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
-| `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, the starred-only scope, and repository grouping with consistent counts. |
+| `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, the starred-only scope, and repository grouping/count sorting with consistent counts. |
+| `application/repositories.py` | Idempotently remove one repository from the local catalog through a dedicated removal port. |
 | `application/stars.py` | Idempotently star and unstar one catalog identity through the star-write port. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
 | `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
@@ -166,7 +167,9 @@ separately. Integration scenarios keep the real components involved together.
 repository snapshot. `OrganizationReader` lists an organization's repositories
 with their eligibility flags and resolved snapshots. `SkillParser` extracts metadata. `Catalog` exposes
 `replace_repository` to the scanner and returns the stored result, including
-stars retained by surviving identities. `StarWriter` exposes `set_starred` to
+stars retained by surviving identities. `RepositoryRemover` exposes
+`remove_repository` independently of scan writes. `StarWriter` exposes
+`set_starred` to
 the starring service, while `CatalogReader` exposes repository summaries, skill
 lists (one repository or the whole catalog), and identity lookup, each skill
 carrying its star. `DocumentReader` retrieves a file at a recorded commit
@@ -265,7 +268,8 @@ This avoids transferring every catalog entry to the browser or doing one query
 per repository. It uses a linear in-memory pass on the local backend; pagination
 and indexed full-text search are not introduced for this metadata-only catalog.
 `web/static/filters.js` handles query and starred-only history, expansion
-state, and cancellable list requests separately from document loading. No filtering operation reads
+state, repository count sorting, and cancellable list requests separately from
+document loading. No filtering operation reads
 GitHub, changes the catalog, or retrieves document bodies.
 
 `cli/commands/filter.py` invokes `BrowseCatalog.filter()` through
@@ -286,6 +290,19 @@ in the similarity workspace, where repository/path disambiguation is needed.
 Description expansion stays in
 `web/static/app.js`, with controls initialized after list updates from
 `web/static/filters.js` as well as page and workspace loads.
+
+### Following a repository removal
+
+The homepage X action confirms deletion of local skills and stars, then
+`POST /repositories/remove` invokes `application/repositories.py`, wired through
+`runtime.py`. Its narrow `RepositoryRemover` port lets the SQLite adapter delete
+only the canonical repository's skill rows in one write transaction. Repeated
+removals succeed, including when the catalog is absent, without creating it.
+Migration and failure handling reuse the existing write path. No GitHub access,
+credentials, scan, or AI generation is involved. Saved grouping definitions stay
+unchanged; current-catalog membership resolution hides removed skills and marks
+changed inputs stale. `web/static/repositories.js` owns confirmation and submission;
+`filters.js` refreshes the list with its current query, starred scope, and sort.
 
 ### Following a star change
 
@@ -489,6 +506,13 @@ stars, and removing a row removes its star. A moved path is a new, unstarred
 identity. Other repositories' stars are unchanged, and a failed replacement
 preserves them.
 
+`RepositoryRemover.remove_repository` atomically deletes all skill rows and their
+stars for one canonical repository, preserving every other repository. It is
+idempotent, does not create a missing database, and follows the same migration and
+rollback rules as other explicit writes. Separate processes and in-flight scans
+retain last-successful-write behavior: a scan committed after removal can add
+that repository again. Removal does not cancel queued or running work.
+
 `StarWriter.set_starred` sets or clears `starred` on an existing identity in one
 write transaction, changing no other field. It is idempotent and does not create a missing
 catalog, because a missing catalog has no skills to star.
@@ -503,13 +527,18 @@ Reads perform no GitHub requests. A missing database represents an empty
 catalog; an unreadable, corrupt, or unsupported database is an error. Reads do
 not create, migrate, rebuild, or reset the database. A catalog at schema version
 1 or 2, created before stars, has no `starred` column; it remains readable, with every
-skill unstarred, without changing the file. The next scan or star migrates it.
+skill unstarred, without changing the file. The next explicit write migrates it.
 
 Use independent, short-lived read-only SQLite connections with a transaction
 per operation. Do not share connections across request and worker threads.
 Readers see either the previous complete repository entries or the new complete
-entries, never a partial replacement. Repository summaries are sorted by
-canonical URL; skill queries follow the shared name/path ordering. A skill
+entries, never a partial replacement. Repository summaries are read in canonical
+URL order. The catalog application
+service can sort homepage groups by total stored skill count ascending or
+descending, with canonical URL ascending as the tie-break; no sort retains URL
+order. Filtering does not change which count is sorted. This is presentation
+ordering and does not alter skill order or storage; skill queries follow the
+shared name/path ordering. A skill
 query without a repository returns the whole catalog, ordered by canonical
 repository URL, then name/path, in one transaction. Derive filtered groups,
 matching counts, and repository totals from that same result so concurrent
@@ -525,9 +554,9 @@ defaults or backfills when existing rows need new values. `PRAGMA user_version`
 tracks the schema version.
 
 Migrations run under a write lock before catalog replacement, explicit grouping
-persistence, or a star change. Schema changes and their version marker commit
-or roll back together. Replacing repository entries and changing a star each
-use a separate atomic transaction. Reject newer unsupported schema versions
+persistence, a star change, or repository removal. Schema changes and their
+version marker commit or roll back together. Repository replacement, removal,
+and star changes each use a separate atomic transaction. Reject newer unsupported schema versions
 without modification. Never drop and recreate a catalog as an upgrade strategy.
 
 Version 2 adds only the derived grouping table. Version 3 adds the `starred`

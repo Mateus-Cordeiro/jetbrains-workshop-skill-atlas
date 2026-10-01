@@ -558,3 +558,24 @@ def test_unverified_server_and_exhausted_context_preserve_saved_groups(
     assert message in generate(client, expected="failed").text
     assert len(state.grouping_requests) == requests + (failure == "unfinished")
     assert SQLiteGroups(state.catalog).read_all() == before
+
+
+def test_explicit_repository_removal_hides_saved_memberships_and_marks_groups_stale(
+    client, web_environment, scan_result
+):
+    state = web_environment
+    other = Repository("other", "repo")
+    state.catalog.replace_repository(scan_result)
+    state.catalog.replace_repository(replace(scan_result, repository=other))
+    generate(client)
+    requests = len(state.grouping_requests)
+    response = client.post(
+        "/repositories/remove", data={"repository_url": scan_result.repository.url}, headers=HEADERS
+    )
+    assert response.status_code == 204
+    for perspective in Perspective:
+        view = SkillGroups(SQLiteGroups(state.catalog)).browse(perspective)
+        assert view.stale
+        assert view.skill_count == 2
+        assert all(skill.repository == other for group in view.groups for skill in group.skills)
+    assert len(state.grouping_requests) == requests and state.requests == []

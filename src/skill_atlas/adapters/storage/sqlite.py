@@ -154,6 +154,14 @@ class SQLiteCatalog:
             skills=tuple(replace(skill, starred=skill.path in starred) for skill in result.skills),
         )
 
+    def remove_repository(self, repository: Repository) -> None:
+        if not self.path.exists():
+            return
+        with self._transaction(
+            "Could not remove the repository. Check the catalog location and permissions."
+        ) as connection:
+            connection.execute("DELETE FROM skills WHERE repository_url = ?", (repository.url,))
+
     def set_starred(self, repository: Repository, path: str, starred: bool) -> Skill | None:
         if not self.path.exists():
             # A missing catalog has no skills to star; do not create one.

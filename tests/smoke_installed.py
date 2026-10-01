@@ -129,6 +129,7 @@ with (
             "filters.js",
             "scan.js",
             "stars.js",
+            "repositories.js",
             "app.css",
             "g6.min.js",
             "g6-LICENSE.txt",
@@ -288,6 +289,16 @@ with (
         for headers in ({}, {"HX-Request": "true"}):
             error = client.get("/repository", headers=headers)
             assert error.status_code == 400 and "invalid_input" in error.text
+        sorted_home = client.get("/", params={"sort": "desc"})
+        assert 'value="desc" selected' in sorted_home.text
+        assert "Remove acme/skills from catalog" in sorted_home.text
+        removed = client.post(
+            "/repositories/remove",
+            data={"repository_url": REPOSITORY},
+            headers={"Origin": "http://127.0.0.1", "X-Atlas-Request": "1"},
+        )
+        assert removed.status_code == 204 and catalog.skills() == ()
+        assert "No repositories" in client.get("/").text
 print(
     "Installed wheel runs similarity and star CLIs, scan jobs, catalog pages, documents, "
     "and static assets."

@@ -9,6 +9,7 @@
   const query = () => input()?.value ?? new URLSearchParams(location.search).get('q') ?? '';
   const starredInput = () => document.querySelector('#starred-filter');
   const starred = () => starredInput()?.checked ?? new URLSearchParams(location.search).get('starred') === '1';
+  const sort = () => document.querySelector('#repository-sort')?.value ?? 'none';
   const active = () => Boolean(query().trim()) || starred();
   const key = () => JSON.stringify([query(), starred()]);
   const narrow = matchMedia('(max-width: 600px)');
@@ -134,6 +135,7 @@
     const target = document.querySelector(pane ? '#skill-results' : '#repositories');
     if (!target) return;
     const params = new URLSearchParams({q: query()});
+    if (!pane && sort() !== 'none') params.set('sort', sort());
     if (starred()) params.set('starred', '1');
     if (pane) {
       params.set('repository_url', pane.dataset.repository);
@@ -149,9 +151,11 @@
       document.querySelector('#filter-error')?.replaceChildren();
       restore();
       document.dispatchEvent(new Event('atlas:skills-updated'));
+      return true;
     } catch {
       if (current !== revision || !target.isConnected) return;
       document.querySelector('#filter-error').innerHTML = '<p>Could not update skills. Previous results are still shown. <button type="button" data-retry-filter>Retry</button></p>';
+      return false;
     } finally {
       if (current === revision) target.removeAttribute('aria-busy');
     }
@@ -162,6 +166,12 @@
     searchVisibility();
     if (!active()) collapsedMatches.clear();
     history.replaceState(history.state, '', setFilters(new URL(location.href)));
+    if (document.querySelector('#repository-sort')) {
+      const url = new URL(location.href);
+      if (sort() === 'none') url.searchParams.delete('sort');
+      else url.searchParams.set('sort', sort());
+      history.replaceState(history.state, '', url);
+    }
     saveState();
     const clear = document.querySelector('.filter-input [data-clear-filter]');
     if (clear) clear.hidden = !query();
@@ -177,7 +187,7 @@
     if (event.target.id === 'skill-filter') changed();
   });
   document.addEventListener('change', event => {
-    if (event.target.id === 'starred-filter') changed(true);
+    if (['starred-filter', 'repository-sort'].includes(event.target.id)) changed(true);
   });
   document.addEventListener('submit', event => {
     if (!event.target.matches('.skill-filter')) return;
@@ -226,5 +236,11 @@
   });
   document.addEventListener('DOMContentLoaded', restore);
   document.addEventListener('atlas:skills-updated', selection);
-  window.atlasFilters = {query, starred, key, refresh, restore, selection, cancel};
+  function forgetRepository(repository) {
+    expanded.delete(repository);
+    collapsedMatches.delete(repository);
+    saveState();
+  }
+
+  window.atlasFilters = {query, starred, key, refresh, restore, selection, cancel, forgetRepository};
 })();

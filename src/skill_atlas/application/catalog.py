@@ -2,9 +2,12 @@
 
 from dataclasses import dataclass
 from itertools import groupby
+from typing import Literal
 
 from skill_atlas.models import Repository, RepositorySummary, Skill
 from skill_atlas.ports import CatalogReader
+
+RepositorySort = Literal["none", "asc", "desc"]
 
 
 def filter_skills(skills: tuple[Skill, ...], query: str) -> tuple[Skill, ...]:
@@ -36,6 +39,22 @@ class RepositoryMatches:
     skills: tuple[Skill, ...]
 
 
+def sort_repositories(
+    groups: tuple[RepositoryMatches, ...], sort: RepositorySort
+) -> tuple[RepositoryMatches, ...]:
+    """Sort total stored counts; canonical URLs break ties in either direction."""
+    direction = {"none": 0, "asc": 1, "desc": -1}[sort]
+    return tuple(
+        sorted(
+            groups,
+            key=lambda group: (
+                direction * group.summary.skill_count,
+                group.summary.repository.url,
+            ),
+        )
+    )
+
+
 @dataclass(frozen=True)
 class CatalogView:
     repositories: tuple[RepositoryMatches, ...]
@@ -60,10 +79,17 @@ class BrowseCatalog:
         scope = starred_scope(self.catalog.skills(repository), starred)
         return FilteredSkills(len(scope), filter_skills(scope, query), starred)
 
-    def home(self, query: str = "", starred: bool = False) -> CatalogView:
+    def home(
+        self, query: str = "", starred: bool = False, sort: RepositorySort = "none"
+    ) -> CatalogView:
         if not query.strip() and not starred:
             return CatalogView(
-                tuple(RepositoryMatches(summary, ()) for summary in self.catalog.repositories()),
+                sort_repositories(
+                    tuple(
+                        RepositoryMatches(summary, ()) for summary in self.catalog.repositories()
+                    ),
+                    sort,
+                ),
                 0,
             )
         # Counts and matches come from one read snapshot, including during a rescan.
@@ -75,7 +101,9 @@ class BrowseCatalog:
                 first = skills[0]
                 summary = RepositorySummary(first.repository, len(skills), first.commit_sha)
                 groups.append(RepositoryMatches(summary, matches))
-        return CatalogView(tuple(groups), sum(len(group.skills) for group in groups))
+        return CatalogView(
+            sort_repositories(tuple(groups), sort), sum(len(group.skills) for group in groups)
+        )
 
     def repository(
         self,

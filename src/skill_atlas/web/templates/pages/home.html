@@ -5,6 +5,10 @@
 <div class="catalog-tools">
 {% set filter_label = 'Filter skills across repositories' %}
 {% include 'fragments/filter.html' %}
+<div class="repository-list-tools"><label for="repository-sort">Sort by skills</label>
+<select id="repository-sort" title="Sort by total stored skills">
+{% for value, label in [('none', 'None'), ('asc', 'Ascending'), ('desc', 'Descending')] %}<option value="{{ value }}"{% if sort == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+</select></div>
 <button id="scan-github" type="button" data-open-scan aria-haspopup="dialog" aria-controls="scan-dialog">Scan GitHub…</button>
 </div>
 </div>

@@ -320,3 +320,17 @@ def test_star_writes_are_idempotent_and_never_create_or_downgrade_catalogs(tmp_p
     with pytest.raises(CatalogError, match="newer"):
         catalog.set_starred(review.repository, review.path, True)
     assert path.read_bytes() == before
+
+
+def test_repository_removal_migrates_legacy_catalog_without_touching_other_rows(
+    tmp_path, scan_result
+):
+    path = tmp_path / "catalog.sqlite3"
+    create_v1_catalog(path, scan_result)
+    catalog = SQLiteCatalog(path)
+    catalog.remove_repository(Repository("missing", "repo"))
+    assert catalog.skills() == scan_result.skills
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == CURRENT
+    catalog.remove_repository(scan_result.repository)
+    assert catalog.repositories() == ()

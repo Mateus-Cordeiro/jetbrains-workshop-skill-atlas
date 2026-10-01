@@ -163,6 +163,7 @@ input::placeholder{
 }
 .catalog-heading{
   display:flex;
+  flex-wrap:wrap;
   align-items:center;
   justify-content:space-between;
   gap:24px;
@@ -177,8 +178,8 @@ input::placeholder{
   display:flex;
   align-items:start;
   gap:12px;
-  flex:1;
-  max-width:520px;
+  flex:1 1 680px;
+  max-width:680px;
 }
 .catalog-tools .filter-controls{
   flex:1;
@@ -262,9 +263,40 @@ input::placeholder{
   border-radius:9px;
   overflow:hidden;
 }
+.repository-list-tools{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+  white-space:nowrap;
+  font-size:12px;
+  color:var(--muted);
+}
+.repository-list-tools select{
+  font:inherit;
+  color:var(--ink);
+  background:white;
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:8px;
+  min-height:44px;
+}
+.repository-remove{
+  width:44px;
+  height:44px;
+  padding:0;
+  background:transparent;
+  color:var(--muted);
+  border-color:transparent;
+  font-size:22px;
+}
+.repository-remove:hover{
+  color:#9c3030;
+  background:#fff1f1;
+}
 .table-heading,.repository-row{
   display:grid;
-  grid-template-columns:minmax(0,1fr) 110px;
+  grid-template-columns:minmax(0,1fr) 110px 44px;
   gap:20px;
   padding:18px 24px;
   align-items:center;
@@ -653,7 +685,7 @@ footer{
     font-size:16px;
   }
   .table-heading,.repository-row{
-    grid-template-columns:minmax(0,1fr) 70px;
+    grid-template-columns:minmax(0,1fr) 60px 44px;
     padding:16px;
     gap:10px;
   }
@@ -1001,8 +1033,9 @@ footer{
 @media (max-width:600px){
   .catalog-heading{
     flex-wrap:wrap;
-    gap:16px;
+    gap:8px;
     margin-top:16px;
+    margin-bottom:12px;
   }
   .catalog-heading h1{
     width:100%;
@@ -1015,6 +1048,21 @@ footer{
   }
   .catalog-tools{
     max-width:none;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:8px;
+    align-items:end;
+  }
+  .catalog-tools .repository-list-tools{
+    grid-column:2;
+    grid-row:1;
+    min-width:0;
+    flex-direction:column;
+    align-items:stretch;
+    gap:4px;
+  }
+  .repository-list-tools select{
+    min-width:0;
+    width:100%;
   }
   .filter-controls{
     display:contents;
@@ -1024,8 +1072,12 @@ footer{
     justify-self:start;
     grid-row:1;
   }
-  #scan-github,.pane-heading .search-toggle{
+  .pane-heading .search-toggle{
     grid-column:2;
+    grid-row:1;
+  }
+  #scan-github{
+    grid-column:3;
     grid-row:1;
   }
   .skill-filter{

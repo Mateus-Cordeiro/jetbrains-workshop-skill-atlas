@@ -184,6 +184,13 @@ through the homepage scan dialog or run the CLI `scan` command. Repository pages
 have no scan/rescan control. Commit hashes are omitted from the lists and document
 viewer; **View on GitHub** still opens the exact scanned version.
 
+Use **Sort by skills** above the repository list to choose ascending or descending
+total skill counts; **None** restores repository-name order. Sorting is retained
+when filtering, refreshing, or using browser Back. The X at the right of a row
+removes that repository's stored skills and local stars after confirmation.
+GitHub is unaffected. A later scan, including one already in progress, can add
+the repository again.
+
 Skill descriptions on homepage, repository, and similarity lists show up to two
 lines by default. Use **Show more** or **Show less** to expand or collapse an
 individual description. The skill's path appears in the document pane when selected.

@@ -12,6 +12,17 @@ modules a distinct suffix, as in
 [test_scan_catalog.py](../tests/integration/test_scan_catalog.py) and
 [test_organization_scan_catalog.py](../tests/integration/test_organization_scan_catalog.py).
 
+## Parametrized inputs and fixture dependencies
+
+A parametrized argument replaces a fixture with the same name throughout that
+test's dependency graph. In the
+[repository-removal tests](../tests/integration/test_repository_controls.py),
+calling an invalid URL parameter `repository` replaced the shared `Repository`
+fixture used by `scan_result` and `web_environment`. Catalog seeding then failed
+with `AttributeError` before the request under test. Use `repository_url` for
+the string input, preserving the domain fixture from
+[the shared conftest](../tests/conftest.py).
+
 ## Deterministic organization scan tests
 
 The `organization_harness` fixture in the
