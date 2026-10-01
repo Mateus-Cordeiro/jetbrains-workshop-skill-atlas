@@ -1,6 +1,5 @@
 /* G6 owns rendering/gestures. This module owns graph view state and navigation. */
 (() => {
-  const palette = ['#7adeeb', '#b49bff', '#84dfc5', '#e8be87', '#92b8ff'];
   const count = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let dispose = () => {};
@@ -12,6 +11,9 @@
     dispose();
     currentRoot = root;
     if (!root) return;
+    const theme = getComputedStyle(root);
+    const color = name => theme.getPropertyValue(name).trim();
+    const palette = Array.from({length: 5}, (_, index) => color(`--graph-color-${index + 1}`));
     const payload = JSON.parse(root.querySelector('#explore-data').dataset.graph);
     const host = root.querySelector('#skill-graph');
     // An anonymous renderer container keeps G6's runtime styles out of HTMX's
@@ -124,11 +126,11 @@
       const nodes = groups.map((group, index) => ({
         id: group.id, type: 'circle', states: [], data: {kind: 'group'},
         style: {opacity: 1, x: positions[group.id][0], y: positions[group.id][1], size: 94,
-          fill: '#16273c', stroke: palette[index % palette.length], lineWidth: 1.6,
-          shadowColor: palette[index % palette.length] + '44', shadowBlur: 24,
+          fill: color('--graph-surface'), stroke: palette[index % palette.length], lineWidth: 1.6,
+          shadowColor: palette[index % palette.length] + '22', shadowBlur: 24,
           halo: true, haloStroke: palette[index % palette.length], haloLineWidth: 10, haloStrokeOpacity: .06,
-          iconText: String(group.members.length), iconFill: '#e2f5ff', iconFontSize: 27,
-          labelText: group.title, labelFill: '#d8e9ff', labelFontSize: 13, labelFontWeight: 500,
+          iconText: String(group.members.length), iconFill: color('--ink'), iconFontSize: 27,
+          labelText: group.title, labelFill: color('--ink'), labelFontSize: 13, labelFontWeight: 500,
           labelPlacement: 'bottom', labelOffsetY: 14, labelWordWrap: true, labelMaxWidth: 180, labelMaxLines: 2,
           cursor: 'pointer'},
       }));
@@ -158,8 +160,8 @@
         index++;
         nodes.push({id: skill.id, type: 'rect', states: [], data: {kind: 'skill'},
           style: {opacity: 1, x: positions[skill.id][0], y: positions[skill.id][1], size: [174, 46], radius: 9,
-            fill: '#14283a', stroke: '#4b849c', lineWidth: 1, cursor: 'pointer',
-            labelText: skill.title, labelFill: '#ccedf9', labelFontSize: 14,
+            fill: color('--tint'), stroke: color('--graph-skill-stroke'), lineWidth: 1, cursor: 'pointer',
+            labelText: skill.title, labelFill: color('--ink'), labelFontSize: 14,
             labelPlacement: 'center', labelWordWrap: true, labelMaxWidth: 150, labelMaxLines: 2}});
       }
       root.querySelector('#graph-count').textContent = `${count(groups.length, 'group')} · ${membership.size} visible skills`;

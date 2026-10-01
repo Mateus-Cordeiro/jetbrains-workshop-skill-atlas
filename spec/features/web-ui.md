@@ -65,7 +65,8 @@ Preserve the existing `scan` command and its terminal presentation. Register
 
 ### Homepage
 
-Offer **Repositories**, **Capabilities**, and **Topics** catalog navigation.
+Offer **Repositories** and **Explore** catalog navigation. Keep the shared light
+color scheme when navigating between catalog, Explore, and document pages.
 Start the repository content with a compact **Repositories** heading and count, a search
 field, and **+ Add repository**. Omit the introductory hero and permanent scan
 card so the catalog is immediately visible. **Add repository** toggles a compact

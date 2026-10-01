@@ -35,8 +35,18 @@ def test_graph_generation_toggle_overlap_keyboard_and_skill_navigation(
     page.set_viewport_size({"width": width, "height": 1000})
     state.grouping_gate.clear()
     page.goto(page.base_url)
+
+    def page_colors():
+        return page.evaluate("""() => ['html', 'body', '.topbar', '.brand', '.brand-icon',
+            '.local-label', 'footer'].map(selector => {
+                const style = getComputedStyle(document.querySelector(selector));
+                return [style.backgroundColor, style.color, style.borderBottomColor];
+            })""")
+
+    catalog_colors = page_colors()
     page.get_by_role("link", name="Explore", exact=True).click()
     page.wait_for_url(page.base_url + "/explore", wait_until="domcontentloaded")
+    assert page_colors() == catalog_colors
     assert not state.grouping_requests
     button = page.get_by_role("button", name="Generate groups", exact=True)
     button.focus()
@@ -59,6 +69,7 @@ def test_graph_generation_toggle_overlap_keyboard_and_skill_navigation(
     expect(links).to_have_count(2)
     links.last.click()
     expect(page.locator(".markdown h1")).to_have_text("Review changes")
+    assert page_colors() == catalog_colors
     page.get_by_role("button", name="Source", exact=True).click()
     expect(page.locator("#document-source")).to_contain_text("name: code-review")
     page.reload()
@@ -77,6 +88,7 @@ def test_graph_generation_toggle_overlap_keyboard_and_skill_navigation(
     expect(page.get_by_role("button", name="Software engineering, 2 skills")).to_have_attribute(
         "aria-expanded", "true"
     )
+    assert page_colors() == catalog_colors
     page.go_back()
     expect(page.get_by_role("button", name="Capabilities", exact=True)).to_have_attribute(
         "aria-pressed", "true"

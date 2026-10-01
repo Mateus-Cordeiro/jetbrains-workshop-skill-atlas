@@ -73,7 +73,10 @@ work. An empty catalog cannot be generated and does not call Ollama.
 ## Browser interaction and HTTP
 
 The homepage and Explore page offer **Repositories** and **Explore** navigation.
-`/explore` presents a dark G6 graph with a **Capabilities / Topics** toggle.
+`/explore` presents a G6 graph with a **Capabilities / Topics** toggle.
+Keep the shared light catalog color scheme throughout navigation: page chrome,
+controls, graph, directory, and tooltips use the same surfaces, text, and accent
+colors as repository pages. Colored group outlines distinguish memberships.
 Both perspectives are delivered in the initial page; toggling never calls Ollama
 or fetches a new grouping. Initially show group nodes with titles and skill counts.
 Clicking a group expands/collapses its skill nodes. An overlapping skill appears
@@ -143,7 +146,8 @@ specify an upstream endpoint, model, credential, or arbitrary skill body.
 - Browser tests cover both perspectives, generation/retry/navigation during work,
   shared skill nodes, pointer drag/hover/expand, zoom controls, source/preview,
   refresh/back and restored positions, stale catalog data, keyboard use, reduced
-  motion, renderer failure, safe metadata, and narrow layouts. Existing viewer
+  motion, renderer failure, safe metadata, narrow layouts, and consistent page
+  colors across repository/Explore/document navigation. Existing viewer
   tests continue to cover late document responses and Similar skills.
 - Installed-wheel checks cover grouping pages, generation, persisted results,
   and bundled assets. Desktop visual baselines cover homepage navigation and graph perspectives/overlap.
