@@ -21,8 +21,8 @@ def supports_hyperlinks(console: Console) -> bool:
     )
 
 
-def _print_location(skill: Skill, console: Console, links: bool) -> None:
-    console.print(Padding(Text(location_text(skill), overflow="fold"), (0, 0, 0, 3)))
+def _print_location(skill: Skill, console: Console, links: bool, label: str = "") -> None:
+    console.print(Padding(Text(label or location_text(skill), overflow="fold"), (0, 0, 0, 3)))
     console.print(
         Padding(
             Text(skill.url, style=f"link {skill.url}" if links else "", overflow="fold"),
@@ -53,4 +53,4 @@ def print_result(result: ResultsView, console: Console) -> None:
         if len(entry.locations) > 1:
             console.print(Text(f"   Same metadata · {len(entry.locations)} locations"))
         for skill in entry.locations:
-            _print_location(skill, console, links)
+            _print_location(skill, console, links, entry.location(skill))

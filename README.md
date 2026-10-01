@@ -21,6 +21,7 @@ restart the shell to add uv's executable directory to `PATH`.
 
 The `scan`, `filter`, and `similar` commands share a results view with numbered
 skills, descriptions, repository paths, and links to their scanned definitions.
+A ★ after a name marks a [starred skill](#star-skills).
 Click **Hide descriptions**, or press **d**, to toggle descriptions. Press **q**
 to exit. Links open in your default browser.
 
@@ -76,24 +77,45 @@ skill-atlas filter "code review"
 skill-atlas filter "code review" --repository https://github.com/owner/repository
 skill-atlas filter "code review" --no-interactive
 skill-atlas filter "code review" --json
+skill-atlas filter --starred
 skill-atlas filter
 ```
 
 Every whitespace-separated term must occur in the skill's name or description,
 using Unicode case-insensitive matching. Quote multiword queries; punctuation
 is literal, and paths and document bodies are not searched. Omit the query to
-list all saved skills. `--repository` limits results to one repository.
+list all saved skills. `--repository` limits results to one repository, and
+`--starred` limits them to [starred skills](#star-skills).
 
 Results show names, descriptions, repository paths, and commit-pinned links
 in the shared interactive view, or print and exit with `--no-interactive`.
 `--json` always prints and exits, emitting an object with `matching_count` and a `skills`
-array containing each match's metadata, identity, full commit, and URL. Results
+array containing each match's metadata, identity, full commit, URL, and `starred` flag. Results
 use the same catalog as the Web UI, including `SKILL_ATLAS_DB`, and reflect the
 latest successful scans. Filtering works offline and does not require credentials.
 
 No matches is a successful query (exit `0`). Catalog failures exit `1`; invalid
 usage exits `2`. Errors go to stderr. See the [Filter specification](spec/features/filter.md)
 for matching and output contracts.
+
+## Star skills
+
+Star skills you use often to find them again quickly:
+
+```sh
+skill-atlas star https://github.com/owner/repository ".agents/skills/code-review/SKILL.md"
+skill-atlas filter --starred
+skill-atlas unstar https://github.com/owner/repository ".agents/skills/code-review/SKILL.md"
+```
+
+Like `similar`, both commands take the repository URL and the exact path to a
+scanned `SKILL.md`. Stars are saved in your local catalog, are separate from
+GitHub stars, and are shared with the Web UI. Each copy of a skill at a different
+path has its own star. Rescans keep stars on skills that still exist; a moved or
+removed path loses its star. Starring an already starred skill, or unstarring one
+without a star, still succeeds. A path not in the catalog exits `1` with **Skill
+not found in the catalog**; an invalid repository URL exits `2`. See
+[Stars](spec/features/stars.md) for the complete contract.
 
 ## Similar skills from the CLI
 
@@ -170,6 +192,11 @@ screens, use the magnifying-glass button to reveal search; an active query stays
 visible. Filters stay in the URL through navigation and refresh, and filtering
 keeps the open document visible. Clear the field or press Escape while focused to show all skills again.
 The same matching rules apply to the `filter` subcommand.
+
+Select the star beside a skill name, or in the open document's header, to star
+or unstar it. Check **Starred only** next to the search field to show just your
+starred skills on the homepage or in a repository; it combines with search and
+stays in the URL. Stars made here and with the CLI `star` command are the same.
 
 Choose **Similar skills** beside a skill name to discover alternatives across your
 scanned catalog. Results show a colour-coded **0–100% similarity bar** and

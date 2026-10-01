@@ -866,6 +866,78 @@ footer{
   z-index:1;
 }
 
+/* Local stars: a compact toggle on skill cards and documents, and a starred-only filter. */
+.skill-actions,.document-actions{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+.document-actions{
+  gap:14px;
+}
+.star-toggle{
+  display:inline-grid;
+  place-items:center;
+  padding:3px;
+  border:0;
+  border-radius:4px;
+  background:transparent;
+  color:var(--muted);
+}
+.star-toggle:hover{
+  background:transparent;
+  color:var(--accent);
+}
+.star-toggle[aria-pressed=true]{
+  color:#946200;
+}
+.star-toggle[aria-pressed=true] .icon,.starred-filter:has(input:checked) .icon{
+  fill:currentColor;
+}
+.skill-filter{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.skill-filter .filter-input{
+  flex:1 1 180px;
+  min-width:0;
+}
+.starred-filter{
+  display:inline-flex;
+  min-height:40px;
+  align-items:center;
+  gap:6px;
+  padding:0 10px;
+  border:1px solid #d1d9d1;
+  border-radius:6px;
+  background:white;
+  color:var(--ink);
+  font-size:12px;
+  letter-spacing:0;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.starred-filter input{
+  margin:0;
+  accent-color:var(--accent);
+}
+.starred-filter:has(input:checked){
+  border-color:#cbdac5;
+  background:var(--tint);
+}
+.starred-filter:has(input:checked) .icon{
+  color:#946200;
+}
+.starred-filter:has(input:focus-visible){
+  outline:3px solid #c58139;
+  outline-offset:2px;
+}
+.starred-filter input:focus-visible{
+  outline:none;
+}
+
 @media (max-width:600px){
   .catalog-heading{
     flex-wrap:wrap;

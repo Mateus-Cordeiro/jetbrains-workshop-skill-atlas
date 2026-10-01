@@ -134,6 +134,8 @@ class Skill:
     name: str
     description: str
     commit_sha: str
+    # Local catalog state for this identity, not scanned metadata or a GitHub star.
+    starred: bool = False
 
     @property
     def url(self) -> str:

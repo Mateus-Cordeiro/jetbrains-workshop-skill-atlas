@@ -1,4 +1,4 @@
-"""Read-only catalog browsing and shared name/description matching rules."""
+"""Read-only catalog browsing, shared name/description matching, and the starred scope."""
 
 from dataclasses import dataclass
 from itertools import groupby
@@ -18,10 +18,16 @@ def filter_skills(skills: tuple[Skill, ...], query: str) -> tuple[Skill, ...]:
     )
 
 
+def starred_scope(skills: tuple[Skill, ...], starred: bool) -> tuple[Skill, ...]:
+    """Restrict the scope before matching; stars never change the matching rules."""
+    return tuple(skill for skill in skills if skill.starred) if starred else skills
+
+
 @dataclass(frozen=True)
 class FilteredSkills:
     total_count: int
     matches: tuple[Skill, ...]
+    starred: bool = False
 
 
 @dataclass(frozen=True)
@@ -48,12 +54,14 @@ class BrowseCatalog:
     def __init__(self, catalog: CatalogReader) -> None:
         self.catalog = catalog
 
-    def filter(self, query: str = "", repository: Repository | None = None) -> FilteredSkills:
-        skills = self.catalog.skills(repository)
-        return FilteredSkills(len(skills), filter_skills(skills, query))
+    def filter(
+        self, query: str = "", repository: Repository | None = None, starred: bool = False
+    ) -> FilteredSkills:
+        scope = starred_scope(self.catalog.skills(repository), starred)
+        return FilteredSkills(len(scope), filter_skills(scope, query), starred)
 
-    def home(self, query: str = "") -> CatalogView:
-        if not query.strip():
+    def home(self, query: str = "", starred: bool = False) -> CatalogView:
+        if not query.strip() and not starred:
             return CatalogView(
                 tuple(RepositoryMatches(summary, ()) for summary in self.catalog.repositories()),
                 0,
@@ -62,7 +70,7 @@ class BrowseCatalog:
         groups = []
         for _, rows in groupby(self.catalog.skills(), key=lambda skill: skill.repository.url):
             skills = tuple(rows)
-            matches = filter_skills(skills, query)
+            matches = filter_skills(starred_scope(skills, starred), query)
             if matches:
                 first = skills[0]
                 summary = RepositorySummary(first.repository, len(skills), first.commit_sha)
@@ -70,12 +78,16 @@ class BrowseCatalog:
         return CatalogView(tuple(groups), sum(len(group.skills) for group in groups))
 
     def repository(
-        self, repository: Repository, query: str = "", selected_path: str = ""
+        self,
+        repository: Repository,
+        query: str = "",
+        selected_path: str = "",
+        starred: bool = False,
     ) -> RepositoryView:
         skills = self.catalog.skills(repository)
         return RepositoryView(
             repository,
             skills,
-            filter_skills(skills, query),
+            filter_skills(starred_scope(skills, starred), query),
             next((skill for skill in skills if skill.path == selected_path), None),
         )

@@ -18,6 +18,7 @@ def write_filter_json(result: FilteredSkills, output: TextIO) -> None:
                 "description": skill.description,
                 "commit_sha": skill.commit_sha,
                 "url": skill.url,
+                "starred": skill.starred,
             }
             for skill in result.matches
         ],

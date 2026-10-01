@@ -36,7 +36,7 @@ def test_text_is_literal_safe_and_shows_every_location(scan_result, width):
 
 def test_json_retains_metadata_precision_and_escapes_controls(scan_result):
     source = replace(scan_result.skills[0], name="Résumé\x1b[31m", description="line 1\nline 2\x07")
-    candidate = replace(source, path="copy #?/SKILL.md")
+    candidate = replace(source, path="copy #?/SKILL.md", starred=True)
     output = similarity_json(SimilarityResult(source, (SimilarMatch((candidate,), 82.123456),)))
     assert "\x1b" not in output and "\x07" not in output
     data = json.loads(output)
@@ -48,9 +48,10 @@ def test_json_retains_metadata_precision_and_escapes_controls(scan_result):
         "description": source.description,
         "commit_sha": source.commit_sha,
         "url": source.url,
+        "starred": False,
     }
     match = data["matches"][0]
     assert match["score"] == 82.123456 and match["display_score"] == 82
     assert match["locations"] == [
-        {**data["source"], "skill_path": candidate.path, "url": candidate.url}
+        {**data["source"], "skill_path": candidate.path, "url": candidate.url, "starred": True}
     ]

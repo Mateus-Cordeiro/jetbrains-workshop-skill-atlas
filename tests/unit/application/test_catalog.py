@@ -64,3 +64,65 @@ def test_filter_returns_matches_and_scope_count(scan_result, query, count):
     assert result.matches == scan_result.skills[:count]
     assert browser.filter(query).total_count == 0
     assert browser.filter(query).matches == ()
+
+
+class StarredCatalog:
+    """Catalog reads with one starred copy among same-name skills in two repositories."""
+
+    def __init__(self, scan_result):
+        from skill_atlas.models import Repository
+
+        review, notes = scan_result.skills
+        other = Repository("other", "repo")
+        self.rows = (
+            replace(review, path="copy/SKILL.md"),
+            replace(review, starred=True),
+            notes,
+            replace(review, repository=other, starred=True),
+        )
+        self.reads = 0
+
+    def skills(self, repository=None):
+        self.reads += 1
+        return tuple(
+            skill for skill in self.rows if repository is None or skill.repository == repository
+        )
+
+    def repositories(self):
+        pytest.fail("A starred-only homepage groups one skill snapshot instead of summaries")
+
+
+@pytest.mark.parametrize(
+    ("query", "starred", "paths", "total"),
+    [
+        ("", False, ["copy/SKILL.md", "review/SKILL.md", "release notes/SKILL.md"], 3),
+        ("", True, ["review/SKILL.md"], 1),
+        (" \t ", True, ["review/SKILL.md"], 1),
+        ("CODE maintain", True, ["review/SKILL.md"], 1),
+        ("notes", True, [], 1),
+    ],
+)
+def test_starred_scope_restricts_matches_without_changing_matching(
+    scan_result, query, starred, paths, total
+):
+    catalog = StarredCatalog(scan_result)
+    result = BrowseCatalog(catalog).filter(query, scan_result.repository, starred)
+    assert [skill.path for skill in result.matches] == paths
+    assert (result.total_count, result.starred) == (total, starred)
+    assert catalog.reads == 1
+    view = BrowseCatalog(catalog).repository(
+        scan_result.repository, query, "copy/SKILL.md", starred
+    )
+    assert [skill.path for skill in view.matches] == paths
+    assert len(view.skills) == 3 and view.selected.path == "copy/SKILL.md"
+
+
+def test_starred_homepage_groups_starred_matches_with_repository_totals(scan_result):
+    catalog = StarredCatalog(scan_result)
+    view = BrowseCatalog(catalog).home("", starred=True)
+    assert [
+        (group.summary.repository.full_name, group.summary.skill_count, len(group.skills))
+        for group in view.repositories
+    ] == [("Acme/skills", 3, 1), ("other/repo", 1, 1)]
+    assert view.matching_count == 2 and catalog.reads == 1
+    assert BrowseCatalog(catalog).home("notes", starred=True).repositories == ()

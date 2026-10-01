@@ -82,7 +82,10 @@ module_help = subprocess.run(
     text=True,
     check=True,
 )
-assert all(command in module_help.stdout for command in ("scan", "serve", "filter", "similar"))
+assert all(
+    command in module_help.stdout
+    for command in ("scan", "serve", "filter", "similar", "star", "unstar")
+)
 filter_help = subprocess.run(
     [str(Path(sys.executable).with_name("skill-atlas")), "filter", "--help"],
     capture_output=True,
@@ -119,6 +122,7 @@ with (
             "HTMX-LICENSE.txt",
             "app.js",
             "filters.js",
+            "stars.js",
             "app.css",
             "g6.min.js",
             "g6-LICENSE.txt",
@@ -241,6 +245,31 @@ with (
         assert original.description in printed_filter.stdout
         assert "copy/SKILL.md" in printed_filter.stdout
         assert printed_filter.stderr == "" and "\x1b" not in printed_filter.stdout
+        starred_cli = subprocess.run(
+            [str(Path(sys.executable).with_name("skill-atlas")), "star", REPOSITORY, "SKILL.md"],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert starred_cli.stdout.startswith("Starred installed-skill")
+        starred_page = client.get("/", params={"starred": "1"})
+        assert "1 matching starred skill across 1 repository" in starred_page.text
+        assert 'aria-pressed="true"' in starred_page.text
+        unstarred = client.post(
+            "/stars",
+            data={"repository_url": REPOSITORY, "skill_path": "SKILL.md", "starred": "0"},
+            headers={"Origin": "http://127.0.0.1", "X-Atlas-Request": "1"},
+        )
+        assert unstarred.status_code == 200 and 'aria-pressed="false"' in unstarred.text
+        starred_filter = subprocess.run(
+            [str(Path(sys.executable).with_name("skill-atlas")), "filter", "--starred", "--json"],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert json.loads(starred_filter.stdout) == {"matching_count": 0, "skills": []}
         for path in ("/fragments/skills", "/fragments/repository-skills"):
             result = client.get(path, params={"repository_url": REPOSITORY, "q": "installed"})
             assert result.status_code == 200 and "installed-skill" in result.text
@@ -254,5 +283,6 @@ with (
             error = client.get("/repository", headers=headers)
             assert error.status_code == 400 and "invalid_input" in error.text
 print(
-    "Installed wheel runs similarity CLI, scan jobs, catalog pages, documents, and static assets."
+    "Installed wheel runs similarity and star CLIs, scan jobs, catalog pages, documents, "
+    "and static assets."
 )

@@ -24,6 +24,9 @@ def filter_catalog(
         str | None,
         typer.Option("--repository", help="Restrict results to this GitHub repository URL."),
     ] = None,
+    starred: Annotated[
+        bool, typer.Option("--starred", help="Restrict results to skills starred locally.")
+    ] = False,
     no_interactive: Annotated[
         bool,
         typer.Option("--no-interactive", help="Print results and exit without opening the UI."),
@@ -32,7 +35,7 @@ def filter_catalog(
         bool, typer.Option("--json", help="Write a JSON object with matching_count and skills.")
     ] = False,
 ) -> None:
-    """Filter saved skills offline; omit QUERY to list all skills."""
+    """Filter saved skills offline; omit QUERY to list all skills in scope."""
     try:
         repository = Repository.from_url(repository_url) if repository_url is not None else None
     except ValueError as error:
@@ -40,7 +43,7 @@ def filter_catalog(
 
     try:
         browser = runtime.create_catalog_browser(Settings.from_environment())
-        result = browser.filter(query, repository)
+        result = browser.filter(query, repository, starred)
     except AtlasError as error:
         Console(stderr=True).print(Text(f"Error: {error}", style="red"))
         raise typer.Exit(code=1) from error

@@ -59,12 +59,12 @@ class ResultsApp(App[None]):
                             markup=False,
                         )
                     for skill in entry.locations:
-                        yield from self._location(skill)
+                        yield from self._location(skill, entry.location(skill))
         yield Button("Hide descriptions", id="toggle-descriptions")
         yield Footer()
 
-    def _location(self, skill: Skill) -> ComposeResult:
-        yield Static(location_text(skill), classes="location", markup=False)
+    def _location(self, skill: Skill, label: str = "") -> ComposeResult:
+        yield Static(label or location_text(skill), classes="location", markup=False)
         yield Link(skill.url, url=skill.url, classes="skill-link")
 
     @on(Button.Pressed, "#toggle-descriptions")

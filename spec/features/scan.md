@@ -103,6 +103,9 @@ acme/example — 1 skill
    https://github.com/acme/example/blob/<commit>/.agents/skills/code-review/SKILL.md
 ```
 
+After a rescan, skills whose identity kept a [local star](stars.md) carry the
+shared ★ marker after their name.
+
 Zero-skill scans show **No skills found in the repository** beneath the summary.
 The interactive view adds the shared description toggle, scrolling, and keyboard
 controls; `--no-interactive` prints the full results and exits.

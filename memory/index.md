@@ -22,3 +22,6 @@ to maintain them.
   Ollama schema/context handling, and fixture wire-format boundaries.
 - [Python test suite](python-testing.md): unique test module basenames, and
   deterministic organization scan tests for rate limits, parallel workers, and Ctrl+C.
+- [Restricted network validation](restricted-network-validation.md): running the
+  locked checks and Python browser tests when wheel, browser, or image downloads
+  are blocked, and why visual baselines still need the container.

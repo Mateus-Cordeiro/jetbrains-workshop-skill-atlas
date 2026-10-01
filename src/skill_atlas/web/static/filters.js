@@ -7,12 +7,16 @@
   const collapsedMatches = new Set(history.state?.catalogCollapsedMatches || []);
   const input = () => document.querySelector('#skill-filter');
   const query = () => input()?.value ?? new URLSearchParams(location.search).get('q') ?? '';
+  const starredInput = () => document.querySelector('#starred-filter');
+  const starred = () => starredInput()?.checked ?? new URLSearchParams(location.search).get('starred') === '1';
+  const active = () => Boolean(query().trim()) || starred();
+  const key = () => JSON.stringify([query(), starred()]);
   const narrow = matchMedia('(max-width: 600px)');
 
   function searchVisibility() {
     const controls = document.querySelector('.filter-controls');
     if (!controls) return;
-    if (query() || document.activeElement === input()) controls.classList.add('is-open');
+    if (query() || starred() || document.activeElement === input()) controls.classList.add('is-open');
     controls.querySelector('.search-toggle').setAttribute('aria-expanded',
       String(!narrow.matches || controls.classList.contains('is-open')));
   }
@@ -27,6 +31,13 @@
   function setQuery(url, value) {
     if (value) url.searchParams.set('q', value);
     else url.searchParams.delete('q');
+    return url;
+  }
+
+  function setFilters(url) {
+    setQuery(url, query());
+    if (starred()) url.searchParams.set('starred', '1');
+    else url.searchParams.delete('starred');
     return url;
   }
 
@@ -47,14 +58,14 @@
         link.setAttribute('aria-current', 'true');
         visible = true;
       }
-      const target = setQuery(new URL(link.href), query());
+      const target = setFilters(new URL(link.href));
       if (pane.dataset.fromExplore) target.searchParams.set('from_explore', pane.dataset.fromExplore);
       link.href = target;
     });
     const notice = document.querySelector('#selection-filter-notice');
-    if (notice) notice.hidden = !pane.dataset.selectedPath || visible || !query().trim();
+    if (notice) notice.hidden = !pane.dataset.selectedPath || visible || !active();
     const back = document.querySelector('.back-link');
-    if (back) back.href = setQuery(new URL(back.href), query());
+    if (back) back.href = setFilters(new URL(back.href));
   }
 
   async function html(url, controller) {
@@ -77,6 +88,7 @@
     panel.setAttribute('aria-busy', 'true');
     panel.textContent = 'Loading skills…';
     const params = new URLSearchParams({repository_url: group.dataset.repository, q: query()});
+    if (starred()) params.set('starred', '1');
     try {
       const content = await html('/fragments/repository-skills?' + params, new AbortController());
       if (!group.isConnected) return;
@@ -103,7 +115,7 @@
       document.querySelector('#repository-form').hidden = false;
       document.querySelector('#add-repository').setAttribute('aria-expanded', 'true');
     }
-    const filtering = Boolean(query().trim());
+    const filtering = active();
     document.querySelectorAll('.repository-group').forEach(group => {
       expand(group, filtering ? !collapsedMatches.has(group.dataset.repository) : expanded.has(group.dataset.repository));
     });
@@ -126,6 +138,7 @@
     const target = document.querySelector(pane ? '#skill-results' : '#repositories');
     if (!target) return;
     const params = new URLSearchParams({q: query()});
+    if (starred()) params.set('starred', '1');
     if (pane) {
       params.set('repository_url', pane.dataset.repository);
       params.set('skill_path', pane.dataset.selectedPath || '');
@@ -151,8 +164,8 @@
   function changed(immediate = false) {
     cancel();
     searchVisibility();
-    if (!query().trim()) collapsedMatches.clear();
-    history.replaceState(history.state, '', setQuery(new URL(location.href), query()));
+    if (!active()) collapsedMatches.clear();
+    history.replaceState(history.state, '', setFilters(new URL(location.href)));
     saveState();
     const clear = document.querySelector('.filter-input [data-clear-filter]');
     if (clear) clear.hidden = !query();
@@ -166,6 +179,9 @@
   });
   document.addEventListener('compositionend', event => {
     if (event.target.id === 'skill-filter') changed();
+  });
+  document.addEventListener('change', event => {
+    if (event.target.id === 'starred-filter') changed(true);
   });
   document.addEventListener('submit', event => {
     if (!event.target.matches('.skill-filter')) return;
@@ -192,13 +208,18 @@
       input().focus();
       changed(true);
     }
+    if (event.target.closest('[data-clear-starred]')) {
+      starredInput().checked = false;
+      starredInput().focus();
+      changed(true);
+    }
     if (event.target.closest('[data-retry-filter]')) refresh();
     const toggle = event.target.closest('.repository-toggle');
     if (toggle) {
       const group = toggle.closest('.repository-group');
       const open = toggle.getAttribute('aria-expanded') !== 'true';
-      const state = query().trim() ? collapsedMatches : expanded;
-      const remember = query().trim() ? !open : open;
+      const state = active() ? collapsedMatches : expanded;
+      const remember = active() ? !open : open;
       if (remember) state.add(group.dataset.repository);
       else state.delete(group.dataset.repository);
       saveState();
@@ -209,5 +230,5 @@
   });
   document.addEventListener('DOMContentLoaded', restore);
   document.addEventListener('atlas:skills-updated', selection);
-  window.atlasFilters = {query, refresh, restore, selection, cancel};
+  window.atlasFilters = {query, starred, key, refresh, restore, selection, cancel};
 })();

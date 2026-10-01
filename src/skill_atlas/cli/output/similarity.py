@@ -6,7 +6,7 @@ from skill_atlas.application.similarity import SimilarityResult
 from skill_atlas.models import Skill
 
 
-def _skill_json(skill: Skill) -> dict[str, str]:
+def _skill_json(skill: Skill) -> dict[str, str | bool]:
     return {
         "repository_url": skill.repository.url,
         "repository_name": skill.repository.full_name,
@@ -15,6 +15,7 @@ def _skill_json(skill: Skill) -> dict[str, str]:
         "description": skill.description,
         "commit_sha": skill.commit_sha,
         "url": skill.url,
+        "starred": skill.starred,
     }
 
 

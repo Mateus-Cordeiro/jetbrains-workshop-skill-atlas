@@ -9,11 +9,13 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents, MissingSkill, StaleSkill
 from skill_atlas.application.scan_jobs import QueueFull, ScanJobs
 from skill_atlas.application.similarity import MissingSimilaritySource, SimilarSkills
+from skill_atlas.application.stars import MissingStarredSkill, Stars
 from skill_atlas.errors import CatalogError, RepositoryError
 from skill_atlas.models import Repository, scan_target
 from skill_atlas.web.rendering import render
@@ -23,12 +25,31 @@ def url(path: str, **query: str) -> str:
     return path + ("?" + urlencode(query) if query else "")
 
 
+def filter_context(q: str, starred: bool) -> dict[str, Any]:
+    """Filter state shared by catalog templates; `starred=1` appears only when active."""
+    return {
+        "q": q,
+        "starred": starred,
+        "filtering": bool(q.strip()) or starred,
+        "filters": {"q": q, **({"starred": "1"} if starred else {})},
+    }
+
+
+async def form_fields(request: Request) -> dict[str, list[str]] | None:
+    """Parse a small form-encoded body without a multipart dependency; None if too large."""
+    body = await request.body()
+    if len(body) > 8192:
+        return None
+    return parse_qs(body.decode("utf-8"), max_num_fields=8)
+
+
 def register_routes(
     app: FastAPI,
     browse: BrowseCatalog,
     jobs: ScanJobs,
     documents: Callable[[], AbstractContextManager[Documents]],
     similarity: SimilarSkills,
+    stars: Stars,
     templates: Jinja2Templates,
 ) -> None:
     def page(request: Request, template: str, status: int = 200, **context: Any) -> HTMLResponse:
@@ -69,21 +90,27 @@ def register_routes(
         return error(request, str(exc), 500, "catalog_error")
 
     @app.get("/", response_class=HTMLResponse)
-    def home(request: Request, q: str = "") -> Response:
-        return page(request, "pages/home.html", view=browse.home(q), q=q, jobs=jobs.recent())
+    def home(request: Request, q: str = "", starred: bool = False) -> Response:
+        return page(
+            request,
+            "pages/home.html",
+            view=browse.home(q, starred),
+            jobs=jobs.recent(),
+            **filter_context(q, starred),
+        )
 
     def repository_context(
-        repository_url: str, skill_path: str, q: str, from_explore: str = ""
+        repository_url: str, skill_path: str, q: str, starred: bool, from_explore: str = ""
     ) -> dict[str, Any]:
         repository = Repository.from_url(repository_url)
-        view = browse.repository(repository, q, skill_path)
+        view = browse.repository(repository, q, skill_path, starred)
         return {
             "from_explore": from_explore if from_explore in {"topics", "capabilities"} else "",
             "repository": repository,
             "skills": view.skills,
             "matches": view.matches,
             "selected": view.selected,
-            "q": q,
+            **filter_context(q, starred),
         }
 
     @app.get("/repository", response_class=HTMLResponse)
@@ -92,31 +119,47 @@ def register_routes(
         repository_url: str,
         skill_path: str = "",
         q: str = "",
+        starred: bool = False,
         from_explore: str = "",
     ) -> Response:
         return page(
             request,
             "pages/repository.html",
             jobs=jobs.recent(),
-            **repository_context(repository_url, skill_path, q, from_explore),
+            **repository_context(repository_url, skill_path, q, starred, from_explore),
         )
 
     @app.get("/fragments/repositories", response_class=HTMLResponse)
-    def repositories_fragment(request: Request, q: str = "") -> Response:
-        return page(request, "fragments/repositories.html", view=browse.home(q), q=q)
+    def repositories_fragment(request: Request, q: str = "", starred: bool = False) -> Response:
+        return page(
+            request,
+            "fragments/repositories.html",
+            view=browse.home(q, starred),
+            **filter_context(q, starred),
+        )
 
     @app.get("/fragments/repository-skills", response_class=HTMLResponse)
-    def repository_skills(request: Request, repository_url: str, q: str = "") -> Response:
+    def repository_skills(
+        request: Request, repository_url: str, q: str = "", starred: bool = False
+    ) -> Response:
         return page(
-            request, "fragments/repository-skills.html", **repository_context(repository_url, "", q)
+            request,
+            "fragments/repository-skills.html",
+            **repository_context(repository_url, "", q, starred),
         )
 
     @app.get("/fragments/skills", response_class=HTMLResponse)
     def skills_fragment(
-        request: Request, repository_url: str, q: str = "", skill_path: str = ""
+        request: Request,
+        repository_url: str,
+        q: str = "",
+        skill_path: str = "",
+        starred: bool = False,
     ) -> Response:
         return page(
-            request, "fragments/skills.html", **repository_context(repository_url, skill_path, q)
+            request,
+            "fragments/skills.html",
+            **repository_context(repository_url, skill_path, q, starred),
         )
 
     @app.get("/fragments/repository", response_class=HTMLResponse)
@@ -125,12 +168,13 @@ def register_routes(
         repository_url: str,
         skill_path: str = "",
         q: str = "",
+        starred: bool = False,
         from_explore: str = "",
     ) -> Response:
         return page(
             request,
             "fragments/workspace.html",
-            **repository_context(repository_url, skill_path, q, from_explore),
+            **repository_context(repository_url, skill_path, q, starred, from_explore),
         )
 
     @app.get("/similar", response_class=HTMLResponse)
@@ -221,12 +265,29 @@ def register_routes(
             ),
         )
 
+    @app.post("/stars", response_class=HTMLResponse)
+    async def set_star(request: Request) -> Response:
+        form = await form_fields(request)
+        if form is None:
+            return error(request, "The star request is too large.", 400, "invalid_input")
+        repository = Repository.from_url(form.get("repository_url", [""])[0])
+        skill_path = form.get("skill_path", [""])[0]
+        starred = form.get("starred", [""])[0]
+        if not skill_path or starred not in ("0", "1"):
+            return error(
+                request, "Required request parameters are missing or invalid.", 400, "invalid_input"
+            )
+        try:
+            skill = await run_in_threadpool(stars.set, repository, skill_path, starred == "1")
+        except MissingStarredSkill as exc:
+            return error(request, str(exc), 404, "missing_skill")
+        return page(request, "fragments/star-toggle.html", skill=skill)
+
     @app.post("/scans", response_class=HTMLResponse)
     async def submit_scan(request: Request) -> Response:
-        body = await request.body()
-        if len(body) > 8192:
+        form = await form_fields(request)
+        if form is None:
             return error(request, "The scan request is too large.", 400, "invalid_input")
-        form = parse_qs(body.decode("utf-8"), max_num_fields=8)
         try:
             target = scan_target(form.get("repository_url", [""])[0])
         except ValueError:

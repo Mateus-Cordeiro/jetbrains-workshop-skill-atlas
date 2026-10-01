@@ -234,6 +234,7 @@ def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
     from skill_atlas.application.grouping_jobs import GroupingJobs
     from skill_atlas.application.scan_jobs import ScanJobs
     from skill_atlas.application.similarity import SimilarSkills
+    from skill_atlas.application.stars import Stars
     from skill_atlas.web.app import create_app as web_app
 
     catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
@@ -266,6 +267,7 @@ def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
             jobs,
             no_documents,
             SimilarSkills(catalog),
+            Stars(catalog),
             SkillGroups(SQLiteGroups(catalog)),
             GroupingJobs(no_generation),
         ),

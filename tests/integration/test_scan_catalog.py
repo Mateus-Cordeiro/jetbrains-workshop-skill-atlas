@@ -1,6 +1,10 @@
 """Exercise the CLI, reader selection, parsing, persistence, and output together."""
 
+import json
+
 import pytest
+
+from skill_atlas.cli.app import create_app
 
 COPIES = (
     ".agents/skills/review/SKILL.md",
@@ -193,4 +197,36 @@ def test_multiple_skills_in_each_agent_directory_are_numbered_deterministically(
     assert result.exit_code == 0, result.output
     assert result.stdout.index("1. alpha") < result.stdout.index("2. zebra")
     assert [row["skill_name"] for row in harness.rows()] == ["alpha", "zebra"]
+    assert_clean(harness)
+
+
+def test_rescans_keep_stars_on_surviving_identities_only(scan_harness):
+    harness = scan_harness
+    source = harness.add_repository()
+    other = harness.add_repository("other/skills")
+    for path in COPIES:
+        source.write(path, skill())
+    other.write("SKILL.md", skill())
+    source.commit()
+    other.commit()
+    for repository in (source, other):
+        assert harness.scan(repository).exit_code == 0
+    for repository, path in [*((source, path) for path in COPIES), (other, "SKILL.md")]:
+        starred = harness.runner.invoke(
+            create_app(), ["star", repository.identity.url, path], terminal_width=240
+        )
+        assert starred.exit_code == 0, starred.output
+
+    # One starred copy survives; a moved path is a new identity and a removed one is gone.
+    source.run("rm", "--quiet", COPIES[1], COPIES[2])
+    source.write("moved/SKILL.md", skill())
+    source.commit()
+    result = harness.scan(source)
+    assert result.exit_code == 0, result.output
+    assert "1. review ★" in result.stdout and "2. review\n" in result.stdout
+    listing = harness.runner.invoke(create_app(), ["filter", "--starred", "--json"])
+    assert [
+        (skill["repository_url"], skill["skill_path"])
+        for skill in json.loads(listing.stdout)["skills"]
+    ] == [(source.identity.url, COPIES[0]), (other.identity.url, "SKILL.md")]
     assert_clean(harness)

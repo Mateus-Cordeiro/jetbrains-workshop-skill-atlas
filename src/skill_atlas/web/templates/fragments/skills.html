@@ -2,5 +2,5 @@
 {% for skill in matches %}
 {% with document_selection=true %}{% include 'fragments/skill-entry.html' %}{% endwith %}
 {% else %}
-<div class="filter-empty">{% if q.strip() %}<p>No skills match “{{ q }}”.</p><button type="button" data-clear-filter>Clear filter</button>{% else %}<p>No skills found</p>{% endif %}</div>
+<div class="filter-empty">{% if filtering %}<p>No {{ 'starred ' if starred }}skills{% if q.strip() %} match “{{ q }}”{% endif %}.</p>{% if q.strip() %}<button type="button" data-clear-filter>Clear filter</button>{% endif %}{% if starred %}<button type="button" data-clear-starred>Show all skills</button>{% endif %}{% else %}<p>No skills found</p>{% endif %}</div>
 {% endfor %}</nav>

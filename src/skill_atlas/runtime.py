@@ -29,6 +29,7 @@ from skill_atlas.application.reader_fallback import FallbackReader
 from skill_atlas.application.scan import Scanner
 from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
+from skill_atlas.application.stars import Stars
 from skill_atlas.config import Settings
 from skill_atlas.errors import GroupingError, RepositoryError, ScanCancelled
 from skill_atlas.grouping import Grouping
@@ -143,6 +144,11 @@ def _ollama_limits(settings: Settings) -> tuple[float, int, int]:
     return timeout, context, output
 
 
+def create_stars(settings: Settings) -> Stars:
+    """Wire local star writes without credential or network setup."""
+    return Stars(SQLiteCatalog(settings.database_path))
+
+
 def create_web_app(settings: Settings) -> FastAPI:
     from skill_atlas.web.app import create_app
 
@@ -206,6 +212,7 @@ def create_web_app(settings: Settings) -> FastAPI:
         ScanJobs(scan, scan_organization),
         documents,
         SimilarSkills(catalog),
+        Stars(catalog),
         groups,
         GroupingJobs(generate),
     )

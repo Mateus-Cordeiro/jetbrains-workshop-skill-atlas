@@ -34,7 +34,7 @@ def test_descriptions_expand_independently_without_selecting_or_fetching(
     text = cards.nth(0).locator(".skill-description")
     toggle = cards.nth(0).get_by_role("button", name="Show more description for code-review")
     expect(toggle).to_have_attribute("aria-expanded", "false")
-    expect(cards.nth(2).get_by_role("button")).to_have_count(0)
+    expect(cards.nth(2).get_by_role("button", name=re.compile("description for"))).to_have_count(0)
     expect(page.locator(".skills-list code, .skills-list img")).to_have_count(0)
     assert first.path not in page.locator(".skills-list").inner_text()
     assert text.evaluate(
@@ -51,7 +51,9 @@ def test_descriptions_expand_independently_without_selecting_or_fetching(
     expect(toggle).to_have_attribute("aria-expanded", "true")
     expect(text).to_have_text(description)
     assert text.evaluate("el => el.scrollHeight === el.clientHeight")
-    expect(cards.nth(1).get_by_role("button")).to_have_attribute("aria-expanded", "false")
+    expect(
+        cards.nth(1).get_by_role("button", name=re.compile("description for"))
+    ).to_have_attribute("aria-expanded", "false")
     expect(page.get_by_text("Select a skill to view its SKILL.md")).to_be_visible()
     assert page.url == original_url
     assert not state.requests
@@ -61,13 +63,15 @@ def test_descriptions_expand_independently_without_selecting_or_fetching(
 
     # Space collapses the focused control without navigating or selecting a skill.
     page.keyboard.press("Space")
-    expect(cards.nth(0).get_by_role("button")).to_have_attribute("aria-expanded", "false")
+    expect(
+        cards.nth(0).get_by_role("button", name=re.compile("description for"))
+    ).to_have_attribute("aria-expanded", "false")
     assert text.evaluate("el => el.scrollHeight > el.clientHeight")
     cards.nth(1).locator(".skill-link").click()
     expect(page.locator(".document-toolbar code")).to_have_text(duplicate.path)
     expect(cards.nth(1).locator(".skill-link")).to_have_attribute("aria-current", "true")
     reads = len(state.requests)
-    cards.nth(0).get_by_role("button").click()
+    cards.nth(0).get_by_role("button", name=re.compile("description for")).click()
     expect(cards.nth(1).locator(".skill-link")).to_have_attribute("aria-current", "true")
     assert len(state.requests) == reads
 

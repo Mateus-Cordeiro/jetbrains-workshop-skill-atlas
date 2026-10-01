@@ -1,16 +1,16 @@
-<div class="repository-results" data-repository-count="{{ view.repositories|length }}" data-catalog-empty="{{ 'true' if not view.repositories and not q.strip() else 'false' }}">
-{% if q.strip() %}<p class="filter-count" role="status">{{ view.matching_count }} matching skill{% if view.matching_count != 1 %}s{% endif %} across {{ view.repositories|length }} repositor{{ 'y' if view.repositories|length == 1 else 'ies' }}</p>{% endif %}
+<div class="repository-results" data-repository-count="{{ view.repositories|length }}" data-catalog-empty="{{ 'true' if not view.repositories and not filtering else 'false' }}">
+{% if filtering %}<p class="filter-count" role="status">{{ view.matching_count }} matching {{ 'starred ' if starred }}skill{% if view.matching_count != 1 %}s{% endif %} across {{ view.repositories|length }} repositor{{ 'y' if view.repositories|length == 1 else 'ies' }}</p>{% endif %}
 {% if view.repositories %}
 <div class="repository-table"><div class="table-heading"><span>REPOSITORY</span><span>SKILLS</span></div>
 {% for group in view.repositories %}{% set summary = group.summary %}
 <section class="repository-group" data-repository="{{ summary.repository.url }}">
-<div class="repository-row"><div><button type="button" class="repository-toggle" aria-label="Toggle skills in {{ summary.repository.full_name }}" aria-expanded="{{ 'true' if q.strip() else 'false' }}" aria-controls="repository-skills-{{ loop.index }}"><span aria-hidden="true">▸</span></button><a href="{{ url('/repository', repository_url=summary.repository.url, q=q) }}"><strong>{{ summary.repository.full_name }}</strong></a></div><span>{% if q.strip() %}{{ group.skills|length }} of {% endif %}{{ summary.skill_count }} skill{% if summary.skill_count != 1 %}s{% endif %}</span></div>
-<div id="repository-skills-{{ loop.index }}" class="repository-skills" data-loaded="{{ 'true' if q.strip() else 'false' }}" {% if not q.strip() %}hidden{% endif %}>
-{% if q.strip() %}{% with repository=summary.repository, matches=group.skills %}{% include 'fragments/repository-skills.html' %}{% endwith %}{% endif %}
+<div class="repository-row"><div><button type="button" class="repository-toggle" aria-label="Toggle skills in {{ summary.repository.full_name }}" aria-expanded="{{ 'true' if filtering else 'false' }}" aria-controls="repository-skills-{{ loop.index }}"><span aria-hidden="true">▸</span></button><a href="{{ url('/repository', repository_url=summary.repository.url, **filters) }}"><strong>{{ summary.repository.full_name }}</strong></a></div><span>{% if filtering %}{{ group.skills|length }} of {% endif %}{{ summary.skill_count }} skill{% if summary.skill_count != 1 %}s{% endif %}</span></div>
+<div id="repository-skills-{{ loop.index }}" class="repository-skills" data-loaded="{{ 'true' if filtering else 'false' }}" {% if not filtering %}hidden{% endif %}>
+{% if filtering %}{% with repository=summary.repository, matches=group.skills %}{% include 'fragments/repository-skills.html' %}{% endwith %}{% endif %}
 </div></section>
 {% endfor %}</div>
-{% elif q.strip() %}
-<div class="empty"><h3>No skills match “{{ q }}”.</h3><p>Try another name or description.</p><button type="button" data-clear-filter>Clear filter</button></div>
+{% elif filtering %}
+<div class="empty"><h3>No {{ 'starred ' if starred }}skills{% if q.strip() %} match “{{ q }}”{% endif %}.</h3><p>{% if q.strip() %}Try another name or description.{% else %}Star a skill to find it here.{% endif %}</p>{% if q.strip() %}<button type="button" data-clear-filter>Clear filter</button>{% endif %}{% if starred %}<button type="button" data-clear-starred>Show all skills</button>{% endif %}</div>
 {% else %}
 <div class="empty"><span class="empty-icon" aria-hidden="true">▦</span><h3>A map waiting to be explored.</h3><p>No repositories in your catalog yet. Scan a repository above to get started.</p></div>
 {% endif %}

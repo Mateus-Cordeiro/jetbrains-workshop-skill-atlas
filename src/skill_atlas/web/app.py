@@ -15,6 +15,7 @@ from skill_atlas.application.grouping import SkillGroups
 from skill_atlas.application.grouping_jobs import GroupingJobs
 from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
+from skill_atlas.application.stars import Stars
 from skill_atlas.ports import CatalogReader
 from skill_atlas.web.grouping_routes import register_grouping_routes
 from skill_atlas.web.middleware import local_requests
@@ -28,6 +29,7 @@ def create_app(
     jobs: ScanJobs,
     documents: Callable[[], AbstractContextManager[Documents]],
     similarity: SimilarSkills,
+    stars: Stars,
     groups: SkillGroups,
     grouping_jobs: GroupingJobs,
 ) -> FastAPI:
@@ -46,6 +48,6 @@ def create_app(
     app.mount("/static", StaticFiles(directory=ASSETS / "static"), name="static")
 
     app.middleware("http")(local_requests)
-    register_routes(app, BrowseCatalog(catalog), jobs, documents, similarity, templates)
+    register_routes(app, BrowseCatalog(catalog), jobs, documents, similarity, stars, templates)
     register_grouping_routes(app, groups, grouping_jobs, jobs, templates)
     return app
