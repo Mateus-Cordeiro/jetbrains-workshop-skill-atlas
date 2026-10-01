@@ -11,6 +11,7 @@ the shared architecture, then the feature specifications affected by the change.
 | [Stars](features/stars.md) | Local stars on catalog identities, `star` and `unstar` commands, terminal markers, JSON fields, and CLI/Web acceptance criteria. | Accepted and implemented |
 | [Similar skills](features/similar-skills.md) | `similar` command, shared catalog-based similarity ranking, scores, grouping, and relevance criteria. | Accepted and implemented |
 | [Skill groups](features/skill-groups.md) | Paired AI topic/capability generation, atomic saved memberships, and interactive G6 graph exploration. | Accepted and implemented |
+| [Install and manage skills](features/installation.md) | Project-scoped Codex/Claude installation, full bundles, ownership, status, updates, removal, and Web project selection. | Accepted and implemented |
 | [Web UI](features/web-ui.md) | `serve` command, catalog browsing and filter interactions, star toggles and the starred-only view, expandable repositories, document viewing, background jobs, HTTP contracts, and acceptance criteria. | Accepted and implemented |
 
 ## Organization and ownership

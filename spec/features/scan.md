@@ -217,7 +217,8 @@ not scanned.** Ctrl+C uses the CLI's interrupt status.
 - A shared catalog or remote database.
 - Scan history or version comparison.
 - Malformed-skill reporting.
-- Skill installation or execution.
+- Skill execution. [Installation](installation.md) is a separate explicit feature;
+  scanning itself never installs or changes project files.
 - Other Git hosting providers.
 - Branch or tag selection and automatic background updates. The local `serve`
   command is specified separately in [the Web UI specification](web-ui.md).

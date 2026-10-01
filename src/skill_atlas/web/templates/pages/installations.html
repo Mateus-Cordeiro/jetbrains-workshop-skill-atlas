@@ -1,0 +1,61 @@
+{% extends 'catalog.html' %}
+{% block title %}Installations · Skill Atlas{% endblock %}
+{% block assets %}<script src="/static/installations.js" defer></script>{% endblock %}
+{% block catalog_content %}
+<section class="installation-page">
+  <h1>Install and manage skills</h1>
+  <p>Copy a scanned skill into a project on this computer. Files are never executed.</p>
+  <div id="installation-feedback" role="alert" tabindex="-1">{{ message }}</div>
+  <form class="installation-form" data-installation-action="register">
+    <label for="register-project">Register local project</label>
+    <div class="installation-row"><input id="register-project" name="project" placeholder="Absolute path to an existing project" required><button type="submit">Register project</button></div>
+  </form>
+  <form class="installation-form" method="get" action="/installations" autocomplete="off">
+    <label for="installation-project">Project</label>
+    <select id="installation-project" name="project" required>
+      <option value="">Select a registered project</option>
+      {% for path in projects %}<option value="{{ path }}" {% if path|string == project %}selected{% endif %}>{{ path }}</option>{% endfor %}
+    </select>
+    <label for="installation-source">Catalog skill</label>
+    <select id="installation-source" name="source">
+      <option value="">Installed skills only</option>
+      {% for skill in skills %}{% set identity = skill.repository.url ~ '|' ~ skill.path %}<option value="{{ identity }}" {% if identity == source %}selected{% endif %}>{{ skill.name }} · {{ skill.repository.full_name }} · {{ skill.path }}</option>{% endfor %}
+    </select>
+    <div class="installation-row">
+      <div><label for="installation-agent">Agent</label><select id="installation-agent" name="agent"><option value="codex" {% if agent == 'codex' %}selected{% endif %}>Codex</option><option value="claude" {% if agent == 'claude' %}selected{% endif %}>Claude Code</option></select></div>
+      <div><label for="installation-name">Folder name (optional)</label><input id="installation-name" name="name" value="{{ name }}" placeholder="Defaults to the skill name"></div>
+    </div>
+    <button type="submit">Preview destination / refresh status</button>
+  </form>
+  {% if preview %}{% set skill, destination = preview %}
+  <section class="installation-card" aria-label="Installation preview">
+    <h2>{{ skill.name }}</h2>
+    <p>Exact destination</p><code id="installation-destination">{{ destination }}</code>
+    <p>Scanned revision: <code>{{ skill.commit_sha }}</code></p>
+    <p>Copies all regular files in <code>{{ skill.path.rsplit('/', 1)[0] if '/' in skill.path else 'the repository root' }}</code>, including supporting files. Symlinks and submodules are excluded.</p>
+    {% for operation in ['install', 'update'] %}
+    <form data-installation-action="{{ operation }}" class="installation-inline">
+      <input type="hidden" name="project" value="{{ project }}"><input type="hidden" name="repository_url" value="{{ skill.repository.url }}"><input type="hidden" name="skill_path" value="{{ skill.path }}"><input type="hidden" name="agent" value="{{ agent }}"><input type="hidden" name="commit_sha" value="{{ skill.commit_sha }}"><input type="hidden" name="destination" value="{{ destination }}"><input type="hidden" name="name" value="{{ name }}">
+      <button type="submit">{{ 'Install skill' if operation == 'install' else 'Update installed skill' }}</button>
+    </form>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <h2>Installed skills{% if project %} in this project{% endif %}</h2>
+  {% if not project %}<p>Select a registered project to see its installations.</p>{% elif not statuses %}<p>No skills installed in this project.</p>{% endif %}
+  {% for status in statuses %}{% set record = status.installation %}
+  <article class="installation-card">
+    <h3>{{ record.destination.split('/')[-1] }} · {{ 'Codex' if record.agent == 'codex' else 'Claude Code' }}</h3>
+    <p class="installation-status">{{ status.state }}</p>
+    <code>{{ project }}/{{ record.destination }}</code>
+    <p>{{ record.repository_url }} · {{ record.skill_path }}</p><p>Installed revision: <code>{{ record.commit_sha }}</code></p>
+    {% if status.conflicts %}<p>Resolve local changes before updating or uninstalling:</p><ul>{% for path in status.conflicts %}<li><code>{{ path }}</code></li>{% endfor %}</ul>{% endif %}
+    {% if status.catalog_commit %}<a href="{{ url('/installations', project=project, source=record.repository_url ~ '|' ~ record.skill_path, agent=record.agent) }}">Review update</a>{% endif %}
+    <form data-installation-action="uninstall" class="installation-inline">
+      <input type="hidden" name="project" value="{{ project }}"><input type="hidden" name="repository_url" value="{{ record.repository_url }}"><input type="hidden" name="skill_path" value="{{ record.skill_path }}"><input type="hidden" name="agent" value="{{ record.agent }}"><input type="hidden" name="commit_sha" value="{{ record.commit_sha }}">
+      <button type="submit" {% if status.conflicts %}disabled{% endif %}>Uninstall skill</button>
+    </form>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

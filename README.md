@@ -36,6 +36,74 @@ when both input and output are attached to a capable terminal; otherwise they
 print and exit. Redirected output automatically uses plain text, including
 literal URLs. Scroll or use Tab to focus links and Enter to open them.
 
+## Install and manage skills
+
+On macOS or Linux, install a previously scanned skill into a local project:
+
+```sh
+skill-atlas install https://github.com/owner/repository review/SKILL.md --agent codex --project /path/to/project
+skill-atlas installed --project /path/to/project
+skill-atlas update https://github.com/owner/repository review/SKILL.md --agent codex --project /path/to/project
+skill-atlas uninstall https://github.com/owner/repository review/SKILL.md --agent codex --project /path/to/project
+```
+
+Use `--agent claude` for Claude Code. Codex receives
+`.agents/skills/<name>/`; Claude Code receives `.claude/skills/<name>/`, as described
+in their [official](https://developers.openai.com/codex/skills/)
+[documentation](https://code.claude.com/docs/en/skills).
+Omit `--project` inside Git to use that worktree's root. Outside Git, the path is
+required. The project must already exist. Use `--name another-name` on install
+when a name is invalid or collides; existing folders are never adopted/replaced.
+`status` aliases `installed`; both support `--json` and work offline.
+
+Installation copies the entire directory containing the selected `SKILL.md`,
+including binary files and executable scripts, without running anything. A root
+`SKILL.md` copies all regular files in the repository. Symlinks, submodules, and
+references outside that directory are not followed. Unsupported/unsafe filenames
+fail before installation. Bundles are limited to 10,000 files and 128 MiB.
+
+An install uses the catalog's recorded commit. Update uses the latest **scanned**
+commit: scan the repository explicitly first when you want to check upstream.
+There is no automatic rescan or switch to HEAD. Reinstalling the same unchanged
+revision succeeds without downloading. Installations remain recorded after their
+source is removed from the catalog; status reports **source unavailable**, and
+uninstall still works offline.
+
+In `skill-atlas serve`, open **Installations**, register an absolute path to an
+existing local project, and select the project, source and agent. Click
+**Preview destination / refresh status** to review the exact destination and
+revision before installing/updating. Installed entries show status, conflicts,
+and uninstall actions. The **Install…** link in a document carries its source
+selection. The Web UI never chooses the server's working directory as a project.
+
+Keep `.skill-atlas/installations.json` with the installed project files: it records
+ownership, installed revisions and hashes. Updates/uninstall refuse edited,
+missing or additional files, extra directories, changed executable modes, symlinks
+and hardlinks. Save your edits elsewhere or restore the owned files before retrying;
+there is no force option. The current safe filesystem adapter supports macOS/Linux;
+Windows installation fails before writing files. See the
+[installation specification](spec/features/installation.md) for the full contract.
+
+### Installation recovery
+
+Operations serialize through `.skill-atlas/lock`. Do not remove that lock while
+any skill-atlas process is active. Downloads stage under `.skill-atlas/transaction`.
+If a process stops unexpectedly, the next status or management operation recovers
+using the journal: an old manifest rolls back publication; a new manifest completes
+cleanup. Agent reads are not locked, so avoid active agent use during replacement.
+
+If recovery reports conflicts, stop skill-atlas processes and first copy the entire
+`.skill-atlas` directory and affected destination elsewhere. Save all local edits.
+When conflicts are limited to edited files, restore their recorded bytes/modes and
+move extra files aside, then retry `installed --project ...` to let recovery finish.
+An interrupted staging write can leave a temporary file; preserve it before moving
+it aside and retrying. Never delete the backup or edit hashes just to suppress an error.
+For a damaged journal/manifest, restore a known matching manifest and installation
+tree from your backup. If manual reconciliation is necessary, the journal's `before`
+and `after` manifests and `previous`/`staged` directories describe the two revisions;
+retain your backup until status reports the restored installation unchanged.
+Unrecognized staging directories require inspection before manual removal.
+
 ## Scan an organization
 
 Pass an organization URL, with no repository name, to scan every repository in

@@ -1173,3 +1173,20 @@ footer{
 @media(max-width:600px){
   .catalog-navigation{gap:18px;margin-top:12px;}
 }
+
+/* Local project management shares the catalog shell and responsive controls. */
+.installation-page { max-width: 960px; overflow-wrap: anywhere; }
+.installation-page h1 { font-size: 1.5rem; letter-spacing: -.5px; }
+.installation-page h2 { font-size: 1.15rem; }
+.installation-form, .installation-card { margin: 1.25rem 0; padding: 1.25rem; border: 1px solid var(--border, #d9dfe7); border-radius: 10px; background: white; }
+.installation-form label { display: block; margin: .65rem 0 .35rem; font-weight: 600; }
+.installation-form input, .installation-form select { width: 100%; min-width: 0; font: inherit; padding: .6rem; border: 1px solid #bac3cf; border-radius: 6px; background: white; color: inherit; }
+.installation-form button { margin-top: .8rem; }
+.installation-row { display: flex; gap: 1rem; align-items: end; }
+.installation-row > * { flex: 1; min-width: 0; }
+.installation-row button { flex: none; }
+.installation-inline { display: inline-block; margin: .6rem .6rem 0 0; }
+.installation-page code, .installation-page p { overflow-wrap: anywhere; }
+.installation-status { font-weight: 600; }
+#installation-feedback:not(:empty) { padding: 1rem; border: 1px solid #a5b4c8; border-radius: 6px; background: #f0f5ff; }
+@media (max-width: 650px) { .installation-row { display: block; } .installation-form, .installation-card { padding: .8rem; } }

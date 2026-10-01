@@ -14,6 +14,7 @@ commands](features/stars.md), and local [`serve` Web UI](features/web-ui.md).
 These interfaces share the same catalog and application services for scanning,
 filtering, similarity search, local stars, and explicit [AI grouping](features/skill-groups.md).
 Public and private GitHub repositories are supported, subject to user access.
+The CLI and Web UI also share [project skill installation](features/installation.md).
 
 The catalog holds each repository's latest successfully scanned state and the
 user's local stars. It is persistent application data, not a shared database or
@@ -152,6 +153,13 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `web/routes.py` | Catalog pages, HTMX fragments, and HTTP error adaptation. |
 | `web/middleware.py` | Local Host and Origin checks and browser response protections. |
 | `web/rendering.py`, `web/templates/`, `web/static/` | Safe document rendering, full pages and fragments, and browser assets. |
+| `installation.py`, `installation_ports.py` | Immutable bundle/ownership/status values, path policy, and narrow bundle, filesystem, record, transaction, and project-registry interfaces. |
+| `application/installations.py`, `application/projects.py` | Exact source/revision/destination policy, conflict handling, offline management, and explicit registered-project selection. |
+| `adapters/bundles.py` | Full regular-file bundle retrieval using authenticated GitHub and temporary Git readers at the recorded commit. |
+| `adapters/installation/filesystem.py` | Descriptor-relative, no-follow project filesystem operations and content/mode inspection. |
+| `adapters/installation/records.py`, `transactions.py` | Versioned JSON ownership records, OS advisory lock, durable staging/journal, publication and conservative recovery. |
+| `adapters/projects.py` | Git-root/explicit path resolution and independent SQLite project registrations. |
+| `web/installation_routes.py`, `static/installations.js` | Project management HTTP adaptation and explicit form/preview lifecycle. |
 | `config.py` | Local settings. |
 
 Templates use `pages/` for full pages and `fragments/` for partial responses and
@@ -391,6 +399,88 @@ keyboard and rendering-failure alternative to the canvas.
 
 This retains a separate inference worker so slow AI requests cannot block scans.
 The [feature specification](features/skill-groups.md) owns grouping and graph behavior.
+
+### Following an installation
+
+`cli/commands/installations.py` and `web/installation_routes.py` invoke
+`application/installations.py`. `runtime.py` supplies the catalog reader,
+`LocalProjects` transaction factory, and a lazy `BundleReader`; credential lookup
+and remote resource creation occur only when a new bundle must be downloaded.
+The GitHub reader resolves the recorded commit (never a branch) and exposes all
+regular files and modes. `adapters/bundles.py` selects the bundle and falls back
+to the existing exact-commit Git reader only for truncated listings. It retains
+no persistent remote cache. Scanning still reads only SKILL.md definitions.
+
+Policy remains in the application and shared values; routes and commands only
+adapt arguments/results. The project transaction adapter coordinates the narrow
+filesystem and records adapters because publication spans both. This avoids
+pretending that a SQLite catalog transaction could protect external project files.
+The independent registry is another small SQLite file beside the catalog, named
+with `.projects.sqlite3` instead of the catalog's suffix. It stores only canonical
+absolute local project paths and is not part of catalog replacement/removal.
+
+## Project installation consistency
+
+An installation identity is `(canonical repository URL, exact SKILL.md path,
+target agent)` within one canonical project directory. The version-1
+`.skill-atlas/installations.json` manifest records identity, installed commit,
+relative destination, and each installed file's SHA-256 and executable bit.
+It contains no credentials and has no foreign key or cleanup dependency on catalog
+rows. Invalid/newer manifests fail closed; future manifest migrations must preserve
+ownership and use the same transaction boundary. The user-facing contract belongs
+to [Installation](features/installation.md).
+
+The filesystem implementation currently requires POSIX descriptor-relative APIs
+(macOS/Linux). It traverses each directory with `O_NOFOLLOW` and pins descriptors;
+reads reject symlinks, special files and hardlinks. Paths are validated before
+materialization. Writes do not traverse destination symlinks. Hashes and executable
+bits, missing files, extra files and directories identify local drift. Git supplies
+regular-file modes; no other permissions or timestamps are preserved. There are
+no new runtime dependencies: standard-library JSON, hashing, filesystem calls,
+SQLite, and POSIX `flock` provide these responsibilities. A future Windows adapter
+must offer equivalent safety rather than weakening this one.
+
+Every project operation takes an exclusive advisory lock on the persistent
+`.skill-atlas/lock` inode, serializing CLI/Web processes and threads for up to a
+30-second acquisition timeout. Never delete that file while the application is
+running. Status/preview can create the state directory/lock and recover a prior
+transaction, but never download or scan. Downloads finish and validate before
+modifying a destination; staging is within the project filesystem so publication
+uses directory renames. Uncoordinated editors do not honor the lock, so inspect
+again after downloading and immediately around replacement. Conflicts stop work
+and preserve data instead of forcing recovery.
+
+### Journal and recovery
+
+`.skill-atlas/transaction/journal.json` contains complete before/after manifests
+and a staging/ready phase. Stage complete bytes/modes under `transaction/staged`,
+fsync files and containing directories, then mark the journal ready. Move an old
+destination to `transaction/previous`, publish the staged directory, and atomically
+replace and fsync the manifest. The manifest replacement is the commit point.
+Remove only validated transaction-owned data after completion. A sequence of
+filesystem and manifest renames is not one atomic OS operation; agent processes
+may briefly observe a missing/replaced skill during publication.
+
+Ordinary exceptions and Ctrl+C attempt immediate recovery under the same lock.
+A later operation performs recovery after an abrupt exit:
+
+- During staging, verify any completed staged files and remove incomplete staging;
+  no destination changes have started. Unexpected files or changed bytes block
+  cleanup rather than being discarded.
+- If the manifest is still the before version, restore the previous directory and
+  remove the unchanged staged/published new directory.
+- If the manifest is the after version, retain the new destination (or the completed
+  uninstall) and clean the verified backup. A retried install then succeeds as a
+  no-op, even if the caller lost the success response.
+- If the manifest/journal is corrupt, a path has changed, or unexpected recovery
+  files exist, refuse further mutation and name conflicting paths. Preserve the
+  manifest, journal, backup, and current destination for manual reconciliation.
+
+The [README recovery guidance](../README.md#installation-recovery) explains how to
+save local edits and retry or restore a matched manifest/tree pair. Guarantees
+assume a local filesystem honoring advisory locks, atomic same-filesystem rename,
+and fsync; unsupported/network filesystems are not a durability substitute.
+Normal cleanup does not promise survival of storage hardware corruption.
 
 ## Shared CLI results presentation
 

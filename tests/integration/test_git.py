@@ -230,3 +230,80 @@ def test_cancellable_git_still_enforces_its_timeout(tmp_path, monkeypatch, repos
     ):
         reader.skill_files(Snapshot(repository, "a" * 40, "b" * 40))
     assert not list(tmp_path.iterdir())
+
+
+def test_truncated_bundle_uses_exact_commit_and_includes_supporting_files(
+    tmp_path, monkeypatch, local_snapshot
+):
+    import httpx
+
+    from skill_atlas.adapters.bundles import RepositoryBundles
+    from skill_atlas.adapters.github import GitHubReader
+    from skill_atlas.adapters.installation.transactions import LocalProjects
+    from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
+    from skill_atlas.application.installations import Installations
+    from skill_atlas.models import ScanResult, Skill
+
+    source, snapshot, content = local_snapshot
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if "/commits/" in request.url.path:
+            assert request.url.path.endswith(snapshot.commit_sha)
+            return httpx.Response(
+                200,
+                json={"sha": snapshot.commit_sha, "commit": {"tree": {"sha": snapshot.tree_sha}}},
+            )
+        return httpx.Response(200, json={"truncated": True, "tree": []})
+
+    project = tmp_path / "project"
+    project.mkdir()
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
+    skill = Skill(snapshot.repository, "SKILL.md", "root-skill", "Root.", snapshot.commit_sha)
+    catalog.replace_repository(ScanResult(snapshot.repository, snapshot.commit_sha, (skill,)))
+    with (
+        local_reader(monkeypatch, source, temporary) as git,
+        httpx.Client(
+            base_url="https://api.github.com", transport=httpx.MockTransport(handler)
+        ) as client,
+    ):
+        service = Installations(catalog, LocalProjects())
+        service.install(
+            project,
+            snapshot.repository,
+            "SKILL.md",
+            "claude",
+            RepositoryBundles(GitHubReader(client), git),
+        )
+    target = project / ".claude/skills/root-skill"
+    assert (target / "SKILL.md").read_bytes() == content
+    assert (target / "ordinary.txt").read_text() == "This blob should not be downloaded."
+    assert (target / "nested space/skill/SKILL.md").read_bytes() == content
+    assert not (target / "link").exists()
+    assert not list(temporary.iterdir())
+    assert len(requests) == 2
+
+
+def test_scan_still_ignores_unrelated_non_utf8_filenames(tmp_path, monkeypatch, local_snapshot):
+    source, snapshot, _ = local_snapshot
+
+    def command(*arguments, data=None):
+        return subprocess.run(
+            ["git", "-C", str(source), *arguments], input=data, check=True, capture_output=True
+        ).stdout
+
+    # Git can represent non-UTF-8 paths even on filesystems (such as APFS) that cannot.
+    blob = command("hash-object", "-w", "--stdin", data=b"unrelated").strip()
+    listing = command("ls-tree", "-z", "HEAD")
+    listing += b"100644 blob " + blob + b"\tunrelated-\xff.bin\0"
+    tree = command("mktree", "-z", data=listing).decode().strip()
+    commit = command("commit-tree", tree, "-p", "HEAD", "-m", "Unrelated filename").decode().strip()
+    command("update-ref", "refs/heads/unusual", commit)
+    temporary = tmp_path / "snapshots"
+    temporary.mkdir()
+    with local_reader(monkeypatch, source, temporary) as reader:
+        files = reader.skill_files(Snapshot(snapshot.repository, commit, tree))
+        assert len(files) == 3

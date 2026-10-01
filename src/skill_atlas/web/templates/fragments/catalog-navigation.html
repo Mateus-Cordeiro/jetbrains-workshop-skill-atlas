@@ -1,4 +1,5 @@
 <nav class="catalog-navigation" aria-label="Browse catalog">
   <a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Repositories</a>
   <a href="/explore" {% if request.url.path == '/explore' %}aria-current="page"{% endif %}>Explore</a>
+  <a href="/installations" {% if request.url.path == "/installations" %}aria-current="page"{% endif %}>Installations</a>
 </nav>

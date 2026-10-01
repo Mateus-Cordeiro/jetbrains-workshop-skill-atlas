@@ -232,13 +232,17 @@ def test_corrupt_catalog_is_not_an_empty_page(client, web_environment):
 def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
     from contextlib import contextmanager
 
+    from skill_atlas import runtime
+    from skill_atlas.adapters.projects import LocalProjectRegistry
     from skill_atlas.adapters.storage.grouping import SQLiteGroups
     from skill_atlas.application.grouping import SkillGroups
     from skill_atlas.application.grouping_jobs import GroupingJobs
+    from skill_atlas.application.projects import Projects
     from skill_atlas.application.repositories import RemoveRepository
     from skill_atlas.application.scan_jobs import ScanJobs
     from skill_atlas.application.similarity import SimilarSkills
     from skill_atlas.application.stars import Stars
+    from skill_atlas.config import Settings
     from skill_atlas.web.app import create_app as web_app
 
     catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
@@ -275,6 +279,9 @@ def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
             SkillGroups(SQLiteGroups(catalog)),
             GroupingJobs(no_generation),
             RemoveRepository(catalog),
+            runtime.create_installations(Settings(catalog.path)),
+            Projects(LocalProjectRegistry(tmp_path / "projects.sqlite3")),
+            runtime.LazyBundleReader(Settings(catalog.path)),
         ),
         base_url="http://127.0.0.1",
     ) as client:

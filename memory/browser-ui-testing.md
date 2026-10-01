@@ -110,3 +110,14 @@ A repeat run caught a native GET navigation on Retry instead of the intended
 HTMX POST because its settling timer was still paused. The scan scenario's
 `settle` helper drives the clock while checking readiness; three consecutive
 runs passed without changing screenshots or tolerances after that fix.
+
+## Installation previews and Back navigation
+
+Chromium can restore edited GET-form values when navigating Back, leaving an
+agent dropdown inconsistent with the URL and server-rendered destination preview.
+Restoring controls in a delayed `pageshow` callback caused another race: it could
+reset a user's newly chosen agent before preview submission. The installation
+selection form disables autocomplete so the server-rendered URL selection remains
+authoritative, without deferred JavaScript resetting live edits. The document-to-Claude
+flow in [installation browser tests](../tests/browser/test_installations.py) checks
+agent selection, preview, installation and Back navigation.
