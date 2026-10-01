@@ -28,7 +28,7 @@ After the memory startup step, read the [specification index](spec/README.md), t
 the change before changing behavior or component boundaries:
 
 - [Scan](spec/features/scan.md) owns discovery, metadata extraction, repository
-  access, and scan terminal behavior.
+  access, organization scans, and scan terminal behavior.
 - [Filter](spec/features/filter.md) owns shared matching rules and the
   `filter` command. Read the Web UI spec as well when changing shared filtering.
 - [Web UI](spec/features/web-ui.md) owns `serve`, catalog browsing and filter
@@ -289,6 +289,16 @@ When attaching videos or images to a pull request, use the
 [github-pr-media skill](.agents/skills/github-pr-media/SKILL.md). If it is not
 discovered automatically, read `.agents/skills/github-pr-media/SKILL.md` directly.
 It owns upload methods, fallbacks, and verification of saved attachments.
+
+## Automated PR reviews
+
+Use [the review guide](.agents/automations/review.md) for automated PR reviews.
+It defines investigation, finding quality, verdicts, and repeat-run behavior;
+the architecture, feature specs, and validation rules above remain authoritative.
+Review-only tasks do not modify repository files, including shared memory.
+Report useful proposed memory updates locally instead. The implementation
+delivery steps below apply when the task changes files, not when it only reviews
+a PR. Publishing a review requires authorization from the invoking task.
 
 ## Delivery and CI status
 

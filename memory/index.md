@@ -20,3 +20,5 @@ to maintain them.
   navigation geometry checks.
 - [Group generation](group-generation.md): diagnosing missing assignments,
   Ollama schema/context handling, and fixture wire-format boundaries.
+- [Python test suite](python-testing.md): unique test module basenames, and
+  deterministic organization scan tests for rate limits, parallel workers, and Ctrl+C.

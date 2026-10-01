@@ -97,9 +97,9 @@
     if (groupStatus?.dataset.state === 'succeeded') completedGroups.add(groupStatus.dataset.groupJob);
     observeDescriptions();
     // A fresh page shows active work and unresolved errors, not past successes.
-    document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
+    document.querySelectorAll('.job[data-catalog-changed]').forEach(job => {
       completed.add(job.dataset.jobId);
-      dismissJob(job.dataset.jobId);
+      if (job.dataset.state === 'succeeded') dismissJob(job.dataset.jobId);
     });
     updateJobNotices();
   });
@@ -162,11 +162,15 @@
       atlasFilters.restore();
     }
     if (event.detail.target?.id === 'jobs') document.querySelector('#scan-feedback').replaceChildren();
-    document.querySelectorAll('.job[data-state="succeeded"]').forEach(job => {
+    // Organization scans commit repositories independently, so a failed one can also change the catalog.
+    document.querySelectorAll('.job[data-catalog-changed]').forEach(job => {
       if (completed.has(job.dataset.jobId)) return;
       completed.add(job.dataset.jobId);
       if (document.querySelector('#repositories')) atlasFilters.refresh();
-      if (['similar', 'groups'].includes(workspace()?.dataset.mode) || workspace()?.dataset.repository === job.dataset.repository) refreshWorkspace();
+      const repository = workspace()?.dataset.repository;
+      const organization = job.dataset.organization;
+      if (['similar', 'groups'].includes(workspace()?.dataset.mode) || repository === job.dataset.repository
+        || (organization && repository?.startsWith(organization + '/'))) refreshWorkspace();
     });
     const status = document.querySelector('#group-status');
     if (status?.dataset.state === 'succeeded' && !completedGroups.has(status.dataset.groupJob)) {

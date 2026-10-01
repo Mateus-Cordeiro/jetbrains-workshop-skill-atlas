@@ -10,7 +10,7 @@
 </div>
 </div>
 <form id="repository-form" hx-post="/scans" hx-target="#jobs" hx-disabled-elt="find button" class="scan-form" {% if not empty_catalog %}hidden{% endif %}>
-<label class="sr-only" for="repository-url">GitHub repository URL</label><input id="repository-url" type="url" name="repository_url" placeholder="https://github.com/owner/repository" required autocomplete="off"><button type="submit" class="primary">Scan repository <span aria-hidden="true">↗</span></button>
+<label class="sr-only" for="repository-url">GitHub repository URL or organization URL</label><input id="repository-url" type="url" name="repository_url" placeholder="https://github.com/owner/repository" required autocomplete="off"><button type="submit" class="primary">Scan repository <span aria-hidden="true">↗</span></button>
 </form>
 <section id="repositories">{% include 'fragments/repositories.html' %}</section>
 {% endblock %}

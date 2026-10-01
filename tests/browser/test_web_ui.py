@@ -305,3 +305,30 @@ def test_failed_scan_notices_wait_for_dismissal_and_stay_dismissed(browser_page,
     submit_repository(page, "https://github.com/acme/skills")
     expect(page.locator('.job[data-state="succeeded"]')).to_be_visible()
     expect(failed).to_have_count(0)
+
+
+def test_organization_scan_progress_and_partial_failure_refresh_the_catalog(
+    browser_page, web_environment
+):
+    page, state = browser_page, web_environment
+    state.organization = ["skills", "tools"]
+    state.failed_repositories = {"Acme/tools"}
+    page.goto(page.base_url)
+    state.scan_gate.clear()
+    page.get_by_role("textbox", name="GitHub repository URL").fill("https://github.com/Acme")
+    page.get_by_role("button", name="Scan repository").click()
+    expect(page.locator(".job-status")).to_have_text("Scanning 0 of 2 repositories")
+    state.scan_gate.set()
+    failed = page.locator('.job[data-state="failed"]')
+    expect(failed.locator(".job-status")).to_have_text("Failed — 1 repository failed.")
+    expect(failed.get_by_role("list", name="Repositories that failed")).to_have_text(
+        re.compile(r"Acme/tools — GitHub request failed \(HTTP 503\)")
+    )
+    # Repositories committed before the failure appear without reloading the page.
+    expect(page.locator(".repository-row")).to_have_count(1)
+    state.failed_repositories = set()
+    failed.get_by_role("button", name="Retry scan").click()
+    expect(page.locator('.job[data-state="succeeded"] .job-status')).to_have_text(
+        "2 repositories scanned · 4 skills found"
+    )
+    expect(page.locator(".repository-row")).to_have_count(2)

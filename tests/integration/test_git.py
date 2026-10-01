@@ -172,3 +172,61 @@ def test_timeout_or_interrupt_stops_git_before_cleanup(
     assert all(process.poll() is not None for process in processes)
     assert all(not path.exists() for path in paths)
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("cancel_before_start", [False, True])
+def test_cancellation_stops_running_git_and_cleans_up(
+    tmp_path, monkeypatch, repository, cancel_before_start
+):
+    from threading import Event, Timer
+    from time import monotonic
+
+    from skill_atlas.errors import ScanCancelled
+
+    real_popen = subprocess.Popen
+    processes = []
+
+    def sleeping_git(command, **kwargs):
+        process = real_popen([sys.executable, "-c", "import time; time.sleep(60)"], **kwargs)
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(git.subprocess, "Popen", sleeping_git)
+    cancelled = Event()
+    if cancel_before_start:
+        cancelled.set()
+    timer = Timer(0.1, cancelled.set)
+    timer.start()
+    started = monotonic()
+    try:
+        with (
+            pytest.raises(ScanCancelled),
+            GitSnapshotReader(None, timeout=30, temp_root=tmp_path, cancelled=cancelled) as reader,
+        ):
+            reader.skill_files(Snapshot(repository, "a" * 40, "b" * 40))
+    finally:
+        timer.cancel()
+    # Cancellation does not wait for Git's own timeout.
+    assert monotonic() - started < 5
+    assert len(processes) == (0 if cancel_before_start else 1)
+    assert all(process.poll() is not None for process in processes)
+    assert not list(tmp_path.iterdir())
+
+
+def test_cancellable_git_still_enforces_its_timeout(tmp_path, monkeypatch, repository):
+    from threading import Event
+
+    real_popen = subprocess.Popen
+    monkeypatch.setattr(
+        git.subprocess,
+        "Popen",
+        lambda command, **kwargs: real_popen(
+            [sys.executable, "-c", "import time; time.sleep(60)"], **kwargs
+        ),
+    )
+    with (
+        pytest.raises(RepositoryError, match="timed out"),
+        GitSnapshotReader(None, timeout=0.3, temp_root=tmp_path, cancelled=Event()) as reader,
+    ):
+        reader.skill_files(Snapshot(repository, "a" * 40, "b" * 40))
+    assert not list(tmp_path.iterdir())

@@ -34,11 +34,11 @@ assets carry their version and license in `src/skill_atlas/web/static/`.
 
 | Technology | Purpose and rationale |
 | --- | --- |
-| Python | One implementation language for the CLI, application services, and local Web backend. |
+| Python | One implementation language for the CLI, application services, and local Web backend. Standard-library threads run the bounded organization scan workers. |
 | Typer | Subcommand registration, argument validation, options, and generated help. |
 | Textual | Interactive terminal results with buttons and keyboard shortcuts. |
 | Rich | Text layout and terminal hyperlinks for interactive and ordinary output. |
-| HTTPX | Explicit GitHub and local Ollama HTTP requests, timeouts, and mockable transport boundaries without a provider-specific SDK. |
+| HTTPX | Explicit GitHub REST/GraphQL and local Ollama requests, timeouts, request hooks for cancellation, and mockable transport boundaries without a provider-specific SDK. |
 | PyYAML | Safe YAML frontmatter parsing. |
 | platformdirs | OS-appropriate persistent user data locations. |
 | SQLite via standard-library `sqlite3` | Local transactional persistence without a database server or ORM. |
@@ -120,10 +120,11 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | Module | Responsibility and extension point |
 | --- | --- |
 | `cli/app.py`, `cli/commands/` | Register subcommands and adapt arguments, exit codes, and presentation. |
-| `models.py` | Immutable repository, snapshot, skill file, metadata, skill, scan result, and repository summary values. |
-| `ports.py` | Narrow reader, parser, catalog-write, catalog-read, and document-reader interfaces. |
+| `models.py` | Immutable repository, organization, scan target, snapshot, organization listing, skill file, metadata, skill, scan result, and repository summary values. |
+| `ports.py` | Narrow reader, organization-reader, parser, catalog-write, catalog-read, and document-reader interfaces. |
 | `errors.py` | Shared operational error types translated by adapters and presented by interfaces. |
-| `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. |
+| `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. Starts from a repository or an already resolved snapshot. |
+| `application/organization_scan.py` | List an organization once, apply eligibility rules, run per-repository scans through a bounded worker pool, and aggregate per-repository outcomes, progress, rate-limit stops, and cancellation. |
 | `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
 | `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, and repository grouping with consistent counts. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
@@ -136,14 +137,14 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `web/grouping_routes.py` | Explore pages, workspace fragments, legacy redirects, and explicit generation/status HTTP adaptation. |
 | `web/exploration.py` | Graph presentation serialization: opaque node IDs, memberships, metadata, and encoded navigation links. |
 | `web/static/explore.js`, `explore.css` | G6 lifecycle, graph layout/interaction, accessible HTML directory, and per-perspective browser view state. |
-| `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
-| `runtime.py` | Composition root: wire catalog filtering and similarity queries, select adapters, and own HTTP, Git, scanner, and Web application resource lifetimes. |
-| `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
-| `adapters/git.py` | Temporary partial Git snapshots, authenticated subprocesses, and cleanup. |
+| `application/scan_jobs.py` | Process-local repository and organization scan queue, progress, and worker lifecycle for the Web UI. |
+| `runtime.py` | Composition root: wire catalog filtering and similarity queries, select adapters, and own HTTP, Git, scanner, organization worker, and Web application resource lifetimes. |
+| `adapters/github.py` | GitHub REST and GraphQL transport, error translation, snapshot resolution, organization listing, file discovery, and commit-pinned document retrieval. |
+| `adapters/git.py` | Temporary partial Git snapshots, authenticated and cancellable subprocesses, and cleanup. |
 | `adapters/frontmatter.py` | YAML implementation of the metadata parser, with no network or database dependencies. |
 | `adapters/storage/` | SQLite read/write adapter and ordered schema migrations. |
 | `adapters/credentials.py` | Credential resolution from the environment and GitHub CLI. |
-| `cli/output/` | Shared result view models, terminal mode selection, Rich/Textual skill lists, and command-specific JSON serialization. |
+| `cli/output/` | Shared result view models, terminal mode selection, Rich/Textual skill lists, the organization scan summary, and command-specific JSON serialization. |
 | `web/app.py` | Assemble the Web app, mount assets, and manage the worker lifespan. |
 | `web/routes.py` | Catalog pages, HTMX fragments, and HTTP error adaptation. |
 | `web/middleware.py` | Local Host and Origin checks and browser response protections. |
@@ -160,7 +161,8 @@ and browser levels; unit tests group application, adapter, and Web responsibilit
 separately. Integration scenarios keep the real components involved together.
 
 `SnapshotReader` lists and reads files; `RepositoryReader` also resolves a
-repository snapshot. `SkillParser` extracts metadata. `Catalog` exposes
+repository snapshot. `OrganizationReader` lists an organization's repositories
+with their eligibility flags and resolved snapshots. `SkillParser` extracts metadata. `Catalog` exposes
 `replace_repository` to the scanner, while `CatalogReader` exposes repository
 summaries, skill lists (one repository or the whole catalog), and identity lookup.
 `DocumentReader` retrieves a file at a recorded commit independently of scan
@@ -170,10 +172,11 @@ are added.
 Commands and Web routes invoke application services. They do not duplicate scan
 logic. A Web request must not invoke a CLI command or launch a Textual view.
 Terminal views receive completed results and perform no GitHub requests or
-catalog writes; description toggling only changes presentation.
+catalog writes; description toggling only changes presentation. Organization
+scans print a summary rather than opening the results view.
 
 The composition root creates a fresh scanner context for each CLI scan or Web
-job. Release HTTP and temporary Git resources on success, operational errors,
+job, and one context per worker within an organization scan. Release HTTP and temporary Git resources on success, operational errors,
 timeouts, and interruption, before opening a terminal view. The scan feature
 owns [Git cleanup details](features/scan.md#github-access-strategy); the Web
 feature owns [worker shutdown](features/web-ui.md#scan-execution-and-lifecycle).
@@ -187,6 +190,53 @@ parser, and catalog. `application/reader_fallback.py` selects GitHub or the
 temporary Git reader, `adapters/frontmatter.py` extracts metadata, and
 `adapters/storage/sqlite.py` commits the complete result. The CLI then presents
 the result through `cli/output/`; the Web UI reads the job status and catalog.
+
+### Following an organization scan
+
+`cli/commands/scan.py` and `application/scan_jobs.py` parse the URL with the
+shared scan-target rules and call `runtime.create_organization_scanner()`. It
+requires a credential, then supplies `application/organization_scan.py` with
+`GitHubOrganizationReader` and a worker factory. The service lists the
+organization once through GraphQL, filters forks and archived repositories,
+marks empty repositories, and queues the remaining snapshots in canonical URL
+order. Each worker calls `Scanner.scan_snapshot()`, which reuses the
+single-repository discovery, fallback, parsing, and atomic replacement from the
+listed snapshot without resolving its branch again. The CLI prints the result
+through `cli/output/organization.py`; the Web job records progress and failures.
+
+**Listing.** One GraphQL query per page of 100 repositories returns each
+repository's name, fork, archived and empty flags, plus its default-branch
+commit SHA and root tree SHA. Snapshots are therefore resolved during listing,
+once per repository, and satisfy the shared snapshot contract without separate
+metadata or commit REST requests. Per repository, only the recursive tree
+request and one blob request per `SKILL.md` remain; a truncated tree still
+selects the temporary Git snapshot. A listing failure stops the scan before any
+catalog change. GraphQL is used only for listing because it combines these
+fields into one paginated request; content retrieval stays on the REST and Git
+paths shared with single-repository scans.
+
+**Concurrency.** Up to four standard-library threads scan repositories in
+parallel. Each worker owns one HTTP client for its lifetime and a Git snapshot
+reader per repository, so temporary Git directories are released as each
+repository finishes. Catalog writes use the existing short-lived SQLite
+connection and one transaction per repository; migrations take the write lock
+first, so concurrent first writes are safe. Results return to the calling thread
+through a queue, which reports progress and polls briefly so Ctrl+C stays
+responsive. One failed repository does not affect the others. A rate-limit
+error stops new repositories from starting while running ones finish. Each scan
+owns its stop signal. Ctrl+C sets it, and a caller's cancellation signal, such as
+a Web job's on shutdown, is forwarded to it. The scanner never sets the caller's
+signal, so a failed scan cannot cancel later ones. Once stopped, the HTTP clients
+refuse further requests, Git subprocesses are stopped, and every worker unwinds
+its resources before the scan returns or raises. Repositories that already finished stay
+committed. Four workers bound GitHub's concurrent-request load and local
+resource use while overlapping network latency; threads suffice because the
+work is I/O-bound and the existing adapters are synchronous.
+
+**Rejected alternatives.** GitHub code search can miss skills (index lag, a
+1,000-result cap, and a low rate limit) and is not pinned to a commit. Cloning
+each repository downloads far more than the skill files needed. An `asyncio`
+rewrite would duplicate the synchronous adapters without reducing requests.
 
 ### Following a document selection
 
@@ -332,8 +382,17 @@ in URLs, query strings, fragments, and paths below the repository. Normalize
 catalog URLs to `https://github.com/{owner}/{repository}` with lowercase owner
 and repository. Display names use `owner/repository` form.
 
+Scan targets also accept an organization URL in `https://github.com/organization`
+form: an owner with no repository, allowing a trailing slash and the default
+HTTPS port, under the same credential, query, and fragment restrictions. Its
+canonical URL is `https://github.com/{organization}` in lowercase, and its
+display name is the organization login. Organization URLs identify scan work
+only; catalog identity remains per repository.
+
 Resolve a scan's default branch once. Its snapshot contains the full commit SHA
-and tree SHA, and all file reads use that snapshot. A stored commit identifies
+and tree SHA, and all file reads use that snapshot. An organization scan
+resolves each repository's snapshot once, while listing, and scans that
+snapshot without resolving the branch again. A stored commit identifies
 the scanned snapshot, not necessarily the commit that last modified the file.
 Document reads use the catalog's recorded commit rather than resolving a branch
 again. Never mix versions when a branch moves during an operation.
@@ -438,7 +497,8 @@ Credential lookup order:
 2. `GITHUB_TOKEN` environment variable.
 3. Existing GitHub CLI login via `gh auth token --hostname github.com`, when
    installed and authenticated.
-4. Anonymous public access when no credential is available.
+4. Anonymous public access when no credential is available. Organization
+   scans require a credential and fail before any request without one.
 
 Use the credential for repository listing and content retrieval, including
 on-demand Web documents. Never persist credentials in the catalog or expose
@@ -450,7 +510,9 @@ arguments, remote URLs, or files. Disable interactive credential prompts and
 do not display raw Git error output.
 
 HTTP requests use a 30-second timeout; Git commands use a 120-second timeout.
-There is no automatic retry or rate-limit waiting. Adapters translate access,
+There is no automatic retry or rate-limit waiting; adapters report rate limits
+as a distinct operational error so organization scans can stop starting new
+repositories. Adapters translate access,
 rate-limit, network, and invalid-response failures into operational errors;
 presentation must not expose tokens, raw subprocess output, or tracebacks.
 

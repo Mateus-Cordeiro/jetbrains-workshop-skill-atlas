@@ -19,3 +19,11 @@ class CatalogError(AtlasError):
 
 class GroupingError(AtlasError):
     """Explicit group generation failed without changing saved groups."""
+
+
+class RateLimitError(RepositoryError):
+    """GitHub refused a request because a rate limit was reached."""
+
+
+class ScanCancelled(AtlasError):
+    """The user or server stopped a scan before it completed."""

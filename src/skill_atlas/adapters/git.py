@@ -8,10 +8,12 @@ import subprocess
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event
+from time import monotonic
 from types import TracebackType
 from typing import Self
 
-from skill_atlas.errors import RepositoryError
+from skill_atlas.errors import RepositoryError, ScanCancelled
 from skill_atlas.models import SkillFile, Snapshot
 
 
@@ -61,11 +63,17 @@ def _stop_process(process: subprocess.Popen[bytes]) -> None:
 
 class GitSnapshotReader:
     def __init__(
-        self, token: str | None, *, timeout: float = 120, temp_root: Path | None = None
+        self,
+        token: str | None,
+        *,
+        timeout: float = 120,
+        temp_root: Path | None = None,
+        cancelled: Event | None = None,
     ) -> None:
         self._environment = _git_environment(token)
         self._timeout = timeout
         self._temp_root = temp_root
+        self._cancelled = cancelled
         self._resources = ExitStack()
         self._repositories: dict[Snapshot, Path] = {}
 
@@ -86,7 +94,25 @@ class GitSnapshotReader:
         finally:
             self._repositories.clear()
 
+    def _communicate(self, process: subprocess.Popen[bytes]) -> bytes:
+        if self._cancelled is None:
+            output, _ = process.communicate(timeout=self._timeout)
+            return output
+        deadline = monotonic() + self._timeout
+        while True:
+            try:
+                # Wake periodically so a cancelled scan stops Git promptly.
+                output, _ = process.communicate(timeout=min(0.2, max(deadline - monotonic(), 0)))
+                return output
+            except subprocess.TimeoutExpired:
+                if self._cancelled.is_set():
+                    raise ScanCancelled("The scan was stopped before it finished.") from None
+                if monotonic() >= deadline:
+                    raise subprocess.TimeoutExpired(process.args, self._timeout) from None
+
     def _run(self, repository: Path, *arguments: str) -> bytes:
+        if self._cancelled is not None and self._cancelled.is_set():
+            raise ScanCancelled("The scan was stopped before it finished.")
         command = ["git", "-C", str(repository), *arguments]
         try:
             with subprocess.Popen(
@@ -98,7 +124,7 @@ class GitSnapshotReader:
                 start_new_session=os.name == "posix",
             ) as process:
                 try:
-                    output, _ = process.communicate(timeout=self._timeout)
+                    output = self._communicate(process)
                 except BaseException:
                     _stop_process(process)
                     raise
