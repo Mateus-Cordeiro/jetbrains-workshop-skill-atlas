@@ -142,6 +142,7 @@ def register_routes(
             request,
             "fragments/repositories.html",
             view=browse.home(q, starred, sort),
+            sort=sort,
             **filter_context(q, starred),
         )
 

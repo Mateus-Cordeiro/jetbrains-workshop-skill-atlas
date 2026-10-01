@@ -9,7 +9,7 @@
   const query = () => input()?.value ?? new URLSearchParams(location.search).get('q') ?? '';
   const starredInput = () => document.querySelector('#starred-filter');
   const starred = () => starredInput()?.checked ?? new URLSearchParams(location.search).get('starred') === '1';
-  const sort = () => document.querySelector('#repository-sort')?.value ?? 'none';
+  const sort = () => new URLSearchParams(location.search).get('sort') ?? 'none';
   const active = () => Boolean(query().trim()) || starred();
   const key = () => JSON.stringify([query(), starred()]);
   const narrow = matchMedia('(max-width: 600px)');
@@ -33,6 +33,13 @@
     if (value) url.searchParams.set('q', value);
     else url.searchParams.delete('q');
     return url;
+  }
+
+  function setSort(value) {
+    const url = new URL(location.href);
+    if (value === 'none') url.searchParams.delete('sort');
+    else url.searchParams.set('sort', value);
+    history.replaceState(history.state, '', url);
   }
 
   function setFilters(url) {
@@ -83,22 +90,23 @@
   async function expand(group, open) {
     const button = group.querySelector('.repository-toggle');
     const panel = group.querySelector('.repository-skills');
+    const cell = panel.querySelector('[role=cell]');
     button.setAttribute('aria-expanded', String(open));
     panel.hidden = !open;
     if (!open || panel.dataset.loaded === 'true' || panel.getAttribute('aria-busy') === 'true') return;
     panel.setAttribute('aria-busy', 'true');
-    panel.textContent = 'Loading skills…';
+    cell.textContent = 'Loading skills…';
     const params = new URLSearchParams({repository_url: group.dataset.repository, q: query()});
     if (starred()) params.set('starred', '1');
     try {
       const content = await html('/fragments/repository-skills?' + params, new AbortController());
       if (!group.isConnected) return;
-      panel.innerHTML = content;
+      cell.innerHTML = content;
       panel.dataset.loaded = 'true';
       document.dispatchEvent(new Event('atlas:skills-updated'));
     } catch {
       if (!group.isConnected) return;
-      panel.innerHTML = '<p class="filter-empty" role="alert">Could not load skills. <button type="button" data-retry-expansion>Retry</button></p>';
+      cell.innerHTML = '<p class="filter-empty" role="alert">Could not load skills. <button type="button" data-retry-expansion>Retry</button></p>';
     } finally {
       panel.removeAttribute('aria-busy');
     }
@@ -134,8 +142,9 @@
     const pane = document.querySelector('#workspace');
     const target = document.querySelector(pane ? '#skill-results' : '#repositories');
     if (!target) return;
+    const requestedSort = sort();
     const params = new URLSearchParams({q: query()});
-    if (!pane && sort() !== 'none') params.set('sort', sort());
+    if (!pane && requestedSort !== 'none') params.set('sort', requestedSort);
     if (starred()) params.set('starred', '1');
     if (pane) {
       params.set('repository_url', pane.dataset.repository);
@@ -146,15 +155,23 @@
     try {
       const content = await html((pane ? '/fragments/skills?' : '/fragments/repositories?') + params, request);
       if (current !== revision || !target.isConnected) return;
+      const focusSort = document.activeElement?.id === 'repository-sort';
       target.innerHTML = content;
       htmx.process(target);
       document.querySelector('#filter-error')?.replaceChildren();
       restore();
+      if (focusSort) document.querySelector('#repository-sort')?.focus();
       document.dispatchEvent(new Event('atlas:skills-updated'));
       return true;
     } catch {
       if (current !== revision || !target.isConnected) return;
-      document.querySelector('#filter-error').innerHTML = '<p>Could not update skills. Previous results are still shown. <button type="button" data-retry-filter>Retry</button></p>';
+      const error = document.querySelector('#filter-error');
+      error.innerHTML = '<p>Could not update skills. Previous results are still shown. <button type="button" data-retry-filter>Retry</button></p>';
+      if (!pane) {
+        // Keep the next header activation aligned with the order still on screen.
+        setSort(target.querySelector('.repository-results').dataset.sort);
+        error.querySelector('[data-retry-filter]').dataset.retrySort = requestedSort;
+      }
       return false;
     } finally {
       if (current === revision) target.removeAttribute('aria-busy');
@@ -166,12 +183,6 @@
     searchVisibility();
     if (!active()) collapsedMatches.clear();
     history.replaceState(history.state, '', setFilters(new URL(location.href)));
-    if (document.querySelector('#repository-sort')) {
-      const url = new URL(location.href);
-      if (sort() === 'none') url.searchParams.delete('sort');
-      else url.searchParams.set('sort', sort());
-      history.replaceState(history.state, '', url);
-    }
     saveState();
     const clear = document.querySelector('.filter-input [data-clear-filter]');
     if (clear) clear.hidden = !query();
@@ -187,7 +198,7 @@
     if (event.target.id === 'skill-filter') changed();
   });
   document.addEventListener('change', event => {
-    if (['starred-filter', 'repository-sort'].includes(event.target.id)) changed(true);
+    if (event.target.id === 'starred-filter') changed(true);
   });
   document.addEventListener('submit', event => {
     if (!event.target.matches('.skill-filter')) return;
@@ -202,6 +213,11 @@
     }
   });
   document.addEventListener('click', event => {
+    if (event.target.closest('#repository-sort')) {
+      const next = {none: 'asc', asc: 'desc', desc: 'none'}[sort()];
+      setSort(next);
+      changed(true);
+    }
     const search = event.target.closest('.search-toggle');
     if (search) {
       const controls = search.closest('.filter-controls');
@@ -219,7 +235,11 @@
       starredInput().focus();
       changed(true);
     }
-    if (event.target.closest('[data-retry-filter]')) refresh();
+    const retryFilter = event.target.closest('[data-retry-filter]');
+    if (retryFilter) {
+      if (retryFilter.dataset.retrySort) setSort(retryFilter.dataset.retrySort);
+      refresh();
+    }
     const toggle = event.target.closest('.repository-toggle');
     if (toggle) {
       const group = toggle.closest('.repository-group');

@@ -12,6 +12,20 @@ test('catalog filtering', async ({ page, atlas, checkpoint }) => {
   await expect(page.locator('.catalog-skill:visible')).toHaveCount(2);
   await checkpoint('catalog-expanded');
 
+  const sort = page.getByRole('button', { name: 'Sort by skills', exact: true });
+  const sortHeader = page.getByRole('columnheader').filter({ has: sort });
+  await sort.focus();
+  await page.keyboard.press('Enter');
+  await expect(sortHeader).toHaveAttribute('aria-sort', 'ascending');
+  await expect(sort).toBeFocused();
+  await checkpoint('catalog-sort-ascending');
+  await page.keyboard.press('Space');
+  await expect(sortHeader).toHaveAttribute('aria-sort', 'descending');
+  await expect(sort).toBeFocused();
+  await checkpoint('catalog-sort-descending');
+  await sort.click();
+  await expect(sortHeader).toHaveAttribute('aria-sort', 'none');
+
   const search = page.getByRole('searchbox', { name: 'Filter skills across repositories' });
   await search.fill('CODE maintain');
   await expect(page.getByRole('status')).toHaveText('2 matching skills across 2 repositories');
@@ -29,6 +43,23 @@ test('catalog filtering', async ({ page, atlas, checkpoint }) => {
   await expect(expand).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.catalog-skill:visible')).toHaveCount(2);
   await checkpoint('catalog-cleared');
+
+  const remove = page.getByRole('button', { name: 'Remove Acme/skills from catalog' });
+  await remove.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Remove repository?' });
+  const cancel = dialog.getByRole('button', { name: 'Cancel', exact: true });
+  await expect(cancel).toBeFocused();
+  await expect(dialog.getByText('Acme/skills', { exact: true })).toBeVisible();
+  await checkpoint('catalog-removal-dialog');
+  await page.keyboard.press('Escape');
+  await expect(remove).toBeFocused();
+  await expect(page.locator('.repository-row')).toHaveCount(2);
+  await remove.click();
+  await dialog.getByRole('button', { name: 'Remove repository', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Repositories 1' })).toBeVisible();
+  await expect(sort).toBeFocused();
+  await checkpoint('catalog-removed');
   expect(await atlas.requests()).toEqual([]);
 });
 

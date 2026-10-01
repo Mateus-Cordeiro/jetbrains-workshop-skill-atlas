@@ -22,7 +22,7 @@ relevant fragment response, as in
 [the filter tests](../tests/browser/test_filters.py). Keep GitHub transport and
 credential substitution in [the shared fixtures](../tests/conftest.py).
 
-## Held responses and native selects
+## Held responses
 
 When holding one catalog request while a later refresh must proceed, register
 the Playwright route with `times=1`. Removing the handler with `unroute` while
@@ -31,11 +31,6 @@ the request is pending can let it continue, so a later
 [repository-control regression](../tests/browser/test_repository_controls_ui.py)
 retains the response from before removal and fulfills it after the refreshed
 list arrives; it also asserts that exactly one request was held.
-
-Headless Chromium's native select popup handles arrow keys differently on macOS
-and Linux. Focusing **Sort by skills**, typing `a`, and pressing Enter selects
-**Ascending** through native type-ahead without depending on that popup, retaining
-keyboard coverage.
 
 ## Group generation fixtures
 

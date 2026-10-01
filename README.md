@@ -184,10 +184,12 @@ through the homepage scan dialog or run the CLI `scan` command. Repository pages
 have no scan/rescan control. Commit hashes are omitted from the lists and document
 viewer; **View on GitHub** still opens the exact scanned version.
 
-Use **Sort by skills** above the repository list to choose ascending or descending
-total skill counts; **None** restores repository-name order. Sorting is retained
+Click the **Skills** table header to cycle through ascending total skill counts,
+descending counts, and repository-name order. Its arrow shows the current sort;
+the header also works with Enter and Space. Sorting is retained
 when filtering, refreshing, or using browser Back. The X at the right of a row
-removes that repository's stored skills and local stars after confirmation.
+opens a confirmation dialog naming the repository. Choose **Remove repository**
+to delete its stored skills and local stars, or **Cancel** to keep them.
 GitHub is unaffected. A later scan, including one already in progress, can add
 the repository again.
 

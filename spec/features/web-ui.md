@@ -103,24 +103,39 @@ Each repository displays:
 - An action to open its skills.
 - A right-side X button labelled **Remove owner/repository from catalog**.
 
-Offer **Sort by skills** with **None**, **Ascending**, and **Descending** in the
-homepage toolbar, keeping the repository list immediately visible on desktop
-and mobile. Wrap the toolbar below the heading when needed to avoid overflow.
+Make the table's **Skills** column heading clickable, with a neutral sort marker
+or an arrow indicating ascending/descending order. Each activation cycles from
+**None** to **Ascending**, **Descending**, and back to **None**. Keep it visually
+part of the header, with no separate toolbar control. Enter and Space activate
+the header; expose the current direction with `aria-sort` and describe the next
+action accessibly. Preserve keyboard focus across a sort-driven list refresh,
+unless the user has moved to another control while the request was pending.
+If a list request fails, keep the previous rows and header state and restore the
+URL's sort to that displayed order. The next header activation follows the action
+it still announces; **Retry** repeats the failed sort choice. An older request's
+failure must not roll back a newer sort or replace its feedback.
 None is the default canonical repository URL order. Count sorting uses total
 stored skills, even when filtering or showing starred skills, with canonical URL
-ascending to break ties. Keep the control available in empty states. Store active
+ascending to break ties. Keep the table header available in empty states. Store active
 sorting as `sort=asc` or `sort=desc` in the homepage URL using replacement history;
 None omits the parameter. Refresh, browser Back, filtering, star changes, and
 scan/removal refreshes preserve sorting and existing expansion choices. Sorting
 never reads GitHub or changes catalog data.
 
-The X button asks for confirmation naming the repository and explaining that its
-local skills and stars will be deleted, GitHub is unaffected, and a later scan
-can add it again. Cancel leaves the catalog and list unchanged. Confirm submits
-an idempotent removal; while pending, duplicate submissions are suppressed.
+The X button opens a styled in-app modal headed **Remove repository?**, naming
+the repository and explaining that its local skills and stars will be deleted,
+GitHub is unaffected, and a later scan can add it again. Focus **Cancel** first;
+keep keyboard focus inside the dialog. Escape, Cancel, and the close button leave
+the catalog unchanged and restore focus to the matching row, even if a background
+refresh replaced it (falling back to the Skills header when the row disappeared).
+The distinct destructive **Remove repository** action submits an idempotent
+removal. While pending, show **Removing…** and suppress duplicate submissions;
+Cancel becomes **Close**, which dismisses the dialog without cancelling the write.
 Refresh the list and counts using the current filters and sort after success,
-discard the removed repository's expansion state, and focus the sort control.
-Show failures visibly and allow retry without discarding the previous list. If
+discard the removed repository's expansion state, close the dialog, and focus the
+Skills header. If the user already dismissed the pending dialog, preserve their
+current focus. Keep failures inside the open dialog for retry, or above the
+catalog if it was dismissed, without discarding the previous list. If
 removal succeeds but the list refresh fails, explain that removal succeeded and
 the displayed catalog needs refreshing. Removing the final repository shows the
 normal empty state without opening the scan dialog. Deletion follows the shared
@@ -630,10 +645,15 @@ Implementation must cover these user-visible outcomes:
     distinct empty states. Cross-origin star requests are rejected without
     writes, and starring never contacts GitHub or starts a scan.
 
-15. Repository count sorting supports all three choices with deterministic ties,
+15. The Skills column header cycles through all three sort states, shows and
+    announces the direction, and retains keyboard focus through list replacement.
+    Repository count sorting supports all three choices with deterministic ties,
     total counts under text/starred filtering, expansion retention, refresh, and
-    browser Back. X removal confirms the named repository, supports cancellation
-    and keyboard/mobile use, updates counts and empty states, and survives reload.
+    browser Back. X removal uses the app's styled confirmation dialog, names the
+    repository, initially focuses Cancel, traps Tab/Shift+Tab, and restores focus
+    on Escape/Cancel/close, including after list replacement. Keyboard/mobile use,
+    long names, pending writes, retryable errors inside the dialog, and errors after
+    dismissal remain usable. Removal updates counts and empty states and survives reload.
     Failures preserve stored skills and stars and allow retry; late list responses
     cannot restore deleted entries. Removal is local, atomic, idempotent, protected
     against cross-origin requests, and isolated to one repository. Saved groups
