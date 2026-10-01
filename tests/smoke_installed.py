@@ -122,6 +122,8 @@ with (
         assert "Repositories" in page.text
         assert 'id="scan-github"' in page.text
         assert 'aria-controls="scan-dialog"' in page.text
+        assert 'id="repository-remove-dialog"' in page.text
+        assert 'id="repository-remove-title">Remove repository?</h2>' in page.text
         for asset in (
             "htmx.min.js",
             "HTMX-LICENSE.txt",
@@ -290,7 +292,7 @@ with (
             error = client.get("/repository", headers=headers)
             assert error.status_code == 400 and "invalid_input" in error.text
         sorted_home = client.get("/", params={"sort": "desc"})
-        assert 'value="desc" selected' in sorted_home.text
+        assert 'role="columnheader" aria-sort="descending"' in sorted_home.text
         assert "Remove acme/skills from catalog" in sorted_home.text
         removed = client.post(
             "/repositories/remove",

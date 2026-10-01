@@ -154,7 +154,15 @@ def test_sort_uses_total_counts_in_full_pages_and_fragments(
     assert findall(r'data-repository="https://github.com/acme/([abc])"', response.text) == names
     if filtered:
         assert "3 matching starred skills across 3 repositories" in response.text
+    direction = {"none": "none", "asc": "ascending", "desc": "descending"}[sort]
+    assert f'role="columnheader" aria-sort="{direction}"' in response.text
+    assert 'id="repository-sort" type="button"' in response.text
     if route == "/":
-        assert f'value="{sort}" selected' in response.text
+        assert 'id="repository-remove-dialog"' in response.text
+        assert (
+            'aria-describedby="repository-remove-name repository-remove-description"'
+            in response.text
+        )
+    assert 'aria-haspopup="dialog" aria-controls="repository-remove-dialog"' in response.text
     assert web_environment.requests == []
     assert client.get(route, params={"sort": "invalid"}).status_code == 400
