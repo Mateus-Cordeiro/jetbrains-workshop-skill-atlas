@@ -8,14 +8,6 @@ from skill_atlas.adapters.storage.migrations import MIGRATIONS, migrate
 from skill_atlas.errors import CatalogError
 from skill_atlas.models import Repository, RepositorySummary, ScanResult, Skill
 
-# Catalogs created before stars remain readable, without stars, until a write migrates them.
-_STARS_VERSION = 3
-_SKILLS = (
-    "SELECT skills.*, starred_skills.skill_path IS NOT NULL AS starred FROM skills "
-    "LEFT JOIN starred_skills ON starred_skills.repository_url = skills.repository_url "
-    "AND starred_skills.skill_path = skills.skill_path "
-)
-
 
 class SQLiteCatalog:
     def __init__(self, path: Path) -> None:
@@ -36,11 +28,6 @@ class SQLiteCatalog:
                 raise CatalogError("This catalog requires a newer skill-atlas version.")
             if version < 1:
                 raise CatalogError("Unsupported catalog schema. Run a scan to initialize it.")
-            if version < _STARS_VERSION:
-                # A connection-local table; the catalog file itself is never modified by reads.
-                connection.execute(
-                    "CREATE TEMP TABLE starred_skills (repository_url TEXT, skill_path TEXT)"
-                )
             yield connection
         except (OSError, sqlite3.Error) as error:
             raise CatalogError(
@@ -62,7 +49,8 @@ class SQLiteCatalog:
             row["skill_name"],
             row["description"],
             row["commit_sha"],
-            bool(row["starred"]),
+            # Catalogs created before stars stay readable, unstarred, until a write migrates them.
+            bool(row["starred"]) if "starred" in row.keys() else False,
         )
 
     def repositories(self) -> tuple[RepositorySummary, ...]:
@@ -82,16 +70,16 @@ class SQLiteCatalog:
         return tuple(
             self._skill(row)
             for row in self._query(
-                _SKILLS
-                + ("WHERE skills.repository_url = ? " if repository else "")
-                + "ORDER BY skills.repository_url, skill_name, skills.skill_path",
+                "SELECT * FROM skills "
+                + ("WHERE repository_url = ? " if repository else "")
+                + "ORDER BY repository_url, skill_name, skill_path",
                 (repository.url,) if repository else (),
             )
         )
 
     def skill(self, repository: Repository, path: str) -> Skill | None:
         rows = self._query(
-            _SKILLS + "WHERE skills.repository_url = ? AND skills.skill_path = ?",
+            "SELECT * FROM skills WHERE repository_url = ? AND skill_path = ?",
             (repository.url, path),
         )
         return self._skill(rows[0]) if rows else None
@@ -115,22 +103,32 @@ class SQLiteCatalog:
                 connection.close()
 
     def replace_repository(self, result: ScanResult) -> ScanResult:
+        url = result.repository.url
         with self._transaction(
             "Could not update the local catalog. Check its location, permissions, and free space."
         ) as connection:
-            connection.execute(
-                "DELETE FROM skills WHERE repository_url = ?", (result.repository.url,)
-            )
+            stored = {
+                row["skill_path"]
+                for row in connection.execute(
+                    "SELECT skill_path FROM skills WHERE repository_url = ?", (url,)
+                )
+            }
+            # Update surviving identities in place so their local stars are kept.
             connection.executemany(
                 """
                 INSERT INTO skills
                 (repository_url, repository_name, skill_path,
                  skill_name, description, commit_sha)
                 VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (repository_url, skill_path) DO UPDATE SET
+                    repository_name = excluded.repository_name,
+                    skill_name = excluded.skill_name,
+                    description = excluded.description,
+                    commit_sha = excluded.commit_sha
                 """,
                 (
                     (
-                        result.repository.url,
+                        url,
                         result.repository.full_name,
                         skill.path,
                         skill.name,
@@ -140,17 +138,15 @@ class SQLiteCatalog:
                     for skill in result.skills
                 ),
             )
-            # Stars follow catalog identity: surviving paths keep them, removed paths lose them.
-            connection.execute(
-                "DELETE FROM starred_skills WHERE repository_url = ? AND skill_path NOT IN "
-                "(SELECT skill_path FROM skills WHERE repository_url = ?)",
-                (result.repository.url, result.repository.url),
+            # Removing an identity removes its star with it.
+            connection.executemany(
+                "DELETE FROM skills WHERE repository_url = ? AND skill_path = ?",
+                ((url, path) for path in stored - {skill.path for skill in result.skills}),
             )
             starred = {
                 row["skill_path"]
                 for row in connection.execute(
-                    "SELECT skill_path FROM starred_skills WHERE repository_url = ?",
-                    (result.repository.url,),
+                    "SELECT skill_path FROM skills WHERE repository_url = ? AND starred", (url,)
                 )
             }
         return replace(
@@ -165,16 +161,12 @@ class SQLiteCatalog:
         with self._transaction(
             "Could not update the local catalog. Check its location and permissions."
         ) as connection:
+            connection.execute(
+                "UPDATE skills SET starred = ? WHERE repository_url = ? AND skill_path = ?",
+                (int(starred), repository.url, path),
+            )
             row = connection.execute(
-                "SELECT *, 0 AS starred FROM skills WHERE repository_url = ? AND skill_path = ?",
+                "SELECT * FROM skills WHERE repository_url = ? AND skill_path = ?",
                 (repository.url, path),
             ).fetchone()
-            if row is None:
-                return None
-            connection.execute(
-                "INSERT OR IGNORE INTO starred_skills VALUES (?, ?)"
-                if starred
-                else "DELETE FROM starred_skills WHERE repository_url = ? AND skill_path = ?",
-                (repository.url, path),
-            )
-        return replace(self._skill(row), starred=starred)
+        return self._skill(row) if row is not None else None

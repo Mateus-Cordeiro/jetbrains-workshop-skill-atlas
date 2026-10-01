@@ -70,8 +70,8 @@ is `false` for catalogs created before stars until a star is added.
 ## Application boundaries
 
 `application/stars.py` owns the starring use case through the narrow
-`StarWriter` port and reports unknown identities. The SQLite adapter checks the
-identity and writes the star in one transaction. `cli/commands/stars.py` adapts
+`StarWriter` port and reports unknown identities. The SQLite adapter sets the
+identity's `starred` field in one transaction. `cli/commands/stars.py` adapts
 arguments, exit codes, and output, using `runtime.create_stars()` without
 credential or network setup. Web routes adapt the same service. Catalog reads
 return each skill's `starred` state from the same read snapshot as its metadata.

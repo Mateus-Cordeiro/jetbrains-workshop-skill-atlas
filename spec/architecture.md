@@ -294,7 +294,7 @@ repository URL, exact path, and requested state to `application/stars.py`, wired
 by `runtime.create_stars()` or `runtime.create_web_app()` without credentials or
 network clients. The service calls `StarWriter.set_starred()`; the SQLite adapter
 migrates under the write lock, then checks the identity and writes the star in
-one transaction. Reads join stars to skill rows, so `application/catalog.py`
+one transaction. Reads return each row's star, so `application/catalog.py`
 restricts the starred-only scope before applying the unchanged matching rules,
 and the CLI and Web presentations mark starred skills. `web/static/stars.js`
 sends toggles and updates every control for the same identity; `filters.js`
@@ -444,6 +444,7 @@ The `skills` table stores these logical fields:
 | `skill_name` | Parsed frontmatter `name`. |
 | `description` | Parsed frontmatter `description`. |
 | `commit_sha` | Full SHA of the scanned repository snapshot. |
+| `starred` | Whether the user starred this identity locally; `0` for new rows. |
 
 Catalog identity is `(repository_url, skill_path)`. Same-name skills and
 identical definitions at different paths remain separate entries, including
@@ -451,17 +452,15 @@ copies under `.claude/skills/` and `.agents/skills/`. Rescanning must not add
 duplicate entries for the same identity. There is no name- or content-based
 deduplication.
 
-The `starred_skills` table stores one row per starred identity, keyed by
-`(repository_url, skill_path)`. A star is local user state rather than scanned
-metadata, so it lives outside `skills` and survives that table's replacement
-during rescans. It has no SQLite foreign key: replacement deletes and reinserts
-skill rows, which would cascade stars away. Instead, the replacement transaction
-removes stars whose identity no longer exists. Reads expose the join as a
-`starred` flag on each skill. Stars are not GitHub stars and are never synced.
+`starred` is local user state, not scanned metadata, so scan writes never set
+it. Keeping it on the skill row ties a star to the identity's lifetime: a star
+cannot outlive its skill, and no separate cleanup or join is needed. In
+exchange, every scan write must update surviving rows in place rather than
+replacing them. Stars are not GitHub stars and are never synced.
 
 Repository summaries are derived from skill rows; repositories with no skills
 have no saved summary. There are no separate repository, scan-history, timestamp,
-or job records, and stars exist only for current skill rows. A separate `skill_groupings` table holds the latest derived topic
+or job records. A separate `skill_groupings` table holds the latest derived topic
 and capability results, with model names, input fingerprints, and JSON-encoded
 repository/path memberships. These are classification data, not scan history.
 Full document bodies are transient and are not catalog data.
@@ -470,16 +469,18 @@ Full document bodies are transient and are not catalog data.
 
 Collect a complete scan result before changing catalog entries.
 `Catalog.replace_repository` replaces only the target repository's entries in
-one transaction: update existing skills, add new ones, and remove absent ones.
+one transaction: update existing skills in place, add new ones, and remove
+absent ones.
 Repeating a scan of a commit does not duplicate entries. A successful zero-skill
 scan removes that repository's previous entries, leaving other repositories
 unchanged. Failed retrieval or persistence preserves the previous entries.
-The same transaction keeps stars on surviving identities and removes stars on
-the repository's removed identities; a moved path is a new, unstarred identity.
-Other repositories' stars are unchanged, and a failed replacement preserves them.
+Updating in place leaves `starred` untouched, so surviving identities keep their
+stars, and removing a row removes its star. A moved path is a new, unstarred
+identity. Other repositories' stars are unchanged, and a failed replacement
+preserves them.
 
-`StarWriter.set_starred` checks that the identity exists and sets or clears its
-star in one write transaction. It is idempotent and does not create a missing
+`StarWriter.set_starred` sets or clears `starred` on an existing identity in one
+write transaction, changing no other field. It is idempotent and does not create a missing
 catalog, because a missing catalog has no skills to star.
 
 CLI and Web scans share this contract. Separate processes retain
@@ -491,9 +492,8 @@ service is introduced.
 Reads perform no GitHub requests. A missing database represents an empty
 catalog; an unreadable, corrupt, or unsupported database is an error. Reads do
 not create, migrate, rebuild, or reset the database. A catalog at schema version
-1, created before stars, remains readable with every skill unstarred; the read
-connection supplies an empty connection-local star table instead of changing the
-file. The next scan or star migrates it.
+1 or 2, created before stars, has no `starred` column; it remains readable, with every
+skill unstarred, without changing the file. The next scan or star migrates it.
 
 Use independent, short-lived read-only SQLite connections with a transaction
 per operation. Do not share connections across request and worker threads.
@@ -520,9 +520,11 @@ or roll back together. Replacing repository entries and changing a star each
 use a separate atomic transaction. Reject newer unsupported schema versions
 without modification. Never drop and recreate a catalog as an upgrade strategy.
 
-Version 2 adds only the derived grouping table. Version 3 adds `starred_skills`
-without changing existing skill rows. Existing catalogs upgrade in place on
-their next write; reads accept previous versions without requiring a rescan.
+Version 2 adds only the derived grouping table. Version 3 adds the `starred`
+column with a default of `0`, so existing catalogs
+upgrade in place on their next write without rewriting skill rows. Reads accept the
+previous versions, as described under [Catalog reads](#catalog-reads), so
+upgrading skill-atlas does not require a rescan before browsing or filtering.
 
 ## Configuration and authentication
 

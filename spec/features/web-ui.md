@@ -38,7 +38,7 @@ the existing access rules. This is a single-user local application.
   path, and commit SHA. Do not persist document content or require offline
   document viewing.
 - Add catalog read operations separately from the scanner's write interface.
-- Store [local stars](stars.md) in the separate star table defined by the
+- Store [local stars](stars.md) in the `starred` field defined by the
   [catalog model](../architecture.md#catalog-model-and-identity), written only
   through the star service.
 

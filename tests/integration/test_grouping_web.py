@@ -236,7 +236,7 @@ def test_v1_catalog_is_readable_without_mutation_and_generation_migrates(
     assert path.read_bytes() == before
     generate(client, "topics")
     with sqlite3.connect(path) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert db.execute("PRAGMA user_version").fetchone()[0] == MIGRATIONS[-1].version
     assert web_environment.catalog.skills() == scan_result.skills
 
 

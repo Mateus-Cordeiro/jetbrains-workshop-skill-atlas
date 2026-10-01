@@ -44,10 +44,7 @@ MIGRATIONS = (
     ),
     Migration(
         version=3,
-        statements=(
-            "CREATE TABLE starred_skills (repository_url TEXT NOT NULL, "
-            "skill_path TEXT NOT NULL, PRIMARY KEY (repository_url, skill_path))",
-        ),
+        statements=("ALTER TABLE skills ADD COLUMN starred INTEGER NOT NULL DEFAULT 0",),
     ),
 )
 
