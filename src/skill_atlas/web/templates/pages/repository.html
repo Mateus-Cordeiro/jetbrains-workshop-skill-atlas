@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ repository.full_name }} · Skill Atlas{% endblock %}
 {% block content %}
-{% if from_explore %}<a class="back-link" href="{{ url('/explore', perspective=from_explore) }}">← Back to Explore</a>{% else %}<a class="back-link" href="{{ url('/', q=q) if q else '/' }}">← All repositories</a>{% endif %}
+{% if from_explore %}<a class="back-link" href="{{ url('/explore', perspective=from_explore) }}">← Back to Explore</a>{% else %}<a class="back-link" href="{{ url('/', **filters) if q or starred else '/' }}">← All repositories</a>{% endif %}
 {% include 'fragments/workspace.html' %}
 {% endblock %}

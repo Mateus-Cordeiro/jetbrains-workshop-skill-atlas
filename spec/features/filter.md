@@ -15,8 +15,9 @@ shared interactive/printed results and structured output for scripts.
 Use the existing [catalog configuration](../architecture.md#configuration-and-authentication),
 including `SKILL_ATLAS_DB`. Results reflect the latest successful scans already
 stored there. Filtering works offline without a running Web server, GitHub
-credentials, Git, document retrieval, or a rescan. No database migration or new
-dependency is needed.
+credentials, Git, document retrieval, or a rescan. Filtering only reads the
+catalog; it performs no migrations. `--starred` restricts the scope to
+[local stars](stars.md), which the shared catalog read supplies.
 
 ## Shared matching rules
 
@@ -34,6 +35,8 @@ These rules preserve the existing homepage and repository filters:
 - Preserve the [catalog identity and ordering contracts](../architecture.md#catalog-model-and-identity).
   Same-name skills and copies at different paths remain separate results.
   Filtering does not rank or group entries by similarity.
+- The starred-only scope keeps only [starred identities](stars.md) before
+  matching. Stars never change these matching rules or result order.
 
 For example, `CODE maintain` matches a skill named `code-review` whose
 description contains `maintainability`. `STRASSE` matches `Straße` through
@@ -42,7 +45,7 @@ Unicode case folding. `%`, `_`, and `.*` match only those literal substrings.
 ## Command
 
 ```sh
-skill-atlas filter [QUERY] [--repository GITHUB_REPO_URL] [--no-interactive] [--json]
+skill-atlas filter [QUERY] [--repository GITHUB_REPO_URL] [--starred] [--no-interactive] [--json]
 ```
 
 `QUERY` is an optional positional argument, defaulting to an empty string. Quote
@@ -52,6 +55,7 @@ queries containing spaces so the shell passes them as one argument:
 skill-atlas filter "code review"
 skill-atlas filter "code review" --repository https://github.com/owner/repository
 skill-atlas filter "code review" --json
+skill-atlas filter --starred
 skill-atlas filter
 ```
 
@@ -60,6 +64,9 @@ repository and uses the existing [repository URL validation and normalization](.
 A valid repository URL with no saved entries produces an empty result. Do not
 infer whether it has never been scanned or was scanned successfully with zero
 skills; the catalog does not record that distinction.
+
+`--starred` restricts the scope to starred skills and combines with
+`--repository`. With no query, it lists all starred skills in that scope.
 
 Omitting `QUERY`, passing `""`, or passing only whitespace lists all skills in
 the selected scope. The command uses the
@@ -72,12 +79,14 @@ an interactive results view on a capable terminal, or printed output with
 Show a matching skill count, followed by the
 [shared skill-list layout and controls](../architecture.md#shared-cli-results-presentation).
 Include names, descriptions, repository names, exact paths, and commit-pinned
-links. Number entries consecutively across repositories in catalog order.
+links. Starred skills carry the shared ★ marker after their name. With
+`--starred`, the count reads **N matching starred skills**. Number entries consecutively across repositories in catalog order.
 Interactive description toggling affects only presentation; it does not rerun
 filtering or read the catalog again.
 
-Distinguish an empty selected scope (**No saved skills in the selected scope**)
-from a populated scope with no matches (**No skills match the query**). Both
+Distinguish an empty selected scope (**No saved skills in the selected scope**,
+or **No starred skills in the selected scope** with `--starred`) from a
+populated scope with no matches (**No skills match the query**). Both
 are successful queries with zero matches. Catalog errors must not be presented
 as empty results.
 
@@ -90,7 +99,8 @@ controls. The object contains:
 - `matching_count`: the number of matching entries.
 - `skills`: an array in the same order as human-readable output. Each entry
   contains `repository_url`, `repository_name`, `skill_path`, `skill_name`,
-  `description`, `commit_sha`, and `url` (the commit-pinned GitHub link).
+  `description`, `commit_sha`, `url` (the commit-pinned GitHub link), and
+  `starred` (a boolean for the identity's [local star](stars.md)).
 
 Use canonical repository URLs, exact stored paths, full commit SHAs, and the
 shared [encoded link contract](../architecture.md#shared-domain-contracts).
@@ -119,7 +129,7 @@ in a command handler or SQL query.
 The unfiltered homepage reads repository summaries and loads skills only on
 expansion. `BrowseCatalog.filter()` returns a `FilteredSkills` value containing
 actual matches and the total number of skills in scope, including for empty
-queries. The CLI uses this operation independently of the homepage's unloaded
+queries. With the starred-only scope, that total counts starred skills. The CLI uses this operation independently of the homepage's unloaded
 groups, preserving the Web optimization.
 Use the existing [read snapshot contract](../architecture.md#catalog-reads) for
 matches and any counts derived from them, including during concurrent scans.
@@ -166,7 +176,11 @@ The CLI and Web filters must preserve these outcomes:
 7. JSON parses independently of terminal detection and round-trips metadata,
    identity, and full commits with correct counts and ordering. It contains no
    presentation text or raw terminal control sequences.
-8. The installed wheel exposes `filter --help` and queries a temporary catalog
+8. `--starred` returns only starred identities, with or without a query and
+   alongside `--repository`, using the same matching and order. Empty starred
+   scopes have their own message, JSON includes `starred`, and text output marks
+   starred skills.
+9. The installed wheel exposes `filter --help` and queries a temporary catalog
    outside the checkout. Existing `scan`, `serve`, and Web filters retain their
    behavior, including lazy loading on the unfiltered homepage.
 

@@ -1,11 +1,12 @@
-<div class="filter-controls{% if q %} is-open{% endif %}">
-<button type="button" class="search-toggle" aria-label="Search skills" aria-expanded="{{ 'true' if q else 'false' }}" aria-controls="skill-search">
+<div class="filter-controls{% if q or starred %} is-open{% endif %}">
+<button type="button" class="search-toggle" aria-label="Search skills" aria-expanded="{{ 'true' if q or starred else 'false' }}" aria-controls="skill-search">
 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"></circle><path d="m15 15 5 5"></path></svg>
 </button>
 <form id="skill-search" class="skill-filter" role="search" action="{{ '/repository' if repository is defined else '/' }}" method="get">
 {% if repository is defined %}<input type="hidden" name="repository_url" value="{{ repository.url }}">{% if selected %}<input type="hidden" name="skill_path" value="{{ selected.path }}">{% endif %}{% endif %}
 <label class="sr-only" for="skill-filter">{{ filter_label }}</label>
 <div class="filter-input"><input id="skill-filter" type="search" name="q" value="{{ q }}" placeholder="Search skills…" autocomplete="off" aria-controls="{{ 'skill-results' if repository is defined else 'repositories' }}"><button type="button" data-clear-filter aria-label="Clear filter" {% if not q %}hidden{% endif %}>×</button></div>
+<label class="starred-filter"><input id="starred-filter" type="checkbox" name="starred" value="1" {% if starred %}checked{% endif %} aria-controls="{{ 'skill-results' if repository is defined else 'repositories' }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"></path></svg><span>Starred only</span></label>
 </form>
 <div id="filter-error" role="alert"></div>
 </div>

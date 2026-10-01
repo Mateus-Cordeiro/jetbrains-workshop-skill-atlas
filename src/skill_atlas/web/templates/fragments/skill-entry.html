@@ -1,11 +1,11 @@
 {% set description_id = url('skill-description', repository_url=skill.repository.url, skill_path=skill.path) ~ description_suffix|default('') %}
 <div class="skill-item{% if not document_selection %} catalog-skill-item{% endif %}">
 <div class="skill-heading">
-<a class="{{ 'skill-link' if document_selection else 'catalog-skill' }}" href="{{ skill_href|default(url('/repository', repository_url=skill.repository.url, skill_path=skill.path, q=q)) }}"
+<a class="{{ 'skill-link' if document_selection else 'catalog-skill' }}" href="{{ skill_href if skill_href is defined else url('/repository', repository_url=skill.repository.url, skill_path=skill.path, **filters) }}"
 {% if document_selection %}{% if selected and selected.repository.url == skill.repository.url and selected.path == skill.path %}aria-current="true"{% endif %} data-skill-path="{{ skill.path }}" data-skill-repository="{{ skill.repository.url }}" hx-get="{{ url('/fragments/document', repository_url=skill.repository.url, skill_path=skill.path, commit_sha=skill.commit_sha) }}" hx-target="#document" hx-sync="#workspace:replace"{% endif %}>
 <strong>{{ skill.name }}</strong>
 </a>
-<a class="similar-link" href="{{ url('/similar', repository_url=skill.repository.url, skill_path=skill.path, q=q) }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="3"></circle><circle cx="19" cy="5" r="3"></circle><circle cx="19" cy="19" r="3"></circle><path d="m8 11 8-5M8 13l8 5"></path></svg><span>Similar skills<span class="sr-only"> to {{ skill.name }}</span></span></a>
+<div class="skill-actions">{% include 'fragments/star-toggle.html' %}<a class="similar-link" href="{{ url('/similar', repository_url=skill.repository.url, skill_path=skill.path, q=q) }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="3"></circle><circle cx="19" cy="5" r="3"></circle><circle cx="19" cy="19" r="3"></circle><path d="m8 11 8-5M8 13l8 5"></path></svg><span>Similar skills<span class="sr-only"> to {{ skill.name }}</span></span></a></div>
 </div>
 {% if show_repository %}<span class="result-repository">{{ skill.repository.full_name }}</span>{% endif %}
 <p class="skill-description" id="{{ description_id }}">{{ skill.description }}</p>

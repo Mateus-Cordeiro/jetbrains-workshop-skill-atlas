@@ -2,7 +2,7 @@
 
 import typer
 
-from skill_atlas.cli.commands import filter, scan, serve, similar
+from skill_atlas.cli.commands import filter, scan, serve, similar, stars
 
 
 def create_app() -> typer.Typer:
@@ -16,6 +16,7 @@ def create_app() -> typer.Typer:
     filter.register(app)
     serve.register(app)
     similar.register(app)
+    stars.register(app)
     return app
 
 

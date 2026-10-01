@@ -181,6 +181,7 @@ def test_json_round_trips_metadata_and_commits_on_a_terminal(catalog, monkeypatc
                 "description": skill.description,
                 "commit_sha": skill.commit_sha,
                 "url": skill.url,
+                "starred": False,
             }
         ],
     }

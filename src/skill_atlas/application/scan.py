@@ -34,5 +34,5 @@ class Scanner:
             skills=tuple(sorted(skills, key=lambda skill: (skill.name, skill.path))),
         )
         # No catalog mutation occurs until the complete remote snapshot is read.
-        self.catalog.replace_repository(result)
-        return result
+        # The stored result carries stars retained by surviving identities.
+        return self.catalog.replace_repository(result)

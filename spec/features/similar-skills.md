@@ -81,7 +81,8 @@ and commit-pinned URL, the number of result groups, and score guidance. Each
 numbered match shows its representative name followed by the rounded percentage,
 its description, and every grouped repository/path and commit-pinned URL.
 Multiple locations are labelled **Same metadata · N locations**. Use the service's
-group and location order. A successful empty search shows **No similar skills
+group and location order. [Starred](stars.md#terminal-and-json-output) names and
+grouped locations carry the shared ★ marker; stars never affect ranking. A successful empty search shows **No similar skills
 found**. The results view performs no new searches or catalog reads.
 
 `--json` always prints one JSON object followed by a newline and exits, even on
@@ -95,7 +96,8 @@ JSON data. Its fields are:
   `display_score` (the shared rounded percentage), and `locations` (an ordered
   array of skill objects). The first location is the representative.
 - Each skill object contains `repository_url` (canonical), `repository_name`,
-  `skill_path`, `name`, `description`, `commit_sha`, and `url` (commit-pinned).
+  `skill_path`, `name`, `description`, `commit_sha`, `url` (commit-pinned), and
+  `starred` (the identity's [local star](stars.md)).
 
 Exit `0` for a completed search, including no matches; `1` for a missing source
 or catalog error; and `2` for invalid command usage. Successful output goes to

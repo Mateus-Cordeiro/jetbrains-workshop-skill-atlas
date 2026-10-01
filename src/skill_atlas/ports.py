@@ -36,7 +36,11 @@ class SkillParser(Protocol):
 
 
 class Catalog(Protocol):
-    def replace_repository(self, result: ScanResult) -> None: ...
+    def replace_repository(self, result: ScanResult) -> ScanResult: ...
+
+
+class StarWriter(Protocol):
+    def set_starred(self, repository: Repository, path: str, starred: bool) -> Skill | None: ...
 
 
 class CatalogReader(Protocol):

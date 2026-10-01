@@ -9,15 +9,16 @@ feature behavior and [AGENTS.md](../AGENTS.md) for contribution and CI rules.
 skill-atlas discovers AI skills in GitHub repositories and stores their metadata
 in a local catalog on each user's machine. One Python application exposes the
 [`scan` command](features/scan.md), [`filter` command](features/filter.md),
-[`similar` command](features/similar-skills.md), and local
-[`serve` Web UI](features/web-ui.md). These interfaces share the same catalog
-and application services for scanning, filtering, similarity search, and explicit
-[AI grouping](features/skill-groups.md).
+[`similar` command](features/similar-skills.md), [`star` and `unstar`
+commands](features/stars.md), and local [`serve` Web UI](features/web-ui.md).
+These interfaces share the same catalog and application services for scanning,
+filtering, similarity search, local stars, and explicit [AI grouping](features/skill-groups.md).
 Public and private GitHub repositories are supported, subject to user access.
 
-The catalog holds each repository's latest successfully scanned state. It is
-persistent application data, not a shared database or a disposable repository
-cache. There is no scan history, automatic refresh, or skill execution.
+The catalog holds each repository's latest successfully scanned state and the
+user's local stars. It is persistent application data, not a shared database or
+a disposable repository cache. There is no scan history, automatic refresh, or
+skill execution.
 
 ## Adopted technology stack
 
@@ -120,13 +121,14 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | Module | Responsibility and extension point |
 | --- | --- |
 | `cli/app.py`, `cli/commands/` | Register subcommands and adapt arguments, exit codes, and presentation. |
-| `models.py` | Immutable repository, organization, scan target, snapshot, organization listing, skill file, metadata, skill, scan result, and repository summary values. |
-| `ports.py` | Narrow reader, organization-reader, parser, catalog-write, catalog-read, and document-reader interfaces. |
+| `models.py` | Immutable repository, organization, scan target, snapshot, organization listing, skill file, metadata, skill (including its local star), scan result, and repository summary values. |
+| `ports.py` | Narrow reader, organization-reader, parser, catalog-write, star-write, catalog-read, and document-reader interfaces. |
 | `errors.py` | Shared operational error types translated by adapters and presented by interfaces. |
 | `application/scan.py` | Coordinate discovery, parsing, and atomic catalog replacement independently of HTTPX, SQLite, Typer, Textual, or Web routing. Starts from a repository or an already resolved snapshot. |
 | `application/organization_scan.py` | List an organization once, apply eligibility rules, run per-repository scans through a bounded worker pool, and aggregate per-repository outcomes, progress, rate-limit stops, and cancellation. |
 | `application/reader_fallback.py` | Select the fallback reader after a truncated listing without depending on HTTP or Git implementations. |
-| `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, and repository grouping with consistent counts. |
+| `application/catalog.py` | Read-only catalog browsing, CLI filter results, shared name/description matching, the starred-only scope, and repository grouping with consistent counts. |
+| `application/stars.py` | Idempotently star and unstar one catalog identity through the star-write port. |
 | `application/documents.py` | Resolve a catalog selection and retrieve its document at the recorded commit. |
 | `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
 | `grouping.py` | Immutable grouping perspectives, identities, saved-result values, and shared group limit. |
@@ -138,11 +140,11 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `web/exploration.py` | Graph presentation serialization: opaque node IDs, memberships, metadata, and encoded navigation links. |
 | `web/static/explore.js`, `explore.css` | G6 lifecycle, graph layout/interaction, accessible HTML directory, and per-perspective browser view state. |
 | `application/scan_jobs.py` | Process-local repository and organization scan queue, progress, and worker lifecycle for the Web UI. |
-| `runtime.py` | Composition root: wire catalog filtering and similarity queries, select adapters, and own HTTP, Git, scanner, organization worker, and Web application resource lifetimes. |
+| `runtime.py` | Composition root: wire catalog filtering, similarity queries, and stars, select adapters, and own HTTP, Git, scanner, organization worker, and Web application resource lifetimes. |
 | `adapters/github.py` | GitHub REST and GraphQL transport, error translation, snapshot resolution, organization listing, file discovery, and commit-pinned document retrieval. |
 | `adapters/git.py` | Temporary partial Git snapshots, authenticated and cancellable subprocesses, and cleanup. |
 | `adapters/frontmatter.py` | YAML implementation of the metadata parser, with no network or database dependencies. |
-| `adapters/storage/` | SQLite read/write adapter and ordered schema migrations. |
+| `adapters/storage/` | SQLite read/write adapter, star storage, and ordered schema migrations. |
 | `adapters/credentials.py` | Credential resolution from the environment and GitHub CLI. |
 | `cli/output/` | Shared result view models, terminal mode selection, Rich/Textual skill lists, the organization scan summary, and command-specific JSON serialization. |
 | `web/app.py` | Assemble the Web app, mount assets, and manage the worker lifespan. |
@@ -163,11 +165,15 @@ separately. Integration scenarios keep the real components involved together.
 `SnapshotReader` lists and reads files; `RepositoryReader` also resolves a
 repository snapshot. `OrganizationReader` lists an organization's repositories
 with their eligibility flags and resolved snapshots. `SkillParser` extracts metadata. `Catalog` exposes
-`replace_repository` to the scanner, while `CatalogReader` exposes repository
-summaries, skill lists (one repository or the whole catalog), and identity lookup.
-`DocumentReader` retrieves a file at a recorded commit independently of scan
-discovery. Keep these read and write interfaces separate as commands and views
-are added.
+`replace_repository` to the scanner and returns the stored result, including
+stars retained by surviving identities. `StarWriter` exposes `set_starred` to
+the starring service, while `CatalogReader` exposes repository summaries, skill
+lists (one repository or the whole catalog), and identity lookup, each skill
+carrying its star. `DocumentReader` retrieves a file at a recorded commit
+independently of scan discovery. Keep these read and write interfaces separate
+as commands and views are added. Starring has its own port rather than widening
+`Catalog`, so the scanner cannot change stars and the starring service cannot
+replace repository entries.
 
 Commands and Web routes invoke application services. They do not duplicate scan
 logic. A Web request must not invoke a CLI command or launch a Textual view.
@@ -258,8 +264,8 @@ snapshot, groups matches and counts on the server, and renders only matches.
 This avoids transferring every catalog entry to the browser or doing one query
 per repository. It uses a linear in-memory pass on the local backend; pagination
 and indexed full-text search are not introduced for this metadata-only catalog.
-`web/static/filters.js` handles query history, expansion state, and cancellable
-list requests separately from document loading. No filtering operation reads
+`web/static/filters.js` handles query and starred-only history, expansion
+state, and cancellable list requests separately from document loading. No filtering operation reads
 GitHub, changes the catalog, or retrieves document bodies.
 
 `cli/commands/filter.py` invokes `BrowseCatalog.filter()` through
@@ -280,6 +286,20 @@ in the similarity workspace, where repository/path disambiguation is needed.
 Description expansion stays in
 `web/static/app.js`, with controls initialized after list updates from
 `web/static/filters.js` as well as page and workspace loads.
+
+### Following a star change
+
+`cli/commands/stars.py` and the `POST /stars` route in `web/routes.py` adapt a
+repository URL, exact path, and requested state to `application/stars.py`, wired
+by `runtime.create_stars()` or `runtime.create_web_app()` without credentials or
+network clients. The service calls `StarWriter.set_starred()`; the SQLite adapter
+migrates under the write lock, then checks the identity and writes the star in
+one transaction. Reads return each row's star, so `application/catalog.py`
+restricts the starred-only scope before applying the unchanged matching rules,
+and the CLI and Web presentations mark starred skills. `web/static/stars.js`
+sends toggles and updates every control for the same identity; `filters.js`
+owns the `starred=1` list state alongside `q`. Starring never reads GitHub or
+starts a scan. See the [stars specification](features/stars.md).
 
 ### Following a similarity search
 
@@ -362,7 +382,8 @@ serializers retain each command's existing machine-readable schema.
   `--no-interactive`.
 - Both views show the command summary, then numbered entries with name,
   description, repository/path, and commit-pinned URL in the same order.
-  A similarity percentage follows the name when present. Multiple locations
+  A ★ follows the name of a [starred](features/stars.md#terminal-and-json-output)
+  skill, then any similarity percentage. Multiple locations
   carry a **Same metadata · N locations** label and all location links.
   Preserve service ordering, grouping, and command-specific empty messages.
 - Descriptions start visible. The interactive view scrolls, supports keyboard
@@ -423,12 +444,19 @@ The `skills` table stores these logical fields:
 | `skill_name` | Parsed frontmatter `name`. |
 | `description` | Parsed frontmatter `description`. |
 | `commit_sha` | Full SHA of the scanned repository snapshot. |
+| `starred` | Whether the user starred this identity locally; `0` for new rows. |
 
 Catalog identity is `(repository_url, skill_path)`. Same-name skills and
 identical definitions at different paths remain separate entries, including
 copies under `.claude/skills/` and `.agents/skills/`. Rescanning must not add
 duplicate entries for the same identity. There is no name- or content-based
 deduplication.
+
+`starred` is local user state, not scanned metadata, so scan writes never set
+it. Keeping it on the skill row ties a star to the identity's lifetime: a star
+cannot outlive its skill, and no separate cleanup or join is needed. In
+exchange, every scan write must update surviving rows in place rather than
+replacing them. Stars are not GitHub stars and are never synced.
 
 Repository summaries are derived from skill rows; repositories with no skills
 have no saved summary. There are no separate repository, scan-history, timestamp,
@@ -441,10 +469,19 @@ Full document bodies are transient and are not catalog data.
 
 Collect a complete scan result before changing catalog entries.
 `Catalog.replace_repository` replaces only the target repository's entries in
-one transaction: update existing skills, add new ones, and remove absent ones.
+one transaction: update existing skills in place, add new ones, and remove
+absent ones.
 Repeating a scan of a commit does not duplicate entries. A successful zero-skill
 scan removes that repository's previous entries, leaving other repositories
 unchanged. Failed retrieval or persistence preserves the previous entries.
+Updating in place leaves `starred` untouched, so surviving identities keep their
+stars, and removing a row removes its star. A moved path is a new, unstarred
+identity. Other repositories' stars are unchanged, and a failed replacement
+preserves them.
+
+`StarWriter.set_starred` sets or clears `starred` on an existing identity in one
+write transaction, changing no other field. It is idempotent and does not create a missing
+catalog, because a missing catalog has no skills to star.
 
 CLI and Web scans share this contract. Separate processes retain
 last-successful-write behavior; no scan history or cross-process notification
@@ -454,7 +491,9 @@ service is introduced.
 
 Reads perform no GitHub requests. A missing database represents an empty
 catalog; an unreadable, corrupt, or unsupported database is an error. Reads do
-not create, migrate, rebuild, or reset the database.
+not create, migrate, rebuild, or reset the database. A catalog at schema version
+1 or 2, created before stars, has no `starred` column; it remains readable, with every
+skill unstarred, without changing the file. The next scan or star migrates it.
 
 Use independent, short-lived read-only SQLite connections with a transaction
 per operation. Do not share connections across request and worker threads.
@@ -475,13 +514,17 @@ migrations in `adapters/storage/migrations.py`; do not edit shipped migrations. 
 defaults or backfills when existing rows need new values. `PRAGMA user_version`
 tracks the schema version.
 
-Migrations run under a write lock before catalog replacement or explicit grouping
-persistence. Version-1 catalogs remain readable without migration; saved groups
-are absent until generated. Version 2 adds only the derived grouping table.
-Schema changes and their version marker commit or roll back together. Replacing repository
-entries uses a separate atomic transaction. Reject newer unsupported schema
-versions without modification. Never drop and recreate a catalog as an upgrade
-strategy.
+Migrations run under a write lock before catalog replacement, explicit grouping
+persistence, or a star change. Schema changes and their version marker commit
+or roll back together. Replacing repository entries and changing a star each
+use a separate atomic transaction. Reject newer unsupported schema versions
+without modification. Never drop and recreate a catalog as an upgrade strategy.
+
+Version 2 adds only the derived grouping table. Version 3 adds the `starred`
+column with a default of `0`, so existing catalogs
+upgrade in place on their next write without rewriting skill rows. Reads accept the
+previous versions, as described under [Catalog reads](#catalog-reads), so
+upgrading skill-atlas does not require a rescan before browsing or filtering.
 
 ## Configuration and authentication
 

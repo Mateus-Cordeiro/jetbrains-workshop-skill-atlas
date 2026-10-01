@@ -9,13 +9,20 @@ from skill_atlas.models import SkillFile, Snapshot
 
 
 class MemoryCatalog:
-    def __init__(self, result=None):
+    def __init__(self, result=None, starred=()):
         self.result = result
+        self.starred = set(starred)
         self.writes = 0
 
     def replace_repository(self, result):
         self.result = result
         self.writes += 1
+        return replace(
+            result,
+            skills=tuple(
+                replace(skill, starred=skill.path in self.starred) for skill in result.skills
+            ),
+        )
 
 
 class FakeReader:
@@ -36,8 +43,18 @@ def test_scanner_uses_ports_and_keeps_duplicate_names_at_distinct_paths(reposito
     result = Scanner(FakeReader(), FrontmatterParser(), catalog).scan(repository)
     assert [skill.path for skill in result.skills] == ["a/SKILL.md", "z/SKILL.md"]
     assert all(skill.commit_sha == "b" * 40 for skill in result.skills)
-    assert catalog.result is result
+    assert [skill.path for skill in catalog.result.skills] == ["a/SKILL.md", "z/SKILL.md"]
     assert catalog.writes == 1
+
+
+def test_scanner_returns_stored_result_with_retained_stars(repository):
+    catalog = MemoryCatalog(starred={"z/SKILL.md"})
+    result = Scanner(FakeReader(), FrontmatterParser(), catalog).scan(repository)
+    assert not any(skill.starred for skill in catalog.result.skills)
+    assert [(skill.path, skill.starred) for skill in result.skills] == [
+        ("a/SKILL.md", False),
+        ("z/SKILL.md", True),
+    ]
 
 
 def test_failed_read_never_replaces_catalog(repository, scan_result):

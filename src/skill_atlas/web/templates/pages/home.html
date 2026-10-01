@@ -1,6 +1,6 @@
 {% extends 'catalog.html' %}
 {% block catalog_content %}
-{% set empty_catalog = not view.repositories and not q.strip() %}
+{% set empty_catalog = not view.repositories and not filtering %}
 <div class="catalog-heading">
 <h1>Repositories <span id="repository-count" class="count">{{ view.repositories|length }}</span></h1>
 <div class="catalog-tools">

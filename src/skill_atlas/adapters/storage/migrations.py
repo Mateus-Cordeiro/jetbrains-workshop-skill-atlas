@@ -42,6 +42,10 @@ MIGRATIONS = (
             """,
         ),
     ),
+    Migration(
+        version=3,
+        statements=("ALTER TABLE skills ADD COLUMN starred INTEGER NOT NULL DEFAULT 0",),
+    ),
 )
 
 

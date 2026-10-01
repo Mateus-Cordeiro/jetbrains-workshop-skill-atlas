@@ -19,6 +19,7 @@ Provide a browser page where the user can:
 - Explicitly generate both topic/capability views and explore their overlapping
   memberships in the G6 graph;
   [Skill groups](skill-groups.md) owns their model, persistence, and HTTP contracts.
+- Star skills locally and show only starred skills.
 
 The first version runs on the user's machine and shares the CLI's SQLite
 catalog and GitHub credentials. Public and private GitHub repositories follow
@@ -37,12 +38,14 @@ the existing access rules. This is a single-user local application.
   path, and commit SHA. Do not persist document content or require offline
   document viewing.
 - Add catalog read operations separately from the scanner's write interface.
+- Store [local stars](stars.md) in the `starred` field defined by the
+  [catalog model](../architecture.md#catalog-model-and-identity), written only
+  through the star service.
 
-The original browsing and document features require no backfill. Optional
-[skill grouping](skill-groups.md) adds derived persistence through a numbered
-migration on explicit writes, while preserving reads of existing catalogs. Existing
-catalogs can supply the repository list, skill metadata, and document locations
-without rescanning.
+Browsing requires no schema migration or backfill. Existing catalogs, including
+those created before stars, supply the repository list, skill metadata, and
+document locations without rescanning. Explicit writes for scans, stars, or [skill grouping](skill-groups.md) migrate
+the catalog transactionally.
 
 ## Starting the application
 
@@ -169,8 +172,8 @@ Initially show **Select a skill to view its SKILL.md** in the right pane. Select
 skills by `(repository_url, skill_path)`, never by name. Identical definitions
 copied into different directories and same-name skills remain separate entries.
 
-Each skill card places the skill-name link and the **Similar skills** action in
-its heading row. A connected-nodes icon accompanies the similarity text; do not
+Each skill card places the skill-name link, its [star toggle](#stars), and the
+**Similar skills** action in its heading row. A connected-nodes icon accompanies the similarity text; do not
 rely on an icon or colour alone to explain the action. The description follows
 below. Its subdued **Show more** / **Show less** control has a chevron and remains
 next to the description, separate from similarity navigation.
@@ -253,6 +256,38 @@ shows its error above the existing workspace; navigation and browser reload rema
 available. Late workspace or document responses cannot replace a newer selection.
 Documents still use the displayed candidate's stored commit and existing
 authentication.
+
+### Stars
+
+The shared skill card used by homepage expansions, the repository view, and
+similarity results has a star toggle, as does the open document's header. It is
+a button labelled **Star *skill name*** with `aria-pressed` reflecting the
+identity's [local star](stars.md); a filled star marks starred skills. Each card
+and header stars its own identity, including a similarity group's representative.
+Toggling sends the requested state, not a flip, so repeating a request is
+idempotent. Every visible toggle for the same identity updates together. A
+toggle never selects a skill, changes the URL, retrieves a document, contacts
+GitHub, or starts a scan. A failed request leaves the toggle unchanged and shows
+the error above the workspace; a removed identity reports **Skill not found in
+the catalog**.
+
+The homepage and repository view have a **Starred only** checkbox next to the
+search field. Store it as `starred=1` in the page URL alongside `q`, using the
+same replacement history updates, so refresh and back/forward restore it.
+Selection, repository, and back links carry it; similarity links do not, because
+starred-only never filters similarity candidates. It restricts the
+[shared filter scope](filter.md#shared-matching-rules) before the query applies.
+An active starred-only filter keeps the search controls open at narrow widths.
+
+While starred-only is active, the homepage behaves like a filtered view: it shows
+only repositories with starred matches, reveals them automatically, and shows
+**N matching starred skills across M repositories** and **1 of 24 skills** per
+repository. The repository view uses its filtered count and hidden-selection
+notice. Empty states read **No starred skills.**, or **No starred skills match
+“…”.** with a query, and offer **Show all skills** to clear starred-only and,
+with a query, **Clear filter**. An empty starred view is not an empty catalog
+and does not open the scan form. Changing a star while starred-only is active
+refreshes the list; if the changed card disappears, focus moves to the checkbox.
 
 ### Empty results
 
@@ -368,8 +403,9 @@ Web routes adapt HTTP requests to catalog queries, scan jobs, and document
 services; templates and HTMX return pages and fragments. Use
 `application/catalog.py` for shared matching and grouped read results.
 Keep selection history and document response handling in `web/static/app.js`,
-and filtering, expansions, and independent list response handling in
-`web/static/filters.js`. Package the required templates and static assets so the installed command works outside
+filtering, the starred-only state, expansions, and independent list response
+handling in `web/static/filters.js`, and star toggle requests in
+`web/static/stars.js`. Star routes adapt `application/stars.py`. Package the required templates and static assets so the installed command works outside
 the checkout.
 
 The scanner continues to use the catalog-write port. The document service uses
@@ -414,8 +450,9 @@ catalog is the source of truth, not the lost in-memory job status.
 
 ## HTTP contract
 
-The following routes define the interface. The `q` filter is optional on all
-catalog routes; on similarity routes it is return-navigation context only.
+The following routes define the interface. The `q` filter and `starred=1` are
+optional on all catalog routes; on similarity routes `q` is return-navigation
+context only.
 Repository arguments use canonical GitHub URLs; skill paths use exact stored
 paths. Encode all query parameters rather than interpolating unescaped values
 into URLs.
@@ -432,10 +469,12 @@ into URLs.
 | `GET /fragments/similar?repository_url=...&skill_path=...` | Refresh similarity workspace with the same optional parameters. |
 | `GET /fragments/document?repository_url=...&skill_path=...&commit_sha=...` | Document fragment containing escaped source and safe rendered content. |
 | `POST /scans` | Validate form-encoded `repository_url` as a repository or organization URL; return `202` with scan activity fragments and a job status URL in `Location`. |
+| `POST /stars` | Validate form-encoded `repository_url`, exact `skill_path`, and requested `starred` (`1` or `0`); return `200` with the updated star toggle fragment. |
 | `GET /scans/{job_id}` | Job status fragment with identity, state, and outcome or error. |
 
 Return escaped HTML errors with a stable `data-error-code` and user-facing
-message. Invalid input uses `400`; missing catalog entries and unknown job IDs use `404`; stale
+message. Invalid input uses `400`; missing catalog entries (including star
+requests, with `missing_skill`) and unknown job IDs use `404`; stale
 document selections use `409`. Similarity searches use `404` with
 `missing_similarity_source` for a removed starting skill; a missing or no-longer
 ranked result selection is cleared in a successful workspace response. The retired
@@ -449,8 +488,9 @@ capacity or shutdown rejections use `503`. HTMX displays error fragments in
 the relevant panel; stale selections refresh the workspace before loading again.
 
 Bind only to loopback in this version. Validate allowed Host and Origin values
-and protect scan submissions against cross-origin requests. Scan submissions
-require a matching Origin and the custom `X-Atlas-Request: 1` header sent by the UI. Do not enable
+and protect scan and star submissions against cross-origin requests. Every
+`POST`, including `POST /stars`, requires a matching Origin and the custom
+`X-Atlas-Request: 1` header sent by the UI. Do not enable
 permissive CORS. Browser requests can select existing catalog entries but cannot
 provide arbitrary upstream content URLs or credentials for the server to fetch.
 
@@ -532,6 +572,13 @@ Implementation must cover these user-visible outcomes:
     its filter and selection, including after candidate selection and reload;
     similarity still searches all entries. Selections distinguish equal paths in
     different repositories.
+
+14. Star toggles on shared cards and the document header are idempotent,
+    update together, persist across restarts, and match CLI stars. **Starred
+    only** filters the homepage and repository view, survives refresh and
+    back/forward through `starred=1`, carries across catalog navigation, and has
+    distinct empty states. Cross-origin star requests are rejected without
+    writes, and starring never contacts GitHub or starts a scan.
 
 Follow [the repository testing rules](../../AGENTS.md). Use unit tests for query
 and job policies and document handling, and integration tests with temporary

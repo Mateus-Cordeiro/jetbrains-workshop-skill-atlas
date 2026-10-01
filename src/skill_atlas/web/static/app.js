@@ -73,6 +73,7 @@
     if (pane.dataset.fromExplore) params.set('from_explore', pane.dataset.fromExplore);
     if (atlasFilters.query()) params.set('q', atlasFilters.query());
     const similar = pane.dataset.mode === 'similar';
+    if (atlasFilters.starred() && !similar) params.set('starred', '1');
     if (similar) {
       params.set('skill_path', pane.dataset.sourcePath);
       params.set('return_to', pane.dataset.returnTo);
@@ -108,7 +109,7 @@
     if (!['document', 'workspace'].includes(detail.target?.id)) return;
     detail.xhr.atlasGeneration = ++generation;
     if (detail.target.id === 'workspace') {
-      detail.xhr.atlasQuery = atlasFilters.query();
+      detail.xhr.atlasFilters = atlasFilters.key();
       return;
     }
     documentRequest = detail.xhr;
@@ -132,7 +133,7 @@
       detail.shouldSwap = false;
       return;
     }
-    if (detail.target?.id === 'workspace' && detail.xhr.atlasQuery !== atlasFilters.query()) {
+    if (detail.target?.id === 'workspace' && detail.xhr.atlasFilters !== atlasFilters.key()) {
       detail.shouldSwap = false;
       refreshWorkspace();
       return;
