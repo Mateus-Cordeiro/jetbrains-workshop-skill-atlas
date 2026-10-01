@@ -286,6 +286,16 @@ When attaching videos or images to a pull request, use the
 discovered automatically, read `.agents/skills/github-pr-media/SKILL.md` directly.
 It owns upload methods, fallbacks, and verification of saved attachments.
 
+## Automated PR reviews
+
+Use [the review guide](.agents/automations/review.md) for automated PR reviews.
+It defines investigation, finding quality, verdicts, and repeat-run behavior;
+the architecture, feature specs, and validation rules above remain authoritative.
+Review-only tasks do not modify repository files, including shared memory.
+Report useful proposed memory updates locally instead. The implementation
+delivery steps below apply when the task changes files, not when it only reviews
+a PR. Publishing a review requires authorization from the invoking task.
+
 ## Delivery and CI status
 
 For tasks that change repository files, delivery includes committing the task's
