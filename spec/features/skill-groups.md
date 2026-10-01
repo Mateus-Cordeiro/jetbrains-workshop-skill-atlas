@@ -76,7 +76,9 @@ The homepage and Explore page offer **Repositories** and **Explore** navigation.
 `/explore` presents a G6 graph with a **Capabilities / Topics** toggle.
 Keep the shared light catalog color scheme throughout navigation: page chrome,
 controls, graph, directory, and tooltips use the same surfaces, text, and accent
-colors as repository pages. Colored group outlines distinguish memberships.
+colors as repository pages. Reuse the shared catalog shell, compact page heading,
+buttons, and view toggle; graph styles must not override the page container or
+navigation. Colored group outlines distinguish memberships.
 Both perspectives are delivered in the initial page; toggling never calls Ollama
 or fetches a new grouping. Initially show group nodes with titles and skill counts.
 Clicking a group expands/collapses its skill nodes. An overlapping skill appears

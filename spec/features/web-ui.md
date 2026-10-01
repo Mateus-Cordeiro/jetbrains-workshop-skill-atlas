@@ -67,6 +67,9 @@ Preserve the existing `scan` command and its terminal presentation. Register
 
 Offer **Repositories** and **Explore** catalog navigation. Keep the shared light
 color scheme when navigating between catalog, Explore, and document pages.
+Repositories and Explore share one catalog template and navigation layout; their
+content uses the same width, padding, headings, buttons, and toggle styles.
+Switching tabs must not move or resize the navigation, including on wide desktops.
 Start the repository content with a compact **Repositories** heading and count, a search
 field, and **+ Add repository**. Omit the introductory hero and permanent scan
 card so the catalog is immediately visible. **Add repository** toggles a compact

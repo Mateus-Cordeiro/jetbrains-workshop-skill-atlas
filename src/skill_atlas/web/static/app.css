@@ -864,7 +864,7 @@ footer{
   .catalog-heading{
     flex-wrap:wrap;
     gap:16px;
-    margin-top:24px;
+    margin-top:16px;
   }
   .catalog-heading h1{
     width:100%;
@@ -942,5 +942,4 @@ footer{
 }
 @media(max-width:600px){
   .catalog-navigation{gap:18px;margin-top:12px;}
-  .catalog-navigation + .catalog-heading{margin-top:16px;}
 }

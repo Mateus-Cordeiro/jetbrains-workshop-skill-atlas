@@ -1,6 +1,5 @@
-{% extends 'base.html' %}
-{% block content %}
-{% include 'fragments/catalog-navigation.html' %}
+{% extends 'catalog.html' %}
+{% block catalog_content %}
 {% set empty_catalog = not view.repositories and not q.strip() %}
 <div class="catalog-heading">
 <h1>Repositories <span id="repository-count" class="count">{{ view.repositories|length }}</span></h1>

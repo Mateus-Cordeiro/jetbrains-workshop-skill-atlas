@@ -151,8 +151,11 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `config.py` | Local settings. |
 
 Templates use `pages/` for full pages and `fragments/` for partial responses and
-shared page content, with `base.html` at the template root. Keep the browser
-assets bundled beside the Web interface. Tests retain their unit, integration,
+shared page content, with `base.html` owning the page shell and `catalog.html`
+owning the navigation shared by Repositories and Explore. Shared headings, buttons,
+and toggles use `app.css`; Explore-specific CSS stays within the graph workspace.
+This keeps graph presentation from changing navigation geometry or page styling.
+Keep the browser assets bundled beside the Web interface. Tests retain their unit, integration,
 and browser levels; unit tests group application, adapter, and Web responsibilities
 separately. Integration scenarios keep the real components involved together.
 

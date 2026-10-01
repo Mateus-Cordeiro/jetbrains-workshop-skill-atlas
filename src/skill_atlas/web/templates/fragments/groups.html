@@ -1,10 +1,10 @@
-<section id="workspace" data-mode="groups" data-perspective="{{ perspective }}">
-  <header class="explore-heading">
-    <div><p class="eyebrow"><span class="signal-dot"></span> KNOWLEDGE GRAPH</p><h1>Your skills. <span>Connected.</span></h1></div>
+<section id="workspace" class="graph-workspace" data-mode="groups" data-perspective="{{ perspective }}">
+  <header class="catalog-heading group-heading">
+    <h1>Explore</h1>
     <button id="generate-groups" type="button" class="primary" hx-post="/explore/generate" hx-target="#group-status" hx-swap="outerHTML" hx-disabled-elt="this" {% if not view.skill_count or (group_job and group_job.state in ('queued', 'running')) %}disabled{% endif %} data-has-skills="{{ 'true' if view.skill_count else 'false' }}">{{ 'Regenerate groups' if has_groups else 'Generate groups' }}</button>
   </header>
   <div class="explore-toolbar">
-    <div class="perspective-switch" role="group" aria-label="Group skills by">
+    <div class="view-toggle" role="group" aria-label="Group skills by">
       <button type="button" data-perspective="capabilities" aria-pressed="{{ 'true' if perspective == 'capabilities' else 'false' }}">Capabilities</button>
       <button type="button" data-perspective="topics" aria-pressed="{{ 'true' if perspective == 'topics' else 'false' }}">Topics</button>
     </div>
@@ -33,5 +33,5 @@
       <p class="directory-note">One skill can connect to multiple groups.</p>
     </aside>
   </div>
-  <p id="graph-announcement" class="visually-hidden" role="status" aria-live="polite"></p>
+  <p id="graph-announcement" class="sr-only" role="status" aria-live="polite"></p>
 </section>

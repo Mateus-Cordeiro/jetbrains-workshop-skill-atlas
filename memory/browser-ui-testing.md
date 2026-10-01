@@ -59,6 +59,17 @@ and the shared mock transport. Mouse tests interact with the rendered canvas rat
 than substituting a graph implementation. Session storage holds only opaque IDs
 and coordinates; storage and renderer-failure cases retain usable directory links.
 
+## Shared page geometry
+
+The [catalog layout regression](../tests/browser/test_catalog_layout.py) compares
+navigation and link rectangles across Repositories and Explore at 390, 1360, and
+1920 pixels, including generated groups. A page-specific `main` width of 1600
+versus the shared 1440 passed the 1360-pixel screenshots and color assertions but
+moved navigation 80 pixels at 1920. Include a viewport above the shared maximum
+width when checking page consistency; same colors do not establish same layout.
+The [shared catalog template](../src/skill_atlas/web/templates/catalog.html) owns
+navigation; graph CSS no longer changes the outer page container.
+
 ## Standalone browser demos
 
 When adapting the fixtures for a standalone [PR demo](../.agents/skills/pr-demo/SKILL.md),
