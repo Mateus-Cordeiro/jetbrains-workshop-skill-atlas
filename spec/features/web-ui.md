@@ -393,9 +393,10 @@ at the job boundary and keep the server and worker available for later jobs.
 
 Closing the browser does not cancel a submitted scan. Graceful shutdown stops
 accepting jobs, discards queued jobs, and lets the active scan unwind and clean
-up its HTTP/Git resources. An active organization scan is cancelled: it starts
-no more repositories and stops in-progress requests and Git processes;
-repositories that finished stay committed. No jobs resume after a process restart. A missing
+up its HTTP/Git resources. An active organization scan is cancelled through its
+job's own cancellation signal: it starts no more repositories and stops
+in-progress requests and Git processes; repositories that finished stay
+committed. A failed job never affects later jobs. No jobs resume after a process restart. A missing
 job ID produces **Scan status is no longer available; refresh the catalog**.
 After an unexpected stop, a scan may already have committed its results; the
 catalog is the source of truth, not the lost in-memory job status.

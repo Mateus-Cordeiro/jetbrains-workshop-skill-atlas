@@ -209,10 +209,12 @@ connection and one transaction per repository; migrations take the write lock
 first, so concurrent first writes are safe. Results return to the calling thread
 through a queue, which reports progress and polls briefly so Ctrl+C stays
 responsive. One failed repository does not affect the others. A rate-limit
-error stops new repositories from starting while running ones finish. Ctrl+C or
-Web shutdown sets a cancellation signal: the HTTP clients refuse further
-requests, Git subprocesses are stopped, and every worker unwinds its resources
-before the scan returns or raises. Repositories that already finished stay
+error stops new repositories from starting while running ones finish. Each scan
+owns its stop signal. Ctrl+C sets it, and a caller's cancellation signal, such as
+a Web job's on shutdown, is forwarded to it. The scanner never sets the caller's
+signal, so a failed scan cannot cancel later ones. Once stopped, the HTTP clients
+refuse further requests, Git subprocesses are stopped, and every worker unwinds
+its resources before the scan returns or raises. Repositories that already finished stay
 committed. Four workers bound GitHub's concurrent-request load and local
 resource use while overlapping network latency; threads suffice because the
 work is I/O-bound and the existing adapters are synchronous.

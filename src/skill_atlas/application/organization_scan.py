@@ -87,8 +87,18 @@ class OrganizationScanner:
         progress: Callable[[OrganizationProgress], None] | None = None,
         cancelled: Event | None = None,
     ) -> OrganizationScanResult:
-        """Scan eligible repositories; each one is committed independently."""
-        cancelled = Event() if cancelled is None else cancelled
+        """Scan eligible repositories; each one is committed independently.
+
+        ``cancelled`` lets the caller stop the scan. The scanner only reads it: its own
+        stop signal, set on interruption or failure, never outlives this call.
+        """
+        stopped = Event()
+
+        def stop_requested() -> bool:
+            if cancelled is not None and cancelled.is_set():
+                stopped.set()
+            return stopped.is_set()
+
         # Listing failures stop the scan before any repository is changed.
         listing = self.reader.list_repositories(organization)
         eligible = sorted(
@@ -110,13 +120,13 @@ class OrganizationScanner:
 
         def next_snapshot() -> Snapshot | None:
             with lock:
-                if halted.is_set() or cancelled.is_set() or not pending:
+                if halted.is_set() or stop_requested() or not pending:
                     return None
                 return pending.popleft()
 
         def work() -> None:
             try:
-                with self.workers(cancelled) as scan_snapshot:
+                with self.workers(stopped) as scan_snapshot:
                     while (snapshot := next_snapshot()) is not None:
                         finished.put(self._scan_one(scan_snapshot, snapshot, halted))
             except Exception:
@@ -134,6 +144,8 @@ class OrganizationScanner:
                 thread.start()
             active = len(threads)
             while active:
+                # Forward the caller's cancellation to workers' HTTP and Git operations.
+                stop_requested()
                 try:
                     # A bounded wait keeps Ctrl+C responsive on every platform.
                     outcome = finished.get(timeout=0.2)
@@ -145,7 +157,7 @@ class OrganizationScanner:
                 outcomes[outcome.repository.url] = outcome
                 report(OrganizationProgress(len(eligible), len(outcomes)))
         except BaseException:
-            cancelled.set()
+            stopped.set()
             raise
         finally:
             # Workers unwind their HTTP and Git resources before the scan returns or raises.
@@ -153,7 +165,7 @@ class OrganizationScanner:
                 if thread.is_alive():
                     thread.join()
 
-        if cancelled.is_set():
+        if stop_requested():
             raise ScanCancelled("The organization scan was stopped before it finished.")
         for item in eligible:
             outcomes.setdefault(

@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from threading import Event, Lock
+from threading import Event, Lock, Timer
 from time import sleep
 
 import pytest
@@ -214,25 +214,52 @@ def test_interrupt_cancels_in_progress_workers_and_releases_their_resources():
             closed.append("closed")
 
     reader = Reader(listed("one"), listed("two"))
+    caller = Event()
     with pytest.raises(KeyboardInterrupt):
-        OrganizationScanner(reader, workers).scan(ORGANIZATION, progress=interrupting)
+        OrganizationScanner(reader, workers).scan(
+            ORGANIZATION, progress=interrupting, cancelled=caller
+        )
     assert stopped.is_set()
     assert closed == ["closed", "closed"]
     assert all(cancelled.is_set() for cancelled in signals)
+    # The scanner stops its own workers; the caller's signal stays reusable.
+    assert not caller.is_set()
 
 
-def test_external_cancellation_reports_a_stopped_scan():
-    cancelled = Event()
+def test_caller_cancellation_reaches_in_progress_workers():
+    caller, waiting = Event(), Event()
+    scanned = []
 
-    def scan(snapshot):
-        cancelled.set()
-        raise ScanCancelled("stopped")
+    @contextmanager
+    def workers(cancelled):
+        def scan(snapshot):
+            scanned.append(snapshot.repository.name)
+            waiting.set()
+            # Workers observe the scanner's own signal, which follows the caller's.
+            assert cancelled.wait(3), "The caller's cancellation did not reach the worker"
+            raise ScanCancelled("stopped")
 
-    reader = Reader(listed("one"), listed("two"), listed("three"))
-    with pytest.raises(ScanCancelled, match="stopped before it finished"):
-        OrganizationScanner(reader, Workers(scan), max_workers=1).scan(
-            ORGANIZATION, cancelled=cancelled
-        )
+        yield scan
+
+    timer = Timer(0.1, lambda: waiting.wait(3) and caller.set())
+    timer.start()
+    try:
+        with pytest.raises(ScanCancelled, match="stopped before it finished"):
+            OrganizationScanner(
+                Reader(listed("one"), listed("two"), listed("three")), workers, max_workers=1
+            ).scan(ORGANIZATION, cancelled=caller)
+    finally:
+        timer.cancel()
+    assert scanned == ["one"]
+
+
+def test_already_cancelled_scans_start_no_repositories():
+    caller = Event()
+    caller.set()
+    workers = Workers()
+    with pytest.raises(ScanCancelled):
+        OrganizationScanner(Reader(listed("one")), workers).scan(ORGANIZATION, cancelled=caller)
+    assert workers.scanned == []
 
 
 def test_worker_setup_failure_leaves_repositories_not_scanned():

@@ -190,3 +190,53 @@ def test_organization_jobs_need_an_organization_scanner(scan_result):
         assert job.error == "Organization scans are not available."
     finally:
         jobs.close()
+
+
+def test_a_failed_organization_scan_does_not_cancel_later_jobs(scan_result):
+    from contextlib import contextmanager
+
+    from skill_atlas.application.organization_scan import OrganizationScanner
+    from skill_atlas.models import OrganizationListing, OrganizationRepository, Snapshot
+
+    repository = Repository("Acme", "skills")
+    snapshot = Snapshot(repository, "a" * 40, "b" * 40)
+
+    class Reader:
+        def list_repositories(self, organization):
+            listed = OrganizationRepository(repository, False, False, snapshot)
+            return OrganizationListing(Organization("Acme"), (listed,))
+
+    @contextmanager
+    def workers(cancelled):
+        def scan(snapshot):
+            # Later scans would stop here if an earlier job left its signal set.
+            if cancelled.is_set():
+                raise AssertionError("The worker started already cancelled")
+            return replace(scan_result, repository=repository)
+
+        yield scan
+
+    failures = iter([True, False])
+
+    def scan_organization(organization, progress, cancelled):
+        fail = next(failures)
+
+        def report(update):
+            # The first job fails inside the scan loop, after its workers started.
+            if fail and update.finished:
+                raise RuntimeError("progress failed")
+            progress(update)
+
+        return OrganizationScanner(Reader(), workers).scan(
+            organization, progress=report, cancelled=cancelled
+        )
+
+    jobs = ScanJobs(lambda repository: scan_result, scan_organization)
+    jobs.start()
+    try:
+        failed = await_state(jobs, jobs.submit(Organization("acme")).id, "failed")
+        assert failed.error == "Scan failed unexpectedly. Try again."
+        later = await_state(jobs, jobs.submit(Organization("acme")).id, "succeeded")
+        assert later.skill_count == 2
+    finally:
+        jobs.close()

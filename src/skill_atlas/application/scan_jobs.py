@@ -60,8 +60,8 @@ class ScanJobs:
         self._completed: deque[str] = deque()
         self._jobs: dict[str, ScanJob] = {}
         self._closing = False
-        # Shutdown stops an active organization scan from starting more repositories.
-        self._cancelled = Event()
+        # Each organization job gets its own signal, so one job's stop never affects another.
+        self._active_cancellation: Event | None = None
         self._thread = Thread(target=self._work, name="skill-atlas-scans")
 
     def start(self) -> None:
@@ -93,7 +93,8 @@ class ScanJobs:
     def close(self) -> None:
         with self._condition:
             self._closing = True
-            self._cancelled.set()
+            if self._active_cancellation is not None:
+                self._active_cancellation.set()
             while self._queue:
                 del self._jobs[self._queue.popleft()]
             self._condition.notify_all()
@@ -123,7 +124,17 @@ class ScanJobs:
             )
         if self.scan_organization is None:
             raise AtlasError("Organization scans are not available.")
-        outcome = self.scan_organization(job.target, self._progress(job.id), self._cancelled)
+        cancellation = Event()
+        with self._condition:
+            # Shutdown may have begun after this job started running.
+            if self._closing:
+                cancellation.set()
+            self._active_cancellation = cancellation
+        try:
+            outcome = self.scan_organization(job.target, self._progress(job.id), cancellation)
+        finally:
+            with self._condition:
+                self._active_cancellation = None
         # Progress updates replaced the registry entry while the scan ran.
         with self._condition:
             job = self._jobs[job.id]
