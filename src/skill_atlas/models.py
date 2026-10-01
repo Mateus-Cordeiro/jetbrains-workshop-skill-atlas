@@ -154,3 +154,10 @@ class RepositorySummary:
     repository: Repository
     skill_count: int
     commit_sha: str
+
+
+@dataclass(frozen=True)
+class RepositoryFile:
+    path: str
+    blob_sha: str
+    executable: bool

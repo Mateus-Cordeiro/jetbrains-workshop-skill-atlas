@@ -16,6 +16,7 @@ from skill_atlas.models import (
     OrganizationListing,
     OrganizationRepository,
     Repository,
+    RepositoryFile,
     Skill,
     SkillFile,
     Snapshot,
@@ -125,6 +126,26 @@ class GitHubReader:
         commit = self._get(f"/repos/{canonical.full_name}/commits/{branch}")
         tree = _object(_object(commit.get("commit")).get("tree"))
         return Snapshot(canonical, _sha(commit), _sha(tree))
+
+    def resolve_commit(self, repository: Repository, commit_sha: str) -> Snapshot:
+        from skill_atlas.installation import checked_commit
+
+        checked_commit(commit_sha)
+        commit = self._get(f"/repos/{repository.full_name}/commits/{commit_sha}")
+        if _sha(commit) != commit_sha:
+            raise RepositoryError("GitHub returned a different commit than the catalog recorded.")
+        tree = _object(_object(commit.get("commit")).get("tree"))
+        return Snapshot(repository, commit_sha, _sha(tree))
+
+    def regular_files(self, snapshot: Snapshot) -> tuple[RepositoryFile, ...]:
+        entries, truncated = self._tree(snapshot, snapshot.tree_sha, recursive=True)
+        if truncated:
+            raise IncompleteListingError("GitHub truncated the repository's file listing.")
+        return tuple(
+            RepositoryFile(_string(entry, "path"), _sha(entry), entry["mode"] == "100755")
+            for entry in entries
+            if _string(entry, "type") == "blob" and _string(entry, "mode") in {"100644", "100755"}
+        )
 
     def _tree(
         self, snapshot: Snapshot, sha: str, *, recursive: bool

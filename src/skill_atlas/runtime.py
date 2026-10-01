@@ -8,23 +8,28 @@ from threading import Event
 import httpx
 from fastapi import FastAPI
 
+from skill_atlas.adapters.bundles import RepositoryBundles
 from skill_atlas.adapters.credentials import github_token
 from skill_atlas.adapters.frontmatter import FrontmatterParser
 from skill_atlas.adapters.git import GitSnapshotReader
 from skill_atlas.adapters.github import GitHubOrganizationReader, GitHubReader
+from skill_atlas.adapters.installation.transactions import LocalProjects
 from skill_atlas.adapters.ollama import OllamaGrouping
+from skill_atlas.adapters.projects import LocalProjectRegistry
 from skill_atlas.adapters.storage.grouping import SQLiteGroups
 from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
 from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents
 from skill_atlas.application.grouping import SkillGroups
 from skill_atlas.application.grouping_jobs import GroupingJobs
+from skill_atlas.application.installations import Installations
 from skill_atlas.application.organization_scan import (
     OrganizationProgress,
     OrganizationScanner,
     OrganizationScanResult,
     SnapshotScan,
 )
+from skill_atlas.application.projects import Projects
 from skill_atlas.application.reader_fallback import FallbackReader
 from skill_atlas.application.repositories import RemoveRepository
 from skill_atlas.application.scan import Scanner
@@ -34,7 +39,9 @@ from skill_atlas.application.stars import Stars
 from skill_atlas.config import Settings
 from skill_atlas.errors import GroupingError, RepositoryError, ScanCancelled
 from skill_atlas.grouping import Grouping
-from skill_atlas.models import Organization, Repository, ScanResult, Snapshot
+from skill_atlas.installation import BundleFile
+from skill_atlas.installation_ports import BundleReader
+from skill_atlas.models import Organization, Repository, ScanResult, Skill, Snapshot
 
 
 def create_catalog_browser(settings: Settings) -> BrowseCatalog:
@@ -221,4 +228,34 @@ def create_web_app(settings: Settings) -> FastAPI:
         groups,
         GroupingJobs(generate),
         RemoveRepository(catalog),
+        create_installations(settings),
+        Projects(
+            LocalProjectRegistry(settings.database_path.resolve().with_suffix(".projects.sqlite3"))
+        ),
+        LazyBundleReader(settings),
     )
+
+
+def create_installations(settings: Settings) -> Installations:
+    return Installations(SQLiteCatalog(settings.database_path), LocalProjects())
+
+
+@contextmanager
+def create_bundle_reader(settings: Settings) -> Iterator[BundleReader]:
+    token = github_token()
+    with (
+        _github_client(settings, token) as client,
+        GitSnapshotReader(token, timeout=settings.git_timeout) as git,
+    ):
+        yield RepositoryBundles(GitHubReader(client), git)
+
+
+class LazyBundleReader:
+    """Delay credentials and remote resources until a download is actually needed."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    def read_bundle(self, skill: Skill) -> tuple[BundleFile, ...]:
+        with create_bundle_reader(self.settings) as reader:
+            return reader.read_bundle(skill)

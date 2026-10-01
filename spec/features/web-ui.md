@@ -20,6 +20,8 @@ Provide a browser page where the user can:
   memberships in the G6 graph;
   [Skill groups](skill-groups.md) owns their model, persistence, and HTTP contracts.
 - Star skills locally and show only starred skills.
+- Register local projects and [install/manage skills](installation.md) with an
+  explicit destination preview.
 
 The first version runs on the user's machine and shares the CLI's SQLite
 catalog and GitHub credentials. Public and private GitHub repositories follow
@@ -69,7 +71,7 @@ Preserve the existing `scan` command and its terminal presentation. Register
 
 ### Homepage
 
-Offer **Repositories** and **Explore** catalog navigation. Keep the shared light
+Offer **Repositories**, **Explore**, and **Installations** catalog navigation. Keep the shared light
 color scheme when navigating between catalog, Explore, and document pages.
 Repositories and Explore share one catalog template and navigation layout; their
 content uses the same width, padding, headings, buttons, and toggle styles.
@@ -397,6 +399,14 @@ Keep the previous successful results visible during a scan of an existing
 repository. Their document links stay pinned to the stored commit until the new
 scan succeeds; commit hashes are not displayed as interface metadata.
 
+## Installation management
+
+The [installation specification](installation.md#web-management) owns explicit
+project registration, exact destination previews, installed status, update and
+uninstall routes, and stale-selection checks. `web/installation_routes.py` invokes
+shared application services, and `installations.js` adapts management forms.
+Project files and records remain independent of catalog removal and scan writes.
+
 ## Document retrieval
 
 The backend looks up the selected catalog entry and retrieves its document from
@@ -557,10 +567,12 @@ provide arbitrary upstream content URLs or credentials for the server to fetch.
 
 - Hosted or multi-user deployment, remote access, and browser-based GitHub login.
 - Persistent records for repositories without skills, scan dates, or job history.
-- Stored document bodies, persistent document caching, and offline viewing.
+- Stored document-viewer bodies, persistent document caching, and offline viewing.
+  Explicitly installed bundles are project files, not a viewer cache.
 - Scheduled scans, durable background jobs, cancellation controls, or live logs.
 - Scan history, version comparisons, and branch or tag selection.
-- Skill editing, installation, execution, or repository changes.
+- Skill editing, execution, or source repository changes. Project installation
+  is covered by the separate [installation feature](installation.md).
 - Additional Git hosting providers and automatic embedded-media retrieval.
 
 ## Acceptance and verification

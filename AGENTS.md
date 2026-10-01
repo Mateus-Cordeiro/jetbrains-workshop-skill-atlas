@@ -40,6 +40,9 @@ the change before changing behavior or component boundaries:
 - [Similar skills](spec/features/similar-skills.md) owns the `similar` command,
   similarity ranking, scores, grouping, and relevance criteria. Read the Web UI
   spec for its browser presentation.
+- [Installation](spec/features/installation.md) owns project registration, bundle
+  retrieval, manifests, filesystem transactions, install/status/update/uninstall,
+  and their CLI/Web behavior. Read the Web UI and scan specs for shared access.
 - [Stars](spec/features/stars.md) owns local stars, the `star` and `unstar`
   commands, and star markers. Read the filter spec for the starred-only scope
   and the Web UI spec for toggles and the **Starred only** view.

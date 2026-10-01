@@ -23,6 +23,8 @@ to maintain them.
 - [Python test suite](python-testing.md): unique test module basenames, fixture
   shadowing by parametrized inputs, and
   deterministic organization scan tests for rate limits, parallel workers, and Ctrl+C.
+- [Installation testing](installation-testing.md): failure/abrupt-exit injection,
+  supporting-file Git fixtures, and canonical temporary project paths.
 - [Restricted network validation](restricted-network-validation.md): running the
   locked checks and Python browser tests when wheel, browser, or image downloads
   are blocked, and why visual baselines still need the container.

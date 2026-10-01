@@ -230,3 +230,149 @@ def test_cancellable_git_still_enforces_its_timeout(tmp_path, monkeypatch, repos
     ):
         reader.skill_files(Snapshot(repository, "a" * 40, "b" * 40))
     assert not list(tmp_path.iterdir())
+
+
+def test_truncated_bundle_uses_exact_commit_and_includes_supporting_files(
+    tmp_path, monkeypatch, local_snapshot
+):
+    import httpx
+
+    from skill_atlas.adapters.bundles import RepositoryBundles
+    from skill_atlas.adapters.github import GitHubReader
+    from skill_atlas.adapters.installation.transactions import LocalProjects
+    from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
+    from skill_atlas.application.installations import Installations
+    from skill_atlas.models import ScanResult, Skill
+
+    source, snapshot, content = local_snapshot
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if "/commits/" in request.url.path:
+            assert request.url.path.endswith(snapshot.commit_sha)
+            return httpx.Response(
+                200,
+                json={"sha": snapshot.commit_sha, "commit": {"tree": {"sha": snapshot.tree_sha}}},
+            )
+        return httpx.Response(200, json={"truncated": True, "tree": []})
+
+    project = tmp_path / "project"
+    project.mkdir()
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
+    skill = Skill(snapshot.repository, "SKILL.md", "root-skill", "Root.", snapshot.commit_sha)
+    catalog.replace_repository(ScanResult(snapshot.repository, snapshot.commit_sha, (skill,)))
+    with (
+        local_reader(monkeypatch, source, temporary) as git,
+        httpx.Client(
+            base_url="https://api.github.com", transport=httpx.MockTransport(handler)
+        ) as client,
+    ):
+        service = Installations(catalog, LocalProjects())
+        service.install(
+            project,
+            snapshot.repository,
+            "SKILL.md",
+            "claude",
+            RepositoryBundles(GitHubReader(client), git),
+        )
+    target = project / ".claude/skills/root-skill"
+    assert (target / "SKILL.md").read_bytes() == content
+    assert (target / "ordinary.txt").read_text() == "This blob should not be downloaded."
+    assert (target / "nested space/skill/SKILL.md").read_bytes() == content
+    assert not (target / "link").exists()
+    assert not list(temporary.iterdir())
+    assert len(requests) == 2
+
+
+@pytest.fixture
+def snapshot_with_unusual_filename(local_snapshot, request):
+    source, snapshot, _ = local_snapshot
+
+    def command(*arguments, data=None):
+        return subprocess.run(
+            ["git", "-C", str(source), *arguments], input=data, check=True, capture_output=True
+        ).stdout
+
+    # Git can represent non-UTF-8 paths even on filesystems (such as APFS) that cannot.
+    blob = command("hash-object", "-w", "--stdin", data=b"unrelated").strip()
+    listing = command("ls-tree", "-z", "HEAD")
+    listing += b"100644 blob " + blob + b"\t" + request.param + b"\0"
+    tree = command("mktree", "-z", data=listing).decode().strip()
+    commit = command("commit-tree", tree, "-p", "HEAD", "-m", "Unrelated filename").decode().strip()
+    command("update-ref", "refs/heads/unusual", commit)
+    return source, Snapshot(snapshot.repository, commit, tree)
+
+
+@pytest.mark.parametrize("snapshot_with_unusual_filename", [b"unrelated-\xff.bin"], indirect=True)
+def test_scan_still_ignores_unrelated_non_utf8_filenames(
+    tmp_path, monkeypatch, snapshot_with_unusual_filename
+):
+    source, snapshot = snapshot_with_unusual_filename
+    temporary = tmp_path / "snapshots"
+    temporary.mkdir()
+    with local_reader(monkeypatch, source, temporary) as reader:
+        files = reader.skill_files(snapshot)
+        assert len(files) == 3
+
+
+@pytest.mark.parametrize(
+    "snapshot_with_unusual_filename",
+    [b"2024-01-01T10:00.md", b"unrelated-\xff.bin"],
+    indirect=True,
+)
+@pytest.mark.parametrize("skill_path", ["nested space/skill/SKILL.md", "SKILL.md"])
+def test_truncated_bundle_limits_path_validation_to_selected_directory(
+    tmp_path, monkeypatch, snapshot_with_unusual_filename, skill_path
+):
+    import httpx
+
+    from skill_atlas.adapters.bundles import RepositoryBundles
+    from skill_atlas.adapters.github import GitHubReader
+    from skill_atlas.adapters.installation.transactions import LocalProjects
+    from skill_atlas.adapters.storage.sqlite import SQLiteCatalog
+    from skill_atlas.application.installations import Installations
+    from skill_atlas.errors import AtlasError
+    from skill_atlas.models import ScanResult, Skill
+
+    source, snapshot = snapshot_with_unusual_filename
+
+    def handler(request):
+        if "/commits/" in request.url.path:
+            assert request.url.path.endswith(snapshot.commit_sha)
+            return httpx.Response(
+                200,
+                json={"sha": snapshot.commit_sha, "commit": {"tree": {"sha": snapshot.tree_sha}}},
+            )
+        return httpx.Response(200, json={"truncated": True, "tree": []})
+
+    project = tmp_path / "project"
+    project.mkdir()
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    catalog = SQLiteCatalog(tmp_path / "catalog.sqlite3")
+    skill = Skill(snapshot.repository, skill_path, "selected", "Selected.", snapshot.commit_sha)
+    catalog.replace_repository(ScanResult(snapshot.repository, snapshot.commit_sha, (skill,)))
+    with (
+        local_reader(monkeypatch, source, temporary) as git,
+        httpx.Client(
+            base_url="https://api.github.com", transport=httpx.MockTransport(handler)
+        ) as client,
+    ):
+        service = Installations(catalog, LocalProjects())
+        bundles = RepositoryBundles(GitHubReader(client), git)
+        if skill_path == "SKILL.md":
+            # The same unsupported file is inside a root skill's bundle: still reject it.
+            with pytest.raises(AtlasError):
+                service.install(project, snapshot.repository, skill_path, "codex", bundles)
+            assert not (project / ".agents").exists()
+            assert service.list(project) == ()
+        else:
+            service.install(project, snapshot.repository, skill_path, "codex", bundles)
+            target = project / ".agents/skills/selected"
+            assert [p.name for p in target.iterdir()] == ["SKILL.md"]
+            assert b"Pinned snapshot." in (target / "SKILL.md").read_bytes()
+            assert service.list(project)[0].state == "current"
+    assert not list(temporary.iterdir())

@@ -57,6 +57,10 @@ def github_response(request):
         return httpx.Response(200, text=SOURCE)
     responses = {
         "/repos/acme/skills": {"full_name": "acme/skills", "default_branch": "main"},
+        f"/repos/acme/skills/commits/{COMMIT}": {
+            "sha": COMMIT,
+            "commit": {"tree": {"sha": "b" * 40}},
+        },
         "/repos/acme/skills/commits/main": {
             "sha": COMMIT,
             "commit": {"tree": {"sha": "b" * 40}},
@@ -89,7 +93,19 @@ module_help = subprocess.run(
 )
 assert all(
     command in module_help.stdout
-    for command in ("scan", "serve", "filter", "similar", "star", "unstar")
+    for command in (
+        "scan",
+        "serve",
+        "filter",
+        "similar",
+        "star",
+        "unstar",
+        "install",
+        "installed",
+        "status",
+        "update",
+        "uninstall",
+    )
 )
 filter_help = subprocess.run(
     [str(Path(sys.executable).with_name("skill-atlas")), "filter", "--help"],
@@ -132,6 +148,7 @@ with (
             "scan.js",
             "stars.js",
             "repositories.js",
+            "installations.js",
             "app.css",
             "g6.min.js",
             "g6-LICENSE.txt",
@@ -294,6 +311,49 @@ with (
         sorted_home = client.get("/", params={"sort": "desc"})
         assert 'role="columnheader" aria-sort="descending"' in sorted_home.text
         assert "Remove acme/skills from catalog" in sorted_home.text
+        project = (Path(directory) / "project").resolve()
+        project.mkdir()
+        headers = {"Origin": "http://127.0.0.1", "X-Atlas-Request": "1"}
+        assert (
+            client.post(
+                "/installations/register", data={"project": str(project)}, headers=headers
+            ).status_code
+            == 200
+        )
+        preview = client.get(
+            "/installations", params={"project": str(project), "source": REPOSITORY + "|SKILL.md"}
+        )
+        destination = project / ".agents/skills/installed-skill"
+        assert preview.status_code == 200 and str(destination) in preview.text
+        fields = dict(
+            project=str(project),
+            repository_url=REPOSITORY,
+            skill_path="SKILL.md",
+            agent="codex",
+            commit_sha=COMMIT,
+            destination=str(destination),
+        )
+        installed = client.post("/installations/install", data=fields, headers=headers)
+        assert installed.status_code == 200, installed.text
+        assert (destination / "SKILL.md").read_text() == SOURCE
+        listing = subprocess.run(
+            [
+                str(Path(sys.executable).with_name("skill-atlas")),
+                "installed",
+                "--project",
+                str(project),
+                "--json",
+            ],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert json.loads(listing.stdout)[0]["state"] == "current"
+        assert (
+            client.post("/installations/uninstall", data=fields, headers=headers).status_code == 200
+        )
+        assert not destination.exists()
         removed = client.post(
             "/repositories/remove",
             data={"repository_url": REPOSITORY},

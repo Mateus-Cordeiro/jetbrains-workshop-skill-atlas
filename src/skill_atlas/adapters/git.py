@@ -14,7 +14,7 @@ from types import TracebackType
 from typing import Self
 
 from skill_atlas.errors import RepositoryError, ScanCancelled
-from skill_atlas.models import SkillFile, Snapshot
+from skill_atlas.models import RepositoryFile, SkillFile, Snapshot
 
 
 def _git_environment(token: str | None) -> dict[str, str]:
@@ -181,9 +181,19 @@ class GitSnapshotReader:
         return repository
 
     def skill_files(self, snapshot: Snapshot) -> tuple[SkillFile, ...]:
+        return tuple(
+            SkillFile(f.path, f.blob_sha)
+            for f in self.regular_files(snapshot, skills_only=True)
+            if f.path.split("/")[-1] == "SKILL.md"
+        )
+
+    def regular_files(
+        self, snapshot: Snapshot, *, skills_only: bool = False, prefix: str = ""
+    ) -> tuple[RepositoryFile, ...]:
         repository = self._repository(snapshot)
         listing = self._run(repository, "ls-tree", "-r", "-z", "--full-tree", snapshot.commit_sha)
         files = []
+        raw_prefix = prefix.encode("utf-8")
         try:
             for entry in listing.split(b"\0"):
                 if not entry:
@@ -192,10 +202,16 @@ class GitSnapshotReader:
                 mode, kind, sha = metadata.split()
                 if kind != b"blob" or mode not in (b"100644", b"100755"):
                     continue
-                if path.split(b"/")[-1] == b"SKILL.md":
-                    if not re.fullmatch(b"[0-9a-f]{40}", sha):
-                        raise ValueError("Invalid blob SHA")
-                    files.append(SkillFile(path.decode("utf-8"), sha.decode("ascii")))
+                if skills_only and path.split(b"/")[-1] != b"SKILL.md":
+                    continue
+                # Git paths are arbitrary bytes. Decode only the selected bundle.
+                if not path.startswith(raw_prefix):
+                    continue
+                if not re.fullmatch(b"[0-9a-f]{40}", sha):
+                    raise ValueError("Invalid blob SHA")
+                files.append(
+                    RepositoryFile(path.decode("utf-8"), sha.decode("ascii"), mode == b"100755")
+                )
         except ValueError as error:
             raise RepositoryError("Git returned an invalid file listing.") from error
         return tuple(files)

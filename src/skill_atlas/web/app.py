@@ -13,12 +13,16 @@ from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents
 from skill_atlas.application.grouping import SkillGroups
 from skill_atlas.application.grouping_jobs import GroupingJobs
+from skill_atlas.application.installations import Installations
+from skill_atlas.application.projects import Projects
 from skill_atlas.application.repositories import RemoveRepository
 from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
 from skill_atlas.application.stars import Stars
+from skill_atlas.installation_ports import BundleReader
 from skill_atlas.ports import CatalogReader
 from skill_atlas.web.grouping_routes import register_grouping_routes
+from skill_atlas.web.installation_routes import register_installation_routes
 from skill_atlas.web.middleware import local_requests
 from skill_atlas.web.routes import register_routes, url
 
@@ -34,6 +38,9 @@ def create_app(
     groups: SkillGroups,
     grouping_jobs: GroupingJobs,
     repositories: RemoveRepository,
+    installations: Installations,
+    projects: Projects,
+    bundles: BundleReader,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -54,4 +61,5 @@ def create_app(
         app, BrowseCatalog(catalog), jobs, documents, similarity, stars, repositories, templates
     )
     register_grouping_routes(app, groups, grouping_jobs, jobs, templates)
+    register_installation_routes(app, installations, projects, bundles, catalog, templates)
     return app
