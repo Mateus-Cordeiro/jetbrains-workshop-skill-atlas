@@ -344,3 +344,67 @@ def test_repository_count_uses_same_filtered_snapshot(
         assert f'id="skill-count" role="status">{count}</span>' in response.text
         assert response.text.index('id="skill-count"') < response.text.index('id="skill-filter"')
     assert not web_environment.requests
+
+
+def test_organization_scans_report_progress_failures_and_reuse_active_jobs(
+    client, web_environment, scan_result
+):
+    state = web_environment
+    state.organization = ["skills", "tools"]
+    state.scan_gate.clear()
+    first = submit(client, "https://github.com/Acme/")
+    assert first.status_code == 202
+    assert (
+        submit(client, "https://github.com/acme").headers["Location"] == first.headers["Location"]
+    )
+    running = wait_scan(client, first, "running")
+    assert "Scanning 0 of 2 repositories" in running.text
+    assert "data-catalog-changed" not in running.text
+    state.scan_gate.set()
+    done = wait_scan(client, first)
+    assert "2 repositories scanned · 4 skills found" in done.text
+    assert 'data-organization="https://github.com/acme"' in done.text
+    assert "View results" not in done.text
+    assert {summary.repository.url for summary in state.catalog.repositories()} == {
+        "https://github.com/acme/skills",
+        "https://github.com/acme/tools",
+    }
+    # Browsing the organization's results does not trigger another scan.
+    requests = len(state.requests)
+    assert "Acme/tools" in client.get("/").text
+    assert len(state.requests) == requests
+
+    before = state.catalog.skills(Repository("acme", "tools"))
+    state.commit = "d" * 40
+    state.failed_repositories = {"Acme/tools"}
+    failed = wait_scan(client, submit(client, "https://github.com/Acme"), "failed")
+    assert "Failed — 1 repository failed." in failed.text
+    assert "<strong>Acme/tools</strong> — GitHub request failed (HTTP 503)" in failed.text
+    assert "data-catalog-changed" in failed.text
+    assert 'name="repository_url" value="https://github.com/acme"' in failed.text
+    assert state.catalog.skills(Repository("acme", "tools")) == before
+    assert state.catalog.skills(Repository("acme", "skills"))[0].commit_sha == "d" * 40
+
+
+def test_organization_job_waits_for_listing_and_reports_listing_errors(client, web_environment):
+    from unittest.mock import patch
+
+    from skill_atlas import runtime
+
+    state = web_environment
+    state.listing_gate.clear()
+    response = submit(client, "https://github.com/acme")
+    assert "Listing repositories…" in wait_scan(client, response, "running").text
+    state.listing_gate.set()
+    wait_scan(client, response)
+
+    with patch.object(runtime, "github_token", lambda: None):
+        failed = wait_scan(client, submit(client, "https://github.com/acme"), "failed")
+    assert "require a GitHub credential" in failed.text
+    assert "data-catalog-changed" in failed.text
+
+
+def test_invalid_scan_targets_mention_organization_urls(client):
+    invalid = submit(client, "https://github.com/")
+    assert invalid.status_code == 400
+    assert "https://github.com/organization" in invalid.text

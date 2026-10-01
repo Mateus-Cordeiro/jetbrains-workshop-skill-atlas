@@ -15,7 +15,7 @@ from skill_atlas.application.documents import Documents, MissingSkill, StaleSkil
 from skill_atlas.application.scan_jobs import QueueFull, ScanJobs
 from skill_atlas.application.similarity import MissingSimilaritySource, SimilarSkills
 from skill_atlas.errors import CatalogError, RepositoryError
-from skill_atlas.models import Repository
+from skill_atlas.models import Repository, scan_target
 from skill_atlas.web.rendering import render
 
 
@@ -209,9 +209,18 @@ def register_routes(
         if len(body) > 8192:
             return error(request, "The scan request is too large.", 400, "invalid_input")
         form = parse_qs(body.decode("utf-8"), max_num_fields=8)
-        repository = Repository.from_url(form.get("repository_url", [""])[0])
         try:
-            job = jobs.submit(repository)
+            target = scan_target(form.get("repository_url", [""])[0])
+        except ValueError:
+            return error(
+                request,
+                "Use a repository URL like https://github.com/owner/repository, "
+                "or an organization URL like https://github.com/organization.",
+                400,
+                "invalid_input",
+            )
+        try:
+            job = jobs.submit(target)
         except QueueFull as exc:
             return error(request, str(exc), 503, "queue_full")
         response = page(request, "fragments/jobs.html", 202, jobs=jobs.recent())
