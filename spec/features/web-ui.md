@@ -12,6 +12,7 @@ Provide a browser page where the user can:
 
 - Browse repositories represented in the local catalog.
 - Submit a GitHub repository URL to scan, or rescan an existing repository.
+- Submit a GitHub organization URL to scan all of its eligible repositories.
 - Select a repository and see its skills in a left pane.
 - Select a skill and read its `SKILL.md` in a right pane.
 - Find similar skills across the catalog, see scores, and inspect matches.
@@ -80,8 +81,11 @@ An empty catalog shows an explanation and the scan form.
 Do not display commit hashes or a rescan action in the repository list.
 A catalog read failure shows an error rather than being presented as an empty catalog.
 
-Validate and normalize submitted URLs with the same rules as the CLI. Invalid
-input receives an inline error and does not start a scan.
+Validate and normalize submitted URLs with the same rules as the CLI. The same
+field accepts an [organization URL](scan.md#organization-scans); its visible
+labels and placeholder are unchanged, and its accessible label names both forms.
+Invalid input receives an inline error naming both URL forms and does not start
+a scan.
 
 ### Skill filtering and expandable repositories
 
@@ -261,6 +265,19 @@ from the catalog. If the selected path still exists, reload its document using
 the newly stored commit. Otherwise clear the selection. Display the resulting
 skill count, including zero.
 
+An organization scan is one job. While it runs, its status shows **Listing
+repositories…** until the listing returns, then **Scanning 3 of 12
+repositories**, counting repositories with a final outcome against eligible
+repositories. It succeeds when every repository succeeded or was empty, showing
+the repository and skill totals, such as **12 repositories scanned · 34 skills
+found**. Otherwise it fails with the shared explanation, such as **1 repository
+failed.**, and lists each failed repository with its reason. Listing and
+credential failures fail the job without a list. The organization notice has no
+**View results** link. Because each repository is committed independently, a
+completed organization job refreshes the repository list, and an open workspace
+for one of its repositories, whether it succeeded or failed. **Retry scan**
+resubmits the organization URL.
+
 Queued and running notices remain visible until the scan finishes. A successful
 notice disappears after five seconds and can also be dismissed immediately.
 Replacing the activity panel must not restart that countdown. Past successes
@@ -361,18 +378,24 @@ durable queue is needed. Poll job status while it is queued or running and stop
 polling on completion or failure.
 
 Reuse an existing queued/running job for repeated submissions of the same
-normalized repository URL. Keep at most 16 queued jobs and retain the most recent 64 completed jobs;
+normalized repository or organization URL. An organization and one of its
+repositories are separate jobs. Keep at most 16 queued jobs and retain the most recent 64 completed jobs;
 reject new work clearly if the queue is full. These limits and job IDs
 are process-local and are not catalog data.
 
 Each job owns a fresh scanner context through the existing composition root.
+An organization job runs on the same background worker and uses the shared
+[organization scan service](../architecture.md#following-an-organization-scan),
+including its bounded worker pool; later jobs wait behind it in the queue.
 Reuse the scanner's default-branch resolution, readers, fallback rules, parser,
 atomic replacement, timeouts, and resource cleanup. Catch operational failures
 at the job boundary and keep the server and worker available for later jobs.
 
 Closing the browser does not cancel a submitted scan. Graceful shutdown stops
 accepting jobs, discards queued jobs, and lets the active scan unwind and clean
-up its HTTP/Git resources. No jobs resume after a process restart. A missing
+up its HTTP/Git resources. An active organization scan is cancelled: it starts
+no more repositories and stops in-progress requests and Git processes;
+repositories that finished stay committed. No jobs resume after a process restart. A missing
 job ID produces **Scan status is no longer available; refresh the catalog**.
 After an unexpected stop, a scan may already have committed its results; the
 catalog is the source of truth, not the lost in-memory job status.
@@ -396,7 +419,7 @@ into URLs.
 | `GET /similar?repository_url=...&skill_path=...` | Similarity workspace; optional `selected_repository`, `selected_path`, and return-context `q` and `return_to`. |
 | `GET /fragments/similar?repository_url=...&skill_path=...` | Refresh similarity workspace with the same optional parameters. |
 | `GET /fragments/document?repository_url=...&skill_path=...&commit_sha=...` | Document fragment containing escaped source and safe rendered content. |
-| `POST /scans` | Validate form-encoded `repository_url`; return `202` with scan activity fragments and a job status URL in `Location`. |
+| `POST /scans` | Validate form-encoded `repository_url` as a repository or organization URL; return `202` with scan activity fragments and a job status URL in `Location`. |
 | `GET /scans/{job_id}` | Job status fragment with identity, state, and outcome or error. |
 
 Return escaped HTML errors with a stable `data-error-code` and user-facing
@@ -455,7 +478,10 @@ Implementation must cover these user-visible outcomes:
    retry, retain catalog metadata, and never substitute another commit.
 7. Browsing remains usable during scans. Duplicate active submissions reuse a
    job; job errors and queue limits have clear outcomes; resource cleanup and
-   process restart follow the documented lifecycle. Successful notices expire
+   process restart follow the documented lifecycle. Organization submissions
+   create one deduplicated job that reports listing and **Scanning N of M
+   repositories** progress, then succeeds or fails with its failed repositories,
+   refreshing the catalog in both cases. Successful notices expire
    after five seconds without hiding active scans. Failed notices remain until
    dismissed, and dismissed notices stay hidden across navigation and further
    submissions in the same tab.

@@ -498,6 +498,12 @@ input::placeholder{
   margin-left:14px;
   color:var(--muted);
 }
+.job-failures{
+  margin:6px 0 0;
+  padding-left:18px;
+  color:var(--muted);
+  overflow-wrap:anywhere;
+}
 .job a{
   font-size:11px;
   color:var(--accent);

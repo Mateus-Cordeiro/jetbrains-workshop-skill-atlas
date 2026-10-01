@@ -35,6 +35,38 @@ when both input and output are attached to a capable terminal; otherwise they
 print and exit. Redirected output automatically uses plain text, including
 literal URLs. Scroll or use Tab to focus links and Enter to open them.
 
+## Scan an organization
+
+Pass an organization URL, with no repository name, to scan every repository in
+the organization:
+
+```sh
+skill-atlas scan https://github.com/acme
+```
+
+Organization scans require a GitHub credential (see
+[Authentication and storage](#authentication-and-storage)). Forks and archived
+repositories are skipped. Up to four repositories are scanned at a time, and each
+is saved as soon as it completes. Instead of the skill list, the command prints
+a summary line with the organization, repository count, and total skill count,
+then one line per repository:
+
+```text
+acme — 4 repositories, 5 skills
+acme/agents — 5 skills
+acme/docs — no skills
+acme/new-project — empty
+acme/private-tools — failed: GitHub denied access. Check the credential's repository permissions.
+```
+
+Browse the results with `filter` or `serve`. The command exits with `1` if the
+listing fails, any repository fails, or GitHub's rate limit stops the scan.
+After a rate limit, no further repositories start; those not yet scanned are
+reported as **not scanned**, and repositories already saved stay in the catalog.
+Ctrl+C stops the scan the same way. User accounts are not supported; scan their
+repositories individually. Repositories that leave the organization remain in
+the catalog until you rescan them.
+
 ## Filter saved skills
 
 Search the local catalog without rescanning or starting the Web server:
@@ -119,7 +151,7 @@ From a development checkout, use `uv run --locked skill-atlas serve`.
 The homepage opens directly onto repositories in the same catalog used by CLI
 scans. Choose **+ Add repository** to reveal the URL field and **Scan repository**
 button; the form starts open when the catalog is empty. Submit a GitHub repository
-URL to scan it, open a repository, and select a skill in the left pane to read its definition in the right pane. **Preview** renders Markdown;
+URL to scan it, or an organization URL to scan all of its repositories. Then open a repository, and select a skill in the left pane to read its definition in the right pane. **Preview** renders Markdown;
 **Source** shows the complete `SKILL.md`, including frontmatter. Scans run in the
 background while you browse. To update an existing entry, submit its URL again
 through the homepage form or run the CLI `scan` command. Repository pages have
@@ -162,7 +194,9 @@ backend credentials for private repositories. They are not stored locally.
 A scan with zero skills shows **No skills found** and removes that repository
 from the saved list. Failed scans preserve the previous successful entries.
 Queued jobs and scan activity exist only while the server is running.
-Queued and running scans remain visible. Successful notices disappear after
+Organization scans show **Scanning 3 of 12 repositories** while running and list
+any repositories that failed; repositories that succeeded appear in the catalog
+even when others fail. Queued and running scans remain visible. Successful notices disappear after
 five seconds; failed scans stay available for retry or dismissal. Both completed
 states have a dismiss button, and dismissed notices stay hidden in the same tab.
 
@@ -191,7 +225,8 @@ Private repositories are supported. Credentials are resolved in this order:
 `GH_TOKEN`, `GITHUB_TOKEN`, then an existing `gh auth login` session for
 `github.com`. The token must have read access to the repository's contents.
 Without a credential, public repositories are scanned anonymously, subject to
-GitHub's lower rate limits. The Git fallback uses the same credential through
+GitHub's lower rate limits. Organization scans list repositories through GitHub's
+GraphQL API, which requires a credential that can see the organization. The Git fallback uses the same credential through
 process-local configuration; it never writes the token into the repository's
 remote URL or Git configuration file.
 
@@ -344,7 +379,10 @@ cancel the checks for a merge pushed to the default branch.
 Integration tests exercise both the API and partial Git paths against local
 fixtures, including copies of skills under `.claude` and `.agents`, rescans,
 removals, failures, and cleanup. Copies at different paths remain distinct
-catalog entries. Tests require no GitHub credentials or live network access.
+catalog entries. Organization scans run against a mocked GraphQL listing of local
+fixture repositories, covering request counts, pagination, parallel workers,
+rate limits, and Ctrl+C cleanup. Tests require no GitHub credentials or live
+network access.
 
 See [AGENTS.md](AGENTS.md) for the testing rules, required checks, and criteria
 for adding integration coverage when changing the implementation. Delivery

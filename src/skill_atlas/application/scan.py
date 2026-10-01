@@ -1,6 +1,6 @@
 """Scan use case: coordinate ports without depending on their implementations."""
 
-from skill_atlas.models import Repository, ScanResult, Skill
+from skill_atlas.models import Repository, ScanResult, Skill, Snapshot
 from skill_atlas.ports import Catalog, RepositoryReader, SkillParser
 
 
@@ -11,7 +11,10 @@ class Scanner:
         self.catalog = catalog
 
     def scan(self, repository: Repository) -> ScanResult:
-        snapshot = self.reader.resolve(repository)
+        return self.scan_snapshot(self.reader.resolve(repository))
+
+    def scan_snapshot(self, snapshot: Snapshot) -> ScanResult:
+        """Scan an already resolved snapshot without resolving its branch again."""
         skills = []
         for file in self.reader.skill_files(snapshot):
             metadata = self.parser.parse(self.reader.read_file(snapshot, file))
