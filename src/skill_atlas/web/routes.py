@@ -11,8 +11,9 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
-from skill_atlas.application.catalog import BrowseCatalog
+from skill_atlas.application.catalog import BrowseCatalog, RepositorySort
 from skill_atlas.application.documents import Documents, MissingSkill, StaleSkill
+from skill_atlas.application.repositories import RemoveRepository
 from skill_atlas.application.scan_jobs import QueueFull, ScanJobs
 from skill_atlas.application.similarity import MissingSimilaritySource, SimilarSkills
 from skill_atlas.application.stars import MissingStarredSkill, Stars
@@ -50,6 +51,7 @@ def register_routes(
     documents: Callable[[], AbstractContextManager[Documents]],
     similarity: SimilarSkills,
     stars: Stars,
+    repositories: RemoveRepository,
     templates: Jinja2Templates,
 ) -> None:
     def page(request: Request, template: str, status: int = 200, **context: Any) -> HTMLResponse:
@@ -90,11 +92,14 @@ def register_routes(
         return error(request, str(exc), 500, "catalog_error")
 
     @app.get("/", response_class=HTMLResponse)
-    def home(request: Request, q: str = "", starred: bool = False) -> Response:
+    def home(
+        request: Request, q: str = "", starred: bool = False, sort: RepositorySort = "none"
+    ) -> Response:
         return page(
             request,
             "pages/home.html",
-            view=browse.home(q, starred),
+            view=browse.home(q, starred, sort),
+            sort=sort,
             jobs=jobs.recent(),
             **filter_context(q, starred),
         )
@@ -130,11 +135,13 @@ def register_routes(
         )
 
     @app.get("/fragments/repositories", response_class=HTMLResponse)
-    def repositories_fragment(request: Request, q: str = "", starred: bool = False) -> Response:
+    def repositories_fragment(
+        request: Request, q: str = "", starred: bool = False, sort: RepositorySort = "none"
+    ) -> Response:
         return page(
             request,
             "fragments/repositories.html",
-            view=browse.home(q, starred),
+            view=browse.home(q, starred, sort),
             **filter_context(q, starred),
         )
 
@@ -264,6 +271,15 @@ def register_routes(
                 commit_sha=commit_sha,
             ),
         )
+
+    @app.post("/repositories/remove")
+    async def remove_repository(request: Request) -> Response:
+        form = await form_fields(request)
+        if form is None:
+            return error(request, "The removal request is too large.", 400, "invalid_input")
+        repository = Repository.from_url(form.get("repository_url", [""])[0])
+        await run_in_threadpool(repositories.remove, repository)
+        return Response(status_code=204)
 
     @app.post("/stars", response_class=HTMLResponse)
     async def set_star(request: Request) -> Response:

@@ -13,6 +13,7 @@ from skill_atlas.application.catalog import BrowseCatalog
 from skill_atlas.application.documents import Documents
 from skill_atlas.application.grouping import SkillGroups
 from skill_atlas.application.grouping_jobs import GroupingJobs
+from skill_atlas.application.repositories import RemoveRepository
 from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
 from skill_atlas.application.stars import Stars
@@ -32,6 +33,7 @@ def create_app(
     stars: Stars,
     groups: SkillGroups,
     grouping_jobs: GroupingJobs,
+    repositories: RemoveRepository,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -48,6 +50,8 @@ def create_app(
     app.mount("/static", StaticFiles(directory=ASSETS / "static"), name="static")
 
     app.middleware("http")(local_requests)
-    register_routes(app, BrowseCatalog(catalog), jobs, documents, similarity, stars, templates)
+    register_routes(
+        app, BrowseCatalog(catalog), jobs, documents, similarity, stars, repositories, templates
+    )
     register_grouping_routes(app, groups, grouping_jobs, jobs, templates)
     return app

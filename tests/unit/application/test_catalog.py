@@ -126,3 +126,41 @@ def test_starred_homepage_groups_starred_matches_with_repository_totals(scan_res
     ] == [("Acme/skills", 3, 1), ("other/repo", 1, 1)]
     assert view.matching_count == 2 and catalog.reads == 1
     assert BrowseCatalog(catalog).home("notes", starred=True).repositories == ()
+
+
+@pytest.mark.parametrize(
+    "sort, expected",
+    [("none", ["a", "b", "c"]), ("asc", ["b", "c", "a"]), ("desc", ["a", "b", "c"])],
+)
+@pytest.mark.parametrize("filtered", [False, True])
+def test_home_sort_uses_total_counts_and_url_ties(scan_result, sort, expected, filtered):
+    from skill_atlas.models import Repository
+
+    repositories = [Repository("acme", name) for name in ("a", "b", "c")]
+    summaries = tuple(
+        RepositorySummary(repository, count, scan_result.commit_sha)
+        for repository, count in zip(repositories, (3, 1, 1), strict=True)
+    )
+
+    class Catalog:
+        def repositories(self):
+            assert not filtered
+            return summaries
+
+        def skills(self):
+            assert filtered
+            return tuple(
+                replace(
+                    scan_result.skills[0],
+                    repository=summary.repository,
+                    path=f"{i}/SKILL.md",
+                    starred=i == 0,
+                )
+                for summary in summaries
+                for i in range(summary.skill_count)
+            )
+
+    view = BrowseCatalog(Catalog()).home("review" if filtered else "", filtered, sort)
+    assert [group.summary.repository.name for group in view.repositories] == expected
+    assert view.matching_count == (3 if filtered else 0)
+    assert [len(group.skills) for group in view.repositories] == ([1] * 3 if filtered else [0] * 3)

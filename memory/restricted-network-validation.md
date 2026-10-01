@@ -4,8 +4,10 @@ Last verified: 2026-10-01.
 
 Some sandboxes reach `pypi.org` and npm but block wheel downloads from
 `files.pythonhosted.org`, the Playwright browser CDN, and Microsoft Container
-Registry blobs. The required checks can still run locally without editing the
-lockfile or manifests; report anything that could not run, as
+Registry blobs. When a reachable mirror supplies the locked wheels, the checks
+can still run locally without editing the lockfile or manifests. Mirror access
+is environment-dependent; do not assume the workaround is available. Report
+anything that could not run, as
 [AGENTS.md](../AGENTS.md#required-local-checks) requires.
 
 ## Python environment
@@ -22,6 +24,11 @@ Build isolation resolves `hatchling` from the index, so editable installs and
 `uv build` need `--no-build-isolation` with `hatchling` and `editables` in the
 build environment. After one such sync, plain `uv sync --locked` reports the
 environment as checked without downloads.
+
+If Python package downloads and mirrors are unavailable but GitHub releases work,
+the standalone Ruff binary from its official GitHub release can run lint and
+format checks. Match the version in `uv.lock` and report this fallback explicitly;
+it does not establish that `uv sync`, mypy, or pytest passed.
 
 ## Python browser tests
 

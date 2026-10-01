@@ -181,7 +181,7 @@ error. Both, and any other listing failure, exit `1` and change nothing.
 
 Nothing new is stored: no organization records, membership, or scan history. A
 repository that has left the organization keeps its entries until it is
-rescanned. Up to four repositories are scanned at a time.
+rescanned or explicitly removed from the [homepage catalog](web-ui.md#homepage). Up to four repositories are scanned at a time.
 
 ### Organization output and exit codes
 

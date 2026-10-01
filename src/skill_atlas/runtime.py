@@ -26,6 +26,7 @@ from skill_atlas.application.organization_scan import (
     SnapshotScan,
 )
 from skill_atlas.application.reader_fallback import FallbackReader
+from skill_atlas.application.repositories import RemoveRepository
 from skill_atlas.application.scan import Scanner
 from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
@@ -219,4 +220,5 @@ def create_web_app(settings: Settings) -> FastAPI:
         Stars(catalog),
         groups,
         GroupingJobs(generate),
+        RemoveRepository(catalog),
     )

@@ -262,9 +262,40 @@ input::placeholder{
   border-radius:9px;
   overflow:hidden;
 }
+.repository-list-tools{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  margin-bottom:12px;
+  font-size:12px;
+  color:var(--muted);
+}
+.repository-list-tools select{
+  font:inherit;
+  color:var(--ink);
+  background:white;
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:8px;
+  min-height:44px;
+}
+.repository-remove{
+  width:44px;
+  height:44px;
+  padding:0;
+  background:transparent;
+  color:var(--muted);
+  border-color:transparent;
+  font-size:22px;
+}
+.repository-remove:hover{
+  color:#9c3030;
+  background:#fff1f1;
+}
 .table-heading,.repository-row{
   display:grid;
-  grid-template-columns:minmax(0,1fr) 110px;
+  grid-template-columns:minmax(0,1fr) 110px 44px;
   gap:20px;
   padding:18px 24px;
   align-items:center;
@@ -653,7 +684,7 @@ footer{
     font-size:16px;
   }
   .table-heading,.repository-row{
-    grid-template-columns:minmax(0,1fr) 70px;
+    grid-template-columns:minmax(0,1fr) 60px 44px;
     padding:16px;
     gap:10px;
   }
