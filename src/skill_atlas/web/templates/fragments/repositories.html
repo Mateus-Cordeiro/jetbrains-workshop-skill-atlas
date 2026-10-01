@@ -1,4 +1,4 @@
-<div class="repository-results" data-repository-count="{{ view.repositories|length }}" data-catalog-empty="{{ 'true' if not view.repositories and not filtering else 'false' }}">
+<div class="repository-results" data-repository-count="{{ view.repositories|length }}">
 {% if filtering %}<p class="filter-count" role="status">{{ view.matching_count }} matching {{ 'starred ' if starred }}skill{% if view.matching_count != 1 %}s{% endif %} across {{ view.repositories|length }} repositor{{ 'y' if view.repositories|length == 1 else 'ies' }}</p>{% endif %}
 {% if view.repositories %}
 <div class="repository-table"><div class="table-heading"><span>REPOSITORY</span><span>SKILLS</span></div>
@@ -12,6 +12,6 @@
 {% elif filtering %}
 <div class="empty"><h3>No {{ 'starred ' if starred }}skills{% if q.strip() %} match “{{ q }}”{% endif %}.</h3><p>{% if q.strip() %}Try another name or description.{% else %}Star a skill to find it here.{% endif %}</p>{% if q.strip() %}<button type="button" data-clear-filter>Clear filter</button>{% endif %}{% if starred %}<button type="button" data-clear-starred>Show all skills</button>{% endif %}</div>
 {% else %}
-<div class="empty"><span class="empty-icon" aria-hidden="true">▦</span><h3>A map waiting to be explored.</h3><p>No repositories in your catalog yet. Scan a repository above to get started.</p></div>
+<div class="empty"><span class="empty-icon" aria-hidden="true">▦</span><h3>A map waiting to be explored.</h3><p>No repositories in your catalog yet. Scan a GitHub repository or organization to get started.</p><button type="button" data-open-scan aria-haspopup="dialog" aria-controls="scan-dialog">Scan GitHub…</button></div>
 {% endif %}
 </div>

@@ -11,6 +11,10 @@
     if (Array.isArray(saved)) saved.filter(id => typeof id === 'string').forEach(id => dismissed.add(id));
   } catch { /* Dismissal still works in memory when browser storage is unavailable. */ }
   const workspace = () => document.querySelector('#workspace');
+  function errorPanel(elt) {
+    const target = document.querySelector(elt?.dataset.errorTarget || '#scan-feedback');
+    return target.closest('dialog:not([open])') ? document.querySelector('#scan-feedback') : target;
+  }
   function updateDescriptionToggle(button) {
     const description = document.getElementById(button.getAttribute('aria-controls'));
     button.hidden = button.getAttribute('aria-expanded') !== 'true'
@@ -148,7 +152,7 @@
       detail.shouldSwap = true;
       detail.isError = false;
       if (['jobs', 'workspace'].includes(detail.target?.id)) {
-        detail.target = document.querySelector('#scan-feedback');
+        detail.target = errorPanel(detail.requestConfig?.elt);
         detail.swapOverride = 'innerHTML';
       }
     }
@@ -188,19 +192,12 @@
     document.addEventListener(name, event => {
       const target = event.detail.target;
       if (target?.id === 'document' && event.detail.xhr.atlasGeneration !== generation) return;
-      const panel = target?.id === 'document' ? target : document.querySelector('#scan-feedback');
+      const panel = target?.id === 'document' ? target : errorPanel(event.detail.elt);
       panel.innerHTML = '<div class="error" role="alert"><p>Could not reach the server. Check that it is running, then retry or refresh.</p></div>';
       panel.removeAttribute('aria-busy');
     });
   }
   document.addEventListener('click', event => {
-    const addRepository = event.target.closest('#add-repository');
-    if (addRepository) {
-      const form = document.querySelector('#repository-form');
-      form.hidden = !form.hidden;
-      addRepository.setAttribute('aria-expanded', String(!form.hidden));
-      if (!form.hidden) document.querySelector('#repository-url').focus();
-    }
     const descriptionToggle = event.target.closest('.description-toggle');
     if (descriptionToggle) {
       const expanded = descriptionToggle.getAttribute('aria-expanded') !== 'true';

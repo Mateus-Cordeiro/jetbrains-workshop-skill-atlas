@@ -1,0 +1,18 @@
+<dialog id="scan-dialog" aria-labelledby="scan-dialog-title" aria-describedby="scan-dialog-description">
+  <div class="scan-dialog-heading">
+    <h2 id="scan-dialog-title">Scan repository or organization</h2>
+    <button type="button" data-close-scan aria-label="Close scan dialog">×</button>
+  </div>
+  <p id="scan-dialog-description">Discover skills on GitHub and update your local catalog.</p>
+  <form id="repository-form" hx-post="/scans" hx-target="#jobs" hx-disabled-elt="find button[type=submit]" data-error-target="#scan-dialog-feedback">
+    <label for="repository-url">GitHub URL</label>
+    <input id="repository-url" type="url" name="repository_url" placeholder="https://github.com/owner/repository" required autocomplete="off" spellcheck="false" aria-describedby="scan-url-examples scan-scope scan-dialog-feedback" autofocus>
+    <p id="scan-url-examples">Repository: <span>https://github.com/owner/repository</span><br>Organization: <span>https://github.com/organization</span></p>
+    <p id="scan-scope" aria-live="polite"></p>
+    <div id="scan-dialog-feedback"></div>
+    <div class="scan-dialog-actions">
+      <button type="button" data-close-scan>Cancel</button>
+      <button type="submit" class="primary">Start scan</button>
+    </div>
+  </form>
+</dialog>

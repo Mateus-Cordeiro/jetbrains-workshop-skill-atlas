@@ -1,5 +1,6 @@
 """Real loopback server and Chromium; GitHub is always an in-memory transport."""
 
+import re
 import socket
 from pathlib import Path
 from threading import Thread
@@ -68,11 +69,13 @@ def scan_from_home(browser_page, web_environment):
         state.scan_gate.clear()
         try:
             page.goto(page.base_url)
-            field = page.get_by_role("textbox", name="GitHub repository URL")
+            field = page.get_by_role("textbox", name="GitHub URL")
             if not field.is_visible():
-                page.get_by_role("button", name="Add repository").click()
+                page.locator("#scan-github").click()
             field.fill(repository)
-            page.get_by_role("button", name="Scan repository").click()
+            page.get_by_role("dialog").get_by_role(
+                "button", name=re.compile(r"^Scan (repository|organization)$")
+            ).click()
             expect(page.locator('.job[data-state="running"]')).to_be_visible()
             page.goto(return_url)
         finally:

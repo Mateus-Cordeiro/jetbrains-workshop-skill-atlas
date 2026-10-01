@@ -120,13 +120,14 @@ with (
         page = client.get("/")
         assert page.status_code == 200
         assert "Repositories" in page.text
-        assert 'id="add-repository"' in page.text
-        assert 'aria-controls="repository-form"' in page.text
+        assert 'id="scan-github"' in page.text
+        assert 'aria-controls="scan-dialog"' in page.text
         for asset in (
             "htmx.min.js",
             "HTMX-LICENSE.txt",
             "app.js",
             "filters.js",
+            "scan.js",
             "stars.js",
             "app.css",
             "g6.min.js",

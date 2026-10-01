@@ -111,10 +111,6 @@
     const skillCount = document.querySelector('#skill-count');
     const skills = document.querySelector('#skill-results [data-skill-count]');
     if (skillCount && skills) skillCount.textContent = skills.dataset.skillCount;
-    if (results?.dataset.catalogEmpty === 'true') {
-      document.querySelector('#repository-form').hidden = false;
-      document.querySelector('#add-repository').setAttribute('aria-expanded', 'true');
-    }
     const filtering = active();
     document.querySelectorAll('.repository-group').forEach(group => {
       expand(group, filtering ? !collapsedMatches.has(group.dataset.repository) : expanded.has(group.dataset.repository));
