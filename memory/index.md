@@ -17,3 +17,5 @@ to maintain them.
 - [Browser UI testing](browser-ui-testing.md): starting a homepage scan and
   returning to a workspace before completion, plus controlled-clock settling
   for desktop visual checkpoints.
+- [Python test suite](python-testing.md): unique test module basenames, and
+  deterministic organization scan tests for rate limits, parallel workers, and Ctrl+C.

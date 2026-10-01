@@ -4,6 +4,8 @@ from collections.abc import Iterable
 from typing import Protocol
 
 from skill_atlas.models import (
+    Organization,
+    OrganizationListing,
     Repository,
     RepositorySummary,
     ScanResult,
@@ -22,6 +24,10 @@ class SnapshotReader(Protocol):
 
 class RepositoryReader(SnapshotReader, Protocol):
     def resolve(self, repository: Repository) -> Snapshot: ...
+
+
+class OrganizationReader(Protocol):
+    def list_repositories(self, organization: Organization) -> OrganizationListing: ...
 
 
 class SkillParser(Protocol):

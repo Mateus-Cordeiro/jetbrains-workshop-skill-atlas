@@ -1,7 +1,7 @@
 # skill-atlas scan
 
 Status: accepted and implemented. This document owns scan discovery, extraction,
-repository access, and terminal behavior. The [shared architecture](../architecture.md)
+repository access, organization scans, and terminal behavior. The [shared architecture](../architecture.md)
 owns the stack, component boundaries, credentials, snapshot and catalog contracts.
 The [Web UI](web-ui.md) reuses this scan service for background jobs.
 
@@ -12,10 +12,13 @@ catalog:
 
 ```sh
 skill-atlas scan <github-repo-url> [--no-interactive]
+skill-atlas scan <github-organization-url>
 ```
 
 `scan` is a subcommand; `<github-repo-url>` is its required positional argument.
-Scan the repository's default branch. Public and private repositories use the
+Scan the repository's default branch. A URL with only an owner names an
+organization and scans its eligible repositories, as described in
+[Organization scans](#organization-scans). Public and private repositories use the
 shared [URL and snapshot rules](../architecture.md#shared-domain-contracts) and
 [credentials](../architecture.md#configuration-and-authentication).
 
@@ -144,6 +147,68 @@ A repository with no commits cannot supply a snapshot and produces an
 operational error; this differs from a committed repository containing zero
 skills, which is a successful scan.
 
+## Organization scans
+
+`skill-atlas scan https://github.com/<org>` scans every eligible repository in
+the organization in one run, following the shared
+[organization URL rules](../architecture.md#shared-domain-contracts) and the
+[organization scan walkthrough](../architecture.md#following-an-organization-scan)
+for listing and concurrency. Single-repository scans are unchanged.
+
+Organization scans require a GitHub credential, using the shared credential
+precedence. Without one, the scan fails with a clear error before any request.
+A user account, or an organization the credential cannot see, fails with a clear
+error. Both, and any other listing failure, exit `1` and change nothing.
+
+- Forks and archived repositories are excluded.
+- Every other listed repository is eligible. Each goes through the extraction
+  rules above, starting from the snapshot resolved during listing, and is saved
+  with its own atomic catalog replacement as soon as it completes.
+- A repository with zero valid skills is a success, as for a single scan.
+- A repository with no commits is reported as **empty**. It is not scanned and is
+  not a failure.
+- A repository that fails is reported with its reason and preserves its previous
+  entries. The other repositories continue.
+- When GitHub rate-limits a repository, no new repositories are started.
+  Repositories already in progress may finish. Repositories never started are
+  reported as **not scanned**.
+- Ctrl+C stops the scan. Repositories that finished stay committed; in-progress
+  repositories stop their requests and Git processes and clean up their HTTP and
+  Git resources before the command exits.
+
+Nothing new is stored: no organization records, membership, or scan history. A
+repository that has left the organization keeps its entries until it is
+rescanned. Up to four repositories are scanned at a time.
+
+### Organization output and exit codes
+
+The command prints a summary instead of the skill list; `filter` and `serve`
+browse the results. The first line contains the organization, its eligible
+repository count, and the total stored skill count. One line per eligible
+repository follows, in canonical URL order, with its skill count or outcome.
+Each repository stays on one line, including in redirected output:
+
+```text
+acme — 5 repositories, 4 skills
+acme/agents — 4 skills
+acme/docs — no skills
+acme/new-project — empty
+acme/private — failed: GitHub's rate limit was reached. Retry later, or configure a GitHub credential.
+acme/tools — not scanned
+```
+
+An organization with no eligible repositories prints **No repositories to scan in
+the organization** after the summary line. On an interactive standard error, a
+transient status shows **Listing repositories…**, then **Scanning N of M
+repositories…**, where N counts repositories with a final outcome.
+
+Exit codes: `0` when every repository succeeded or was empty; `1` when listing
+failed, a credential was missing, any repository failed, or a rate limit stopped
+the scan; and `2` for invalid usage. Unsuccessful outcomes print the summary to
+standard output and a one-line explanation to standard error, such as
+**GitHub's rate limit stopped the scan. 1 repository failed. 1 repository was
+not scanned.** Ctrl+C uses the CLI's interrupt status.
+
 ## Outside this version
 
 - A shared catalog or remote database.
@@ -153,6 +218,9 @@ skills, which is a successful scan.
 - Other Git hosting providers.
 - Branch or tag selection and automatic background updates. The local `serve`
   command is specified separately in [the Web UI specification](web-ui.md).
+- Organization scans of user accounts, anonymous organization scans, options to
+  include forks or archived repositories, pruning repositories that left the
+  organization, and retrying after a rate limit.
 
 ## Acceptance and verification
 
@@ -176,6 +244,17 @@ and the temporary Git fallback:
    links, and descriptions. Interactive description toggling works; redirected
    and explicitly noninteractive output prints and exits with the documented
    status codes.
+7. An organization scan produces the same catalog entries as scanning each
+   eligible repository one by one. Request counts with mocked transports show one
+   GraphQL request per 100 repositories, one tree request per repository, one blob
+   request per `SKILL.md` on the API path, no per-repository metadata or commit
+   requests, and no Git process unless a listing is truncated.
+8. Paginated listings cover forks, archived, empty, zero-skill, failing, and
+   rate-limited repositories, plus a repository that needs the Git fallback.
+   No more than four workers run at once. A failed repository keeps its previous
+   entries and does not affect the others. Git resources are cleaned up after
+   Ctrl+C partway through an organization scan, while finished repositories stay
+   committed. The summary, outcomes, and exit codes are deterministic.
 
 Follow [AGENTS.md](../../AGENTS.md) for required checks and CI delivery. Parser,
 identity, adapter, and scanner unit tests isolate policies and I/O boundaries.

@@ -28,7 +28,7 @@ After the memory startup step, read the [specification index](spec/README.md), t
 the change before changing behavior or component boundaries:
 
 - [Scan](spec/features/scan.md) owns discovery, metadata extraction, repository
-  access, and scan terminal behavior.
+  access, organization scans, and scan terminal behavior.
 - [Filter](spec/features/filter.md) owns shared matching rules and the
   `filter` command. Read the Web UI spec as well when changing shared filtering.
 - [Web UI](spec/features/web-ui.md) owns `serve`, catalog browsing and filter
