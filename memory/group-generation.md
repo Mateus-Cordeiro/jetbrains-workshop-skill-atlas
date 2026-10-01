@@ -37,3 +37,13 @@ transport. Missing members stay missing, so integration and browser tests exerci
 real assignment validation and atomic publication. Adapter tests supply wire
 responses directly; the installed-wheel smoke uses the same wire contract.
 Live model checks remain separate from automated tests.
+
+## Optional settings must not break other features
+
+Every CLI command calls `Settings.from_environment()`. Eagerly converting Ollama
+values there made a typo such as `10m` break scans, filtering, similarity, and
+Web startup with a `ValueError`. Keep those raw values until the explicit
+generation callback in [runtime](../src/skill_atlas/runtime.py) parses them.
+The [CLI regression](../tests/integration/test_cli.py) exercises all four entry
+points with malformed settings; [generation integration tests](../tests/integration/test_grouping_web.py)
+verify named-setting errors, no model request, and preservation of saved groups.

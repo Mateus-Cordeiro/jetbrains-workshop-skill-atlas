@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from math import isfinite
 from threading import Event
 
 import httpx
@@ -114,6 +115,34 @@ def create_similarity(settings: Settings) -> SimilarSkills:
     return SimilarSkills(SQLiteCatalog(settings.database_path))
 
 
+def _ollama_limits(settings: Settings) -> tuple[float, int, int]:
+    timeout_error = "SKILL_ATLAS_OLLAMA_TIMEOUT must be a finite positive number of seconds."
+    try:
+        timeout = float(settings.ollama_timeout)
+    except ValueError as error:
+        raise GroupingError(timeout_error) from error
+    if not isfinite(timeout) or timeout <= 0:
+        raise GroupingError(timeout_error)
+
+    def positive_integer(value: int | str, variable: str) -> int:
+        message = f"{variable} must be a positive integer number of tokens."
+        try:
+            parsed = int(value)
+        except ValueError as error:
+            raise GroupingError(message) from error
+        if parsed <= 0:
+            raise GroupingError(message)
+        return parsed
+
+    context = positive_integer(settings.ollama_context, "SKILL_ATLAS_OLLAMA_CONTEXT")
+    output = positive_integer(settings.ollama_output_tokens, "SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS")
+    if output >= context:
+        raise GroupingError(
+            "SKILL_ATLAS_OLLAMA_CONTEXT must be greater than SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS."
+        )
+    return timeout, context, output
+
+
 def create_web_app(settings: Settings) -> FastAPI:
     from skill_atlas.web.app import create_app
 
@@ -121,6 +150,7 @@ def create_web_app(settings: Settings) -> FastAPI:
     groups = SkillGroups(SQLiteGroups(catalog))
 
     def generate() -> tuple[Grouping, ...]:
+        timeout, context, output = _ollama_limits(settings)
         endpoint = httpx.URL(settings.ollama_url)
         if (
             endpoint.scheme != "http"
@@ -129,20 +159,19 @@ def create_web_app(settings: Settings) -> FastAPI:
             or endpoint.query
             or endpoint.fragment
             or endpoint.path not in {"", "/"}
-            or settings.ollama_timeout <= 0
         ):
-            raise GroupingError("Configure a local HTTP Ollama address and a positive timeout.")
+            raise GroupingError("Configure a local HTTP Ollama address.")
         with httpx.Client(
             base_url=settings.ollama_url,
-            timeout=httpx.Timeout(settings.ollama_timeout, connect=5),
+            timeout=httpx.Timeout(timeout, connect=5),
             trust_env=False,
         ) as client:
             return groups.generate(
                 OllamaGrouping(
                     client,
                     settings.ollama_model,
-                    context=settings.ollama_context,
-                    output_tokens=settings.ollama_output_tokens,
+                    context=context,
+                    output_tokens=output,
                 ),
             )
 

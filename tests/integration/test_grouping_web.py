@@ -277,7 +277,11 @@ def test_old_group_selection_disappears_when_removed_from_catalog(
     assert view.groups[0].skills == scan_result.skills[1:]
 
 
-def test_configuration_from_environment(monkeypatch, tmp_path):
+def test_configuration_from_environment_is_parsed_on_generation(
+    monkeypatch, web_environment, scan_result
+):
+    from skill_atlas.runtime import create_web_app
+
     values = {
         "URL": "http://localhost:1234",
         "MODEL": "custom:latest",
@@ -289,8 +293,74 @@ def test_configuration_from_environment(monkeypatch, tmp_path):
         monkeypatch.setenv("SKILL_ATLAS_OLLAMA_" + name, value)
     settings = Settings.from_environment()
     assert settings.ollama_url == values["URL"] and settings.ollama_model == values["MODEL"]
-    assert settings.ollama_timeout == 120 and settings.ollama_context == 65536
-    assert settings.ollama_output_tokens == 9000
+    assert settings.ollama_timeout == "120" and settings.ollama_context == "65536"
+    assert settings.ollama_output_tokens == "9000"
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    with TestClient(
+        create_web_app(
+            replace(
+                settings, database_path=state.catalog.path, ollama_url=state.settings.ollama_url
+            )
+        ),
+        base_url="http://127.0.0.1",
+    ) as client:
+        generate(client)
+    import json
+
+    for request in state.grouping_requests:
+        payload = json.loads(request.content)
+        assert payload["options"]["num_ctx"] == 65536
+        assert payload["options"]["num_predict"] == 9000
+        assert request.extensions["timeout"]["read"] == 120
+
+
+@pytest.mark.parametrize(
+    "variable,value",
+    [("TIMEOUT", value) for value in ("10m", "", "0", "-1", "nan", "inf")]
+    + [
+        (variable, value)
+        for variable in ("CONTEXT", "OUTPUT_TOKENS")
+        for value in ("32k", "", "0", "-1", "1.5")
+    ],
+)
+def test_invalid_ollama_settings_fail_only_generation_without_writes_or_inference(
+    client, monkeypatch, web_environment, scan_result, variable, value
+):
+    from skill_atlas.runtime import create_web_app
+
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    generate(client)
+    saved = SQLiteGroups(state.catalog).read_all()
+    requests = len(state.grouping_requests)
+    name = "SKILL_ATLAS_OLLAMA_" + variable
+    monkeypatch.setenv(name, value)
+    settings = replace(Settings.from_environment(), database_path=state.catalog.path)
+    with TestClient(create_web_app(settings), base_url="http://127.0.0.1") as configured:
+        assert configured.get("/explore").status_code == 200
+        failure = generate(configured, expected="failed").text
+        assert name in failure and "must be" in failure
+        assert "Traceback" not in failure
+    assert len(state.grouping_requests) == requests
+    assert SQLiteGroups(state.catalog).read_all() == saved
+
+
+@pytest.mark.parametrize("output", ["32768", "32769"])
+def test_context_must_exceed_output_tokens(web_environment, scan_result, monkeypatch, output):
+    from skill_atlas.runtime import create_web_app
+
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    monkeypatch.setenv("SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS", output)
+    settings = replace(Settings.from_environment(), database_path=state.catalog.path)
+    with TestClient(create_web_app(settings), base_url="http://127.0.0.1") as client:
+        failure = generate(client, expected="failed").text
+    assert (
+        "SKILL_ATLAS_OLLAMA_CONTEXT must be greater than SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS"
+        in failure
+    )
+    assert state.grouping_requests == []
 
 
 @pytest.mark.parametrize(

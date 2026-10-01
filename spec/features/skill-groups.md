@@ -50,6 +50,11 @@ headroom, and reserved output tokens. If it exceeds configured context, fail
 before calling Ollama; never silently omit skills or split into unrelated
 batches. The `format` schema constrains decoding and is not added to prompt text.
 Ollama receives explicit context/output limits and a bounded timeout.
+Validate numeric settings only when generation is explicitly requested. Reject
+malformed values, nonpositive or nonfinite timeouts, nonpositive integer token
+limits, and context no greater than the output limit before contacting Ollama.
+The failed job identifies the setting to correct and preserves saved groups;
+invalid Ollama settings never prevent unrelated commands or catalog browsing.
 Do not download models or start Ollama automatically. Report connection, missing
 model, timeout, malformed output, and storage failures without raw upstream
 responses or credentials. Generation errors identify the failing perspective;
@@ -141,7 +146,8 @@ results remain readable; the next generation produces the pair without a new sch
 | `GET /explore/status` | Latest process-local status fragment, or status-unavailable notice. |
 | `GET /groups/{perspective}` and its former fragment route | Redirect old bookmarks to Explore; old selected-skill URLs redirect to the repository/document page. |
 
-Successful Web scans refresh an open graph; reload observes CLI changes. Both
+Successful Web scans and partially successful organization scans refresh an open
+graph, even when the organization job ends in failure; reload observes CLI changes. Both
 views compare their saved fingerprint with current metadata and show a regeneration
 notice when stale. Removed skills and empty groups disappear; new skills appear
 after explicit regeneration. The topic/capability switch has no effect on inference.

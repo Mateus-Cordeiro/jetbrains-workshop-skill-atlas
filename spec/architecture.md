@@ -309,7 +309,12 @@ new persistence, embedding model, or remote service is introduced. See the
 
 `web/grouping_routes.py` submits one paired job to `application/grouping_jobs.py`.
 `runtime.py` supplies `application/grouping.py` with `SQLiteGroups` and a fresh
-HTTPX/Ollama adapter. The application reads metadata once, invokes the provider
+HTTPX/Ollama adapter. Ollama numeric environment values remain unparsed in shared
+settings until this explicit job starts. The composition root validates positive,
+finite timeouts and positive integer token limits before creating a client;
+context must exceed the output limit. Invalid values raise `GroupingError` naming
+the variable, without affecting scans, filtering, similarity, or Web startup.
+The application reads metadata once, invokes the provider
 sequentially for both perspectives, validates both complete memberships, and saves
 them atomically. Provider prompts, schemas, budgets and failures remain in the
 adapter; completeness, identity, and group-count policy remain in the application.

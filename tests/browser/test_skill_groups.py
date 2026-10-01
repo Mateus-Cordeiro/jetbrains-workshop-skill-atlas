@@ -232,16 +232,24 @@ def test_graph_library_failure_keeps_groups_and_skill_links_usable(
     expect(page.locator(".markdown h1")).to_have_text("Review changes")
 
 
+@pytest.mark.parametrize("organization_failure", [False, True])
 def test_web_scan_refreshes_both_graph_views(
-    browser_page, web_environment, scan_result, scan_from_home
+    browser_page, web_environment, scan_result, scan_from_home, organization_failure
 ):
     page, state = browser_page, web_environment
     seed(state, scan_result)
     generate(page)
     state.zero = True
-    scan_from_home(scan_result.repository.url)
+    target = scan_result.repository.url
+    if organization_failure:
+        state.organization = [scan_result.repository.name, "tools"]
+        state.failed_repositories = {f"{scan_result.repository.owner}/tools"}
+        target = target.rsplit("/", 1)[0]
+    scan_from_home(target)
     expect(page.get_by_role("heading", name="No saved skills")).to_be_visible()
     expect(page.get_by_role("button", name="Regenerate groups", exact=True)).to_be_disabled()
     page.get_by_role("button", name="Topics", exact=True).click()
     expect(page.locator("#graph-count")).to_have_text("0 groups · 0 visible skills")
     assert len(state.grouping_requests) == 2
+    if organization_failure:
+        expect(page.locator('.job[data-state="failed"]')).to_contain_text("1 repository failed")

@@ -2,6 +2,8 @@ import base64
 import sqlite3
 
 import httpx
+import pytest
+from fastapi.testclient import TestClient
 from rich.text import Text
 from typer.testing import CliRunner
 
@@ -118,3 +120,33 @@ def test_serve_command_and_startup_error(monkeypatch):
     result = CliRunner().invoke(create_app(), ["serve"])
     assert result.exit_code == 1
     assert "Address already in use" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "variable,value", [("TIMEOUT", "10m"), ("CONTEXT", "32k"), ("OUTPUT_TOKENS", "8k")]
+)
+def test_non_grouping_commands_ignore_malformed_ollama_settings(
+    monkeypatch, web_environment, variable, value
+):
+    state = web_environment
+    monkeypatch.setenv("SKILL_ATLAS_DB", str(state.catalog.path))
+    monkeypatch.setenv("SKILL_ATLAS_OLLAMA_" + variable, value)
+    repository = "https://github.com/acme/skills"
+    scanned = runner.invoke(create_app(), ["scan", repository, "--no-interactive"])
+    assert scanned.exit_code == 0, scanned.output
+    assert "code-review" in scanned.stdout
+    assert len(state.catalog.skills()) == 2
+    filtered = runner.invoke(create_app(), ["filter", "review", "--json"])
+    assert filtered.exit_code == 0 and "code-review" in filtered.stdout
+    similar = runner.invoke(create_app(), ["similar", repository, "review/SKILL.md", "--json"])
+    assert similar.exit_code == 0 and "code-review" in similar.stdout
+
+    apps = []
+    monkeypatch.setattr(serve.uvicorn, "run", lambda app, **options: apps.append(app))
+    served = runner.invoke(create_app(), ["serve"])
+    assert served.exit_code == 0, served.output
+    with TestClient(apps[0], base_url="http://127.0.0.1") as client:
+        page = client.get("/")
+        assert page.status_code == 200 and "acme/skills" in page.text
+        assert client.get("/explore").status_code == 200
+    assert state.grouping_requests == []

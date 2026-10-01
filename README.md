@@ -246,6 +246,12 @@ Configure the backend before starting the server:
 | `SKILL_ATLAS_OLLAMA_CONTEXT` | `32768` | Requested model context tokens. |
 | `SKILL_ATLAS_OLLAMA_OUTPUT_TOKENS` | `8192` | Reserved maximum output tokens. |
 
+Use positive numeric seconds for timeout and positive whole numbers for token
+limits (for example, `600` and `32768`, rather than `10m` and `32k`). Context must
+exceed the output limit. These settings are validated only when you generate
+groups; a bad value appears in the job error and does not prevent scanning,
+filtering, similarity search, or starting the Web UI.
+
 Larger catalogs may require more context and output tokens, subject to the model
 and available memory. A conservative UTF-8 byte budget rejects oversized input
 before sending it; it can reject text that a tokenizer would fit. Skills are never
