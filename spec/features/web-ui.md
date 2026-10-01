@@ -103,7 +103,9 @@ Each repository displays:
 - An action to open its skills.
 - A right-side X button labelled **Remove owner/repository from catalog**.
 
-Offer **Sort by skills** with **None**, **Ascending**, and **Descending**.
+Offer **Sort by skills** with **None**, **Ascending**, and **Descending** in the
+homepage toolbar, keeping the repository list immediately visible on desktop
+and mobile. Wrap the toolbar below the heading when needed to avoid overflow.
 None is the default canonical repository URL order. Count sorting uses total
 stored skills, even when filtering or showing starred skills, with canonical URL
 ascending to break ties. Keep the control available in empty states. Store active

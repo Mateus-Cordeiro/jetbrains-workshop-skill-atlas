@@ -76,7 +76,7 @@ def test_remove_rejects_cross_origin_requests(client, web_environment, scan_resu
 
 
 @pytest.mark.parametrize(
-    "repository",
+    "repository_url",
     [
         "",
         "https://github.com/acme",
@@ -84,10 +84,11 @@ def test_remove_rejects_cross_origin_requests(client, web_environment, scan_resu
         "https://github.com/acme/skills?x=1",
         "x" * 9000,
     ],
+    ids=["empty", "organization", "foreign-host", "query", "too-long"],
 )
-def test_remove_rejects_invalid_input(client, web_environment, scan_result, repository):
+def test_remove_rejects_invalid_input(client, web_environment, scan_result, repository_url):
     web_environment.catalog.replace_repository(scan_result)
-    response = remove(client, repository)
+    response = remove(client, repository_url)
     assert response.status_code == 400 and response.headers["X-Error-Code"] == "invalid_input"
     assert web_environment.catalog.skills() == scan_result.skills
 

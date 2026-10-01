@@ -235,6 +235,7 @@ def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
     from skill_atlas.adapters.storage.grouping import SQLiteGroups
     from skill_atlas.application.grouping import SkillGroups
     from skill_atlas.application.grouping_jobs import GroupingJobs
+    from skill_atlas.application.repositories import RemoveRepository
     from skill_atlas.application.scan_jobs import ScanJobs
     from skill_atlas.application.similarity import SimilarSkills
     from skill_atlas.application.stars import Stars
@@ -273,6 +274,7 @@ def test_escaped_metadata_and_queue_capacity(tmp_path, scan_result):
             Stars(catalog),
             SkillGroups(SQLiteGroups(catalog)),
             GroupingJobs(no_generation),
+            RemoveRepository(catalog),
         ),
         base_url="http://127.0.0.1",
     ) as client:

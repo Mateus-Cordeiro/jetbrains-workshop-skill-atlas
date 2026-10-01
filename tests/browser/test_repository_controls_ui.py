@@ -28,7 +28,9 @@ def expect_order(page, names):
     expect(page.locator(".repository-row strong")).to_have_text([f"acme/{name}" for name in names])
 
 
-@pytest.mark.parametrize("width", [1360, 390], ids=["desktop", "mobile"])
+@pytest.mark.parametrize(
+    "width", [1360, 768, 601, 390], ids=["desktop", "tablet", "narrow", "mobile"]
+)
 def test_sort_filter_history_and_confirmed_removal(
     browser_page, web_environment, scan_result, width
 ):
@@ -43,7 +45,8 @@ def test_sort_filter_history_and_confirmed_removal(
     toggle.click()
     expect(page.locator(".catalog-skill:visible")).to_have_count(3)
     sort.focus()
-    page.keyboard.press("ArrowDown")
+    # Native select arrow keys open an OS popup on macOS; type-ahead works on both platforms.
+    page.keyboard.press("a")
     page.keyboard.press("Enter")
     expect(sort).to_have_value("asc")
     expect_order(page, ["beta", "gamma", "alpha"])
@@ -141,17 +144,17 @@ def test_late_sort_response_cannot_restore_removed_repository(
         # Capture the response from before the removal, then deliver it late.
         held.append((route, route.fetch()))
 
-    page.route("**/fragments/repositories?*sort=asc*", hold)
+    page.route("**/fragments/repositories?*sort=asc*", hold, times=1)
     sort = page.get_by_role("combobox", name="Sort by skills")
     with page.expect_request("**/fragments/repositories?*sort=asc*"):
         sort.select_option("asc")
     expect(page.locator("#repositories")).to_have_attribute("aria-busy", "true")
-    page.unroute("**/fragments/repositories?*sort=asc*", hold)
     page.once("dialog", lambda dialog: dialog.accept())
     page.get_by_role("button", name="Remove acme/alpha from catalog").click()
     expect_order(page, ["beta", "gamma"])
-    for route, response in held:
-        route.fulfill(response=response)
+    assert len(held) == 1
+    route, response = held.pop()
+    route.fulfill(response=response)
     expect_order(page, ["beta", "gamma"])
     assert state.requests == []
 

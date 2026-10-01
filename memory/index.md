@@ -20,7 +20,8 @@ to maintain them.
   navigation geometry checks.
 - [Group generation](group-generation.md): diagnosing missing assignments,
   Ollama schema/context handling, and fixture wire-format boundaries.
-- [Python test suite](python-testing.md): unique test module basenames, and
+- [Python test suite](python-testing.md): unique test module basenames, fixture
+  shadowing by parametrized inputs, and
   deterministic organization scan tests for rate limits, parallel workers, and Ctrl+C.
 - [Restricted network validation](restricted-network-validation.md): running the
   locked checks and Python browser tests when wheel, browser, or image downloads
