@@ -3,7 +3,7 @@
 from collections.abc import Iterable
 from typing import Protocol
 
-from skill_atlas.grouping import Grouping, GroupingCatalog, Perspective
+from skill_atlas.grouping import Grouping, GroupingCatalog, GroupingSnapshot, Perspective
 from skill_atlas.models import (
     Repository,
     RepositorySummary,
@@ -54,4 +54,6 @@ class GroupingProvider(Protocol):
 class GroupingStore(Protocol):
     def read(self, perspective: Perspective) -> GroupingCatalog: ...
 
-    def save(self, grouping: Grouping) -> None: ...
+    def read_all(self) -> GroupingSnapshot: ...
+
+    def save(self, groupings: tuple[Grouping, ...]) -> None: ...

@@ -1,6 +1,6 @@
 # Browser UI testing
 
-Last verified: 2026-09-30.
+Last verified: 2026-10-01.
 
 ## Scans that refresh an open workspace
 
@@ -28,21 +28,36 @@ the real generation service, validation, jobs, or storage. `grouping_requests`
 records model calls separately from GitHub `requests`. Browser teardown must
 release the grouping gate before stopping the server, which waits for active jobs.
 
-Overlapping group cards need unique description-control IDs even when they share
-a skill identity; the [group browser tests](../tests/browser/test_skill_groups.py)
-check both DOM uniqueness and shared selection. Keep pytest module basenames
-distinct across test directories; duplicate `test_grouping.py` files caused
-collection to fail when running unit and integration suites together.
+Graph fixtures can supply distinct responses with `grouping_content_by_perspective`;
+one explicit generation makes two calls from the same metadata snapshot. An
+invalid second response must preserve both saved views. The
+[group browser tests](../tests/browser/test_skill_groups.py) cover shared graph
+nodes, separately usable directory links, and pointer/keyboard interactions.
+Keep pytest module basenames distinct across directories; duplicate
+`test_grouping.py` files caused combined unit/integration collection to fail.
 
-After following a full-page navigation link, wait for the destination URL with
-`wait_until="domcontentloaded"` before focusing a control and sending keyboard
-input. The grouping tests reproduced a Linux race where Enter reached the focused
-Generate button while the document was `interactive`, before `DOMContentLoaded`
-initialized HTMX's handlers; the native click fired but no generation request followed.
-Element presence and focus alone do not establish script readiness. Keep the
-keyboard interaction and focus assertion, as in
-[the group browser tests](../tests/browser/test_skill_groups.py), rather than
-substituting a mouse click or adding a fixed delay.
+After full-page navigation, wait for the destination URL with
+`wait_until="domcontentloaded"` before focusing and sending keyboard input. A
+Linux trace showed Enter reaching the Generate button before HTMX initialized:
+the native click fired but no request followed. Element presence and focus alone
+do not establish script readiness; retain keyboard coverage instead of fixed sleeps.
+
+## G6 and HTMX lifecycle
+
+Initialize the graph after HTMX settles and give G6 an anonymous renderer container
+inside the stable host. HTMX copies attributes between matching IDs during swaps;
+copying G6's runtime styles via `setAttribute` triggered CSP rejection and stacked
+its four canvas layers vertically. The private container plus external grid CSS
+fixes the layer positioning without relaxing CSP. G6 uses multiple canvases by
+design; tests should not assume there is only one.
+
+Serialize graph renders and avoid querying removed node IDs during animations.
+Rapid switching and directory focus reproduced G6 “Unknown element type” errors.
+The graph host's `data-ready` marks completion for browser and screenshot checks.
+The desktop graph scenario uses reduced motion, real G6, deterministic placements,
+and the shared mock transport. Mouse tests interact with the rendered canvas rather
+than substituting a graph implementation. Session storage holds only opaque IDs
+and coordinates; storage and renderer-failure cases retain usable directory links.
 
 ## Standalone browser demos
 

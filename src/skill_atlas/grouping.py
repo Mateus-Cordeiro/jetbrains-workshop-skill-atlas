@@ -39,3 +39,9 @@ class Grouping:
 class GroupingCatalog:
     skills: tuple[Skill, ...]
     grouping: Grouping | None
+
+
+@dataclass(frozen=True)
+class GroupingSnapshot:
+    skills: tuple[Skill, ...]
+    groupings: tuple[Grouping, ...]

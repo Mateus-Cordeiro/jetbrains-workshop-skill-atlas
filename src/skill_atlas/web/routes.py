@@ -72,10 +72,13 @@ def register_routes(
     def home(request: Request, q: str = "") -> Response:
         return page(request, "pages/home.html", view=browse.home(q), q=q, jobs=jobs.recent())
 
-    def repository_context(repository_url: str, skill_path: str, q: str) -> dict[str, Any]:
+    def repository_context(
+        repository_url: str, skill_path: str, q: str, from_explore: str = ""
+    ) -> dict[str, Any]:
         repository = Repository.from_url(repository_url)
         view = browse.repository(repository, q, skill_path)
         return {
+            "from_explore": from_explore if from_explore in {"topics", "capabilities"} else "",
             "repository": repository,
             "skills": view.skills,
             "matches": view.matches,
@@ -85,13 +88,17 @@ def register_routes(
 
     @app.get("/repository", response_class=HTMLResponse)
     def repository_page(
-        request: Request, repository_url: str, skill_path: str = "", q: str = ""
+        request: Request,
+        repository_url: str,
+        skill_path: str = "",
+        q: str = "",
+        from_explore: str = "",
     ) -> Response:
         return page(
             request,
             "pages/repository.html",
             jobs=jobs.recent(),
-            **repository_context(repository_url, skill_path, q),
+            **repository_context(repository_url, skill_path, q, from_explore),
         )
 
     @app.get("/fragments/repositories", response_class=HTMLResponse)
@@ -114,10 +121,16 @@ def register_routes(
 
     @app.get("/fragments/repository", response_class=HTMLResponse)
     def repository_fragment(
-        request: Request, repository_url: str, skill_path: str = "", q: str = ""
+        request: Request,
+        repository_url: str,
+        skill_path: str = "",
+        q: str = "",
+        from_explore: str = "",
     ) -> Response:
         return page(
-            request, "fragments/workspace.html", **repository_context(repository_url, skill_path, q)
+            request,
+            "fragments/workspace.html",
+            **repository_context(repository_url, skill_path, q, from_explore),
         )
 
     @app.get("/similar", response_class=HTMLResponse)
@@ -144,6 +157,7 @@ def register_routes(
             "/",
             "/repository",
             "/similar",
+            "/explore",
             "/groups/topics",
             "/groups/capabilities",
         } or any(ord(char) < 32 or char == "\\" for char in return_to):

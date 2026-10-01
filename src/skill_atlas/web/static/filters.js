@@ -47,7 +47,9 @@
         link.setAttribute('aria-current', 'true');
         visible = true;
       }
-      link.href = setQuery(new URL(link.href), query());
+      const target = setQuery(new URL(link.href), query());
+      if (pane.dataset.fromExplore) target.searchParams.set('from_explore', pane.dataset.fromExplore);
+      link.href = target;
     });
     const notice = document.querySelector('#selection-filter-notice');
     if (notice) notice.hidden = !pane.dataset.selectedPath || visible || !query().trim();

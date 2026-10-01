@@ -24,7 +24,7 @@ def client(web_environment):
 
 
 def generate(client, perspective="capabilities", expected="succeeded"):
-    accepted = client.post(f"/groups/{perspective}/generate", headers=HEADERS)
+    accepted = client.post("/explore/generate", headers=HEADERS)
     return wait_group(client, accepted, expected)
 
 
@@ -48,21 +48,20 @@ def test_explicit_generation_both_perspectives_persists_without_network_on_brows
         page = client.get(f"/groups/{perspective}")
         assert page.status_code == 200 and "Generate groups" in page.text
     assert state.grouping_requests == [] and state.requests == []
-    generate(client)
-    state.grouping_content = {
+    state.grouping_content_by_perspective["topics"] = {
         "groups": [{"title": "Software development", "skill_ids": ["s1", "s2"]}]
     }
-    generate(client, "topics")
+    generate(client)
     for perspective, title in [
         ("capabilities", "Improve software"),
         ("topics", "Software development"),
     ]:
         for prefix in ("", "/fragments"):
-            page = client.get(f"{prefix}/groups/{perspective}")
+            page = client.get(f"{prefix}/explore", params={"perspective": perspective})
             assert page.status_code == 200 and title in page.text
             assert "Regenerate groups" in page.text
             assert "code-review" in page.text and "release-notes" in page.text
-            assert "catalog has changed" not in page.text
+            assert 'id="graph-stale" class="group-stale" hidden' in page.text
         # A new service/adapter instance sees the saved generation.
         view = SkillGroups(SQLiteGroups(SQLiteCatalog(state.catalog.path))).browse(
             Perspective(perspective)
@@ -89,16 +88,28 @@ def test_selection_overlap_same_names_encoded_paths_and_escaped_output(
         ]
     }
     generate(client)
-    page = client.get(
-        "/groups/capabilities",
-        params={"selected_repository": unusual.repository.url, "selected_path": unusual.path},
-    )
+    page = client.get("/explore")
     assert "&lt;img" in page.text and "<img src=x" not in page.text
     assert "&lt;script&gt;bad&lt;/script&gt;" in page.text
     assert "copy+%23%3F+%2FSKILL.md" in page.text
-    assert page.text.count('data-skill-path="review/SKILL.md"') == 3
-    assert 'hx-trigger="load"' in page.text
     assert not state.requests
+    import html
+    import json
+    import re
+
+    payload = json.loads(html.unescape(re.search(r'data-graph="([^"]+)"', page.text)[1]))
+    graph = payload["perspectives"]["capabilities"]
+    assert len(graph["skills"]) == 4
+    assert len({s["id"] for s in graph["skills"]}) == 4
+    assert len(set(graph["groups"][0]["members"]) & set(graph["groups"][1]["members"])) == 1
+    detail = client.get(
+        "/groups/capabilities",
+        params={
+            "selected_repository": unusual.repository.url,
+            "selected_path": unusual.path,
+        },
+    )
+    assert "Back to Explore" in detail.text and 'hx-trigger="load"' in detail.text
     document = client.get(
         "/fragments/document",
         params={
@@ -137,12 +148,12 @@ def test_scan_during_generation_marks_stale_and_documents_use_current_commit(
     state.catalog.replace_repository(scan_result)
     state.grouping_gate.clear()
     try:
-        accepted = client.post("/groups/topics/generate", headers=HEADERS)
+        accepted = client.post("/explore/generate", headers=HEADERS)
         deadline = monotonic() + 3
         while not state.grouping_requests and monotonic() < deadline:
             sleep(0.01)
         assert state.grouping_requests
-        duplicate = client.post("/groups/topics/generate", headers=HEADERS)
+        duplicate = client.post("/explore/generate", headers=HEADERS)
         assert accepted.headers["Location"] == duplicate.headers["Location"]
         updated = replace(
             scan_result,
@@ -153,25 +164,25 @@ def test_scan_during_generation_marks_stale_and_documents_use_current_commit(
     finally:
         state.grouping_gate.set()
     wait_group(client, accepted)
-    page = client.get(
-        "/groups/topics",
-        params={
-            "selected_repository": scan_result.repository.url,
-            "selected_path": scan_result.skills[0].path,
-        },
-    )
+    page = client.get("/explore?perspective=topics")
     assert "catalog has changed" in page.text
     assert "release-notes" not in page.text and "changed" in page.text
-    assert "commit_sha=" + "b" * 40 in page.text
-    assert len(state.grouping_requests) == 1
+    detail = client.get(
+        "/repository",
+        params={
+            "repository_url": updated.repository.url,
+            "skill_path": updated.skills[0].path,
+            "from_explore": "topics",
+        },
+    )
+    assert "commit_sha=" + "b" * 40 in detail.text
+    assert len(state.grouping_requests) == 2
     generate(client, "topics")
-    assert "catalog has changed" not in client.get("/groups/topics").text
+    assert 'id="graph-stale" class="group-stale" hidden' in client.get("/groups/topics").text
     state.catalog.replace_repository(replace(updated, skills=()))
     empty = client.get("/groups/topics")
-    assert (
-        "No saved skills" in empty.text and "changed" not in empty.text.split("No saved skills")[1]
-    )
-    assert 'data-selected-path=""' in empty.text
+    assert "No saved skills" in empty.text
+    assert "release-notes" not in empty.text
 
 
 def test_commit_only_change_does_not_require_regeneration(client, web_environment, scan_result):
@@ -179,7 +190,7 @@ def test_commit_only_change_does_not_require_regeneration(client, web_environmen
     state.catalog.replace_repository(scan_result)
     generate(client)
     state.catalog.replace_repository(replace(scan_result, commit_sha="b" * 40))
-    assert "catalog has changed" not in client.get("/groups/capabilities").text
+    assert 'id="graph-stale" class="group-stale" hidden' in client.get("/groups/capabilities").text
 
 
 def test_empty_missing_invalid_inputs_and_csrf_never_generate(client, web_environment):
@@ -187,13 +198,13 @@ def test_empty_missing_invalid_inputs_and_csrf_never_generate(client, web_enviro
         assert "No saved skills" in client.get("/groups/" + perspective).text
     assert not web_environment.catalog.path.exists()
     assert client.get("/groups/unknown").status_code == 400
-    assert client.post("/groups/unknown/generate", headers=HEADERS).status_code == 400
+    assert client.get("/explore?perspective=unknown").status_code == 400
     for headers in ({}, {"Origin": "https://evil.test", "X-Atlas-Request": "1"}):
-        assert client.post("/groups/topics/generate", headers=headers).status_code == 403
+        assert client.post("/explore/generate", headers=headers).status_code == 403
     assert "No saved skills" in generate(client, "topics", "failed").text
     assert web_environment.grouping_requests == []
     assert not web_environment.catalog.path.exists()
-    assert "no longer available" in client.get("/groups/capabilities/status").text
+    assert "failed" in client.get("/explore/status").text
     assert (
         client.get("/groups/topics", params={"selected_repository": "invalid"}).status_code == 400
     )
@@ -237,11 +248,15 @@ def test_save_failure_rolls_back_and_corrupt_group_data_is_an_error(
     with sqlite3.connect(state.catalog.path) as db:
         db.execute(
             "CREATE TRIGGER fail_group BEFORE UPDATE ON skill_groupings "
+            "WHEN NEW.perspective = 'capabilities' "
             "BEGIN SELECT RAISE(ABORT, 'fail'); END"
         )
-    before = SQLiteGroups(state.catalog).read(Perspective.CAPABILITIES)
+    before = SQLiteGroups(state.catalog).read_all()
+    state.grouping_content_by_perspective["topics"] = {
+        "groups": [{"title": "Replacement topics", "skill_ids": ["s1", "s2"]}]
+    }
     assert "Could not save" in generate(client, expected="failed").text
-    assert SQLiteGroups(state.catalog).read(Perspective.CAPABILITIES) == before
+    assert SQLiteGroups(state.catalog).read_all() == before
     with sqlite3.connect(state.catalog.path) as db:
         db.execute("DROP TRIGGER fail_group")
         db.execute("UPDATE skill_groupings SET groups_json='{}'")
@@ -309,3 +324,54 @@ def test_corrupt_persisted_groups_are_not_empty_catalog(tmp_path, scan_result, c
         )
     with pytest.raises(CatalogError, match="invalid"):
         SQLiteGroups(catalog).read(Perspective.TOPICS)
+
+
+def test_invalid_second_result_keeps_both_saved_perspectives(client, web_environment, scan_result):
+    state = web_environment
+    state.catalog.replace_repository(scan_result)
+    generate(client)
+    before = SQLiteGroups(state.catalog).read_all()
+    state.grouping_content_by_perspective = {
+        "topics": {"groups": [{"title": "New topics", "skill_ids": ["s1", "s2"]}]},
+        "capabilities": {"groups": [{"title": "Incomplete", "skill_ids": ["s1"]}]},
+    }
+    assert "incomplete or invalid" in generate(client, expected="failed").text
+    assert SQLiteGroups(state.catalog).read_all() == before
+    assert len(state.grouping_requests) == 4
+
+
+def test_graph_assets_local_and_legacy_navigation_is_safe(client, web_environment, scan_result):
+    web_environment.catalog.replace_repository(scan_result)
+    page = client.get("/explore")
+    assert "/static/g6.min.js" in page.text and "/static/explore.js" in page.text
+    assert "unsafe-eval" not in page.headers["content-security-policy"]
+    assert "https://" not in page.text
+    for path in ["g6.min.js", "g6-LICENSE.txt", "explore.js", "explore.css"]:
+        assert client.get("/static/" + path).status_code == 200
+    assert "@antv/g6 5.1.1" in client.get("/static/g6.min.js").text
+    response = client.get("/groups/topics", follow_redirects=False)
+    assert response.headers["location"] == "/explore?perspective=topics"
+    page = client.get(
+        "/repository",
+        params={
+            "repository_url": scan_result.repository.url,
+            "skill_path": scan_result.skills[0].path,
+            "from_explore": "https://evil.test",
+        },
+    )
+    assert "evil.test" not in page.text and "Back to Explore" not in page.text
+
+
+def test_explore_return_context_survives_repository_workspace_refresh(
+    client, web_environment, scan_result
+):
+    web_environment.catalog.replace_repository(scan_result)
+    params = {
+        "repository_url": scan_result.repository.url,
+        "skill_path": scan_result.skills[0].path,
+        "from_explore": "topics",
+    }
+    for route in ("/repository", "/fragments/repository"):
+        page = client.get(route, params=params)
+        assert page.status_code == 200 and 'data-from-explore="topics"' in page.text
+        assert 'data-selected-path="review/SKILL.md"' in page.text

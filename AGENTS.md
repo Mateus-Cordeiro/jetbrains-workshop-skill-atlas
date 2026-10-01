@@ -79,7 +79,9 @@ Do not redefine shared contracts independently in feature specs or this file.
 - Keep dependency ranges authoritative in `pyproject.toml` and resolved Python
   versions in `uv.lock`; update them together when dependencies change and
   verify `uv sync --locked`. Do not copy version lists into specs. Bundled
-  frontend assets must retain their version and license information.
+  frontend assets must retain their version and license information. Keep G6 pinned in the
+  npm manifests; regenerate it with `npm run vendor:g6` and verify
+  `npm run check:vendor`. The visual job checks bundle reproducibility.
 - Routine dependency version bumps need an architecture edit only when they
   change a documented constraint or architectural choice. Tooling changes must
   update the affected workflow, local-check instructions, and README guidance.
@@ -212,7 +214,7 @@ bash tests/browser/visual/run-container.sh
 ```
 
 Keep the existing Python browser suite, including mobile coverage. The pilot
-adds three desktop scenarios; it does not replace that suite. Screenshot
+adds four desktop scenarios; it does not replace that suite. Screenshot
 baselines under `tests/browser/visual/snapshots/` are intentional tracked test
 inputs; generated reports and recordings remain ignored. Generate baseline
 updates explicitly in the same container, review the changed images, and commit

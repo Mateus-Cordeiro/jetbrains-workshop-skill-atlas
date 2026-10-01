@@ -64,10 +64,53 @@ def running_server(state):
         finally:
             state.scan_gate.set()
             state.document_gate.set()
+            state.grouping_gate.set()
             server.should_exit = True
             thread.join(timeout=10)
             if thread.is_alive():
                 raise RuntimeError("Visual test server failed to stop")
+
+
+def graph_fixture(state, fixture):
+    state.catalog.replace_repository(
+        replace(fixture, repository=Repository("other", "tools"), skills=())
+    )
+    metadata = [
+        ("code-review", "Review changes for correctness, clarity, and maintainability."),
+        ("dependency-audit", "Audit dependencies for vulnerabilities and safe upgrades."),
+        ("incident-triage", "Investigate production incidents and identify likely causes."),
+        ("performance-profile", "Profile application performance and locate bottlenecks."),
+        ("release-notes", "Turn changes into clear release notes for users."),
+        ("test-design", "Design regression tests for important application behavior."),
+        ("threat-model", "Identify security threats and plan effective mitigations."),
+        ("trace-analysis", "Explore distributed traces to diagnose latency and errors."),
+    ]
+    state.catalog.replace_repository(
+        replace(
+            fixture,
+            skills=tuple(
+                Skill(fixture.repository, name + "/SKILL.md", name, description, fixture.commit_sha)
+                for name, description in metadata
+            ),
+        )
+    )
+    state.grouping_content_by_perspective = {
+        "capabilities": {
+            "groups": [
+                {"title": "Ship with confidence", "skill_ids": ["s1", "s2", "s5", "s6"]},
+                {"title": "Investigate incidents", "skill_ids": ["s3", "s4", "s8"]},
+                {"title": "Secure systems", "skill_ids": ["s2", "s7"]},
+                {"title": "Improve performance", "skill_ids": ["s4", "s8"]},
+            ]
+        },
+        "topics": {
+            "groups": [
+                {"title": "Software delivery", "skill_ids": ["s1", "s5", "s6"]},
+                {"title": "Security", "skill_ids": ["s2", "s7"]},
+                {"title": "Reliability", "skill_ids": ["s3", "s4", "s8"]},
+            ]
+        },
+    }
 
 
 def respond(value):
@@ -111,6 +154,9 @@ def main():
                             state.scan_gate.clear()
                         else:
                             state.scan_gate.set()
+                        respond({"ok": True})
+                    elif command == "graph":
+                        graph_fixture(state, fixture)
                         respond({"ok": True})
                     elif command == "requests":
                         respond({"paths": [request.url.path for request in state.requests]})

@@ -15,7 +15,8 @@ Provide a browser page where the user can:
 - Select a repository and see its skills in a left pane.
 - Select a skill and read its `SKILL.md` in a right pane.
 - Find similar skills across the catalog, see scores, and inspect matches.
-- Explicitly generate and browse overlapping topic/capability groups;
+- Explicitly generate both topic/capability views and explore their overlapping
+  memberships in the G6 graph;
   [Skill groups](skill-groups.md) owns their model, persistence, and HTTP contracts.
 
 The first version runs on the user's machine and shares the CLI's SQLite
@@ -196,7 +197,7 @@ name, repository, and path above the results. A **Back** link returns to the pag
 that opened the search, including the homepage, repository selection, or previous
 similarity search. Links carry that page's URL in `return_to`, preserving its filter
 and selection. Only local homepage, repository, similarity, and topic/capability
-group URLs are accepted;
+Explore and legacy group URLs are accepted;
 a direct link without valid return context falls back to the starting skill's
 repository selection. Candidate selection, reload, and automatic refresh retain
 this destination, so Back leaves the workspace rather than stepping through its
@@ -513,9 +514,9 @@ Playwright with Chromium and a temporary loopback server; all GitHub requests
 are mocked. CI also verifies the installed command and packaged Web assets
 outside the checkout.
 
-The desktop visual pilot supplements these checks with three Playwright Test
+The desktop visual pilot supplements these checks with four Playwright Test
 scenarios: catalog filtering, description expansion and document preview/source,
-and scan progress with failure and retry. Named checkpoints compare the browser
+scan progress with failure and retry, and graph exploration. Named checkpoints compare the browser
 directly against reviewed screenshot baselines; recording mode produces videos
 from those same scenarios. Mobile baselines and migration of the remaining
 Python browser tests are outside the pilot. See the

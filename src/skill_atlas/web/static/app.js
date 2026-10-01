@@ -67,14 +67,10 @@
 
   function workspaceUrl(pane, fragment = false) {
     if (pane.dataset.mode === 'groups') {
-      const params = new URLSearchParams();
-      if (pane.dataset.selectedPath) {
-        params.set('selected_repository', pane.dataset.selectedRepository);
-        params.set('selected_path', pane.dataset.selectedPath);
-      }
-      return (fragment ? '/fragments' : '') + '/groups/' + pane.dataset.perspective + '?' + params;
+      return (fragment ? '/fragments' : '') + '/explore?perspective=' + pane.dataset.perspective;
     }
     const params = new URLSearchParams({repository_url: pane.dataset.repository});
+    if (pane.dataset.fromExplore) params.set('from_explore', pane.dataset.fromExplore);
     if (atlasFilters.query()) params.set('q', atlasFilters.query());
     const similar = pane.dataset.mode === 'similar';
     if (similar) {

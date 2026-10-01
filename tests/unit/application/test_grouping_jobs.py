@@ -5,44 +5,45 @@ import pytest
 
 from skill_atlas.application.grouping_jobs import GroupingJobs
 from skill_atlas.errors import GroupingError
-from skill_atlas.grouping import Perspective
 
 
-def finished(jobs, perspective):
+def finished(jobs):
     deadline = monotonic() + 3
     while monotonic() < deadline:
-        job = jobs.latest(perspective)
+        job = jobs.latest()
         if job.state in {"succeeded", "failed"}:
             return job
         sleep(0.01)
     pytest.fail("Generation did not finish")
 
 
-def test_one_worker_deduplicates_and_queues_other_perspective():
+def test_one_worker_deduplicates_generation_and_allows_regeneration():
     gate, started = Event(), Event()
     seen = []
 
-    def generate(p):
-        seen.append(p)
+    def generate():
+        seen.append(True)
         started.set()
         assert gate.wait(3)
+        return ()
 
     jobs = GroupingJobs(generate)
     try:
-        first = jobs.submit(Perspective.TOPICS)
+        assert jobs.latest() is None
+        first = jobs.submit()
         assert started.wait(3)
-        assert jobs.submit(Perspective.TOPICS).id == first.id
-        second = jobs.submit(Perspective.CAPABILITIES)
-        assert second.state == "queued"
-        assert seen == [Perspective.TOPICS]
+        assert jobs.submit().id == first.id
+        assert len(seen) == 1
         gate.set()
-        assert finished(jobs, Perspective.CAPABILITIES).state == "succeeded"
-        assert seen == [Perspective.TOPICS, Perspective.CAPABILITIES]
+        assert finished(jobs).state == "succeeded"
+        assert jobs.submit().id != first.id
+        assert finished(jobs).state == "succeeded"
+        assert len(seen) == 2
     finally:
         gate.set()
         jobs.close()
     with pytest.raises(GroupingError, match="stopping"):
-        jobs.submit(Perspective.TOPICS)
+        jobs.submit()
 
 
 @pytest.mark.parametrize(
@@ -50,16 +51,16 @@ def test_one_worker_deduplicates_and_queues_other_perspective():
     [(GroupingError("Useful error"), "Useful error"), (RuntimeError("secret"), "unexpectedly")],
 )
 def test_failures_remain_retryable_and_unexpected_errors_are_sanitized(error, message):
-    def fail(_):
+    def fail():
         raise error
 
     jobs = GroupingJobs(fail)
     try:
-        first = jobs.submit(Perspective.TOPICS)
-        result = finished(jobs, Perspective.TOPICS)
+        first = jobs.submit()
+        result = finished(jobs)
         assert result.state == "failed" and message in result.error
         assert "secret" not in result.error
-        assert jobs.submit(Perspective.TOPICS).id != first.id
-        finished(jobs, Perspective.TOPICS)
+        assert jobs.submit().id != first.id
+        finished(jobs)
     finally:
         jobs.close()

@@ -47,9 +47,10 @@ assets carry their version and license in `src/skill_atlas/web/static/`.
 | FastAPI and Uvicorn | HTTP routing and the local ASGI server. |
 | Jinja2 | Server-rendered pages and HTML fragments with escaped metadata. |
 | HTMX, plain CSS, and a small JavaScript layer | Scan submission, polling, fragment updates, selection history, and stale-response handling without a frontend build toolchain. |
+| AntV G6 | Locally bundled interactive Explore graph with draggable nodes, gestures, and animations. Framework-independent; graph view state stays in plain JavaScript. |
 | markdown-it-py | Markdown preview with raw HTML disabled and controlled link rendering. |
 
-HTMX and its license, templates, CSS, and JavaScript are bundled with the Python
+HTMX, G6 and their licenses, templates, CSS, and JavaScript are bundled with the Python
 package. There is no runtime CDN or separate frontend development server. The
 installed application must work outside its source checkout.
 
@@ -65,7 +66,7 @@ installed application must work outside its source checkout.
 | Ruff | Consistent lint and formatting checks. |
 | mypy and types-PyYAML | Strict static typing, including YAML library stubs. |
 | Playwright with Chromium | Browser interaction and rendering verification. |
-| Playwright Test, TypeScript, and Node.js | Desktop screenshot comparisons, traces, reports, and optional demo recordings from the same test scenarios. Development tooling only; no frontend build or Node runtime dependency. |
+| Playwright Test, TypeScript, and Node.js | Desktop screenshot comparisons, traces, reports, and optional demo recordings from the same test scenarios. Development tooling and G6 vendoring only; no Node runtime dependency. |
 | Docker | One pinned Linux amd64 browser/font environment for generating and comparing visual baselines locally and in CI. |
 | GitHub Actions | Reproducible quality, package, Python test, and browser gates. |
 
@@ -129,10 +130,12 @@ service results. `runtime.py` wires them together and owns I/O resource contexts
 | `application/similarity.py` | Rank catalog metadata with local TF-IDF and group matching metadata. |
 | `grouping.py` | Immutable grouping perspectives, identities, and saved-result values. |
 | `application/grouping.py` | Complete-membership validation, metadata fingerprints, explicit generation, and current-catalog group views. |
-| `application/grouping_jobs.py` | One process-local generation worker and bounded per-perspective status. |
+| `application/grouping_jobs.py` | One process-local job generates both perspectives; duplicate submissions reuse it. |
 | `adapters/ollama.py` | Structured local model requests, context budgeting, and provider error adaptation. |
 | `adapters/storage/grouping.py` | Atomic saved-group writes and consistent group/catalog read snapshots. |
-| `web/grouping_routes.py` | Group pages, workspace fragments, and explicit generation/status HTTP adaptation. |
+| `web/grouping_routes.py` | Explore pages, workspace fragments, legacy redirects, and explicit generation/status HTTP adaptation. |
+| `web/exploration.py` | Graph presentation serialization: opaque node IDs, memberships, metadata, and encoded navigation links. |
+| `web/static/explore.js`, `explore.css` | G6 lifecycle, graph layout/interaction, accessible HTML directory, and per-perspective browser view state. |
 | `application/scan_jobs.py` | Process-local scan queue and worker lifecycle for the Web UI. |
 | `runtime.py` | Composition root: wire catalog filtering and similarity queries, select adapters, and own HTTP, Git, scanner, and Web application resource lifetimes. |
 | `adapters/github.py` | GitHub transport, snapshot resolution, file discovery, and commit-pinned document retrieval. |
@@ -251,24 +254,33 @@ new persistence, embedding model, or remote service is introduced. See the
 
 ### Following group generation
 
-`web/grouping_routes.py` submits a perspective to `application/grouping_jobs.py`.
+`web/grouping_routes.py` submits one paired job to `application/grouping_jobs.py`.
 `runtime.py` supplies `application/grouping.py` with `SQLiteGroups` and a fresh
-HTTPX/Ollama adapter for each job. The application reads metadata, invokes the
-provider, validates complete overlapping memberships, and saves the generation.
-Provider-specific prompts, schemas, token budgeting, and request failures belong
-to the adapter; completeness and identity policy belong to the application.
+HTTPX/Ollama adapter. The application reads metadata once, invokes the provider
+sequentially for both perspectives, validates both complete memberships, and saves
+them atomically. Provider prompts, schemas, budgets and failures remain in the
+adapter; completeness and identity policy remain in the application.
 
-The Web routes only adapt parameters and render saved results. Group reads use
-one SQLite transaction for both saved memberships and current skill rows.
-Fingerprint comparisons detect scans from any process; stale results remain
-browsable with an explicit regeneration notice. Document selection reuses the
-existing document service. `web/static/app.js` extends workspace URLs, selection,
-job completion refreshes, and late-response handling for both perspectives.
+Graph reads use one SQLite transaction for both saved perspectives and current
+skill rows. Fingerprints detect scans from any process. `web/exploration.py`
+serializes presentation data; it does not infer memberships. The Explore page
+includes both views and `web/static/explore.js` switches locally, expands groups,
+keeps one node per exact skill identity, and owns G6 cleanup and tab-scoped view
+state. `app.js` handles scan/generation completion refreshes. Skill links reuse the
+repository/document page and its existing document service; `from_explore` is
+restricted to the two perspective values for return navigation.
 
-This adds persistent derived data and a separate inference worker so slow AI
-requests cannot block the existing scan queue. It keeps the current dependency
-direction and adds no external database or runtime Python dependency. The feature
-[specification](features/skill-groups.md) owns grouping policy and UI behavior.
+G6 adds a browser renderer without introducing React or changing Python service
+boundaries. It is vendored from the exact npm lockfile version using
+`scripts/vendor-g6.mjs`, including transitive license notices. Python distributions
+ship the checked-in bundle; no CDN, npm install, or Node process is required to
+serve the app. The tradeoff is a larger static asset, loaded only on Explore.
+The graph renderer uses an anonymous container, isolated from HTMX attribute
+settling, and preserves the existing CSP. HTML group/skill controls provide a
+keyboard and rendering-failure alternative to the canvas.
+
+This retains a separate inference worker so slow AI requests cannot block scans.
+The [feature specification](features/skill-groups.md) owns grouping and graph behavior.
 
 ## Shared CLI results presentation
 

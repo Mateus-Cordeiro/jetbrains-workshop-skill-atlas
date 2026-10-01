@@ -5,7 +5,7 @@ import pytest
 
 from skill_atlas.application.grouping import SkillGroups, fingerprint, validate_groups
 from skill_atlas.errors import GroupingError
-from skill_atlas.grouping import GroupingCatalog, Perspective, SkillIdentity
+from skill_atlas.grouping import GroupingSnapshot, Perspective, SkillIdentity
 from skill_atlas.models import Repository
 
 
@@ -74,6 +74,41 @@ def test_metadata_fingerprint_ignores_order_and_commit_only_changes(scan_result)
 
 
 def test_empty_catalog_never_calls_provider_or_save():
-    store = SimpleNamespace(read=lambda _: GroupingCatalog((), None))
+    store = SimpleNamespace(read_all=lambda: GroupingSnapshot((), ()))
     with pytest.raises(GroupingError, match="No saved skills"):
-        SkillGroups(store).generate(Perspective.TOPICS, SimpleNamespace())
+        SkillGroups(store).generate(SimpleNamespace())
+
+
+def test_both_perspectives_share_one_snapshot_and_publish_together(scan_result):
+    seen, saved = [], []
+    store = SimpleNamespace(
+        read_all=lambda: GroupingSnapshot(scan_result.skills, ()), save=saved.append
+    )
+
+    def group(skills, perspective):
+        seen.append((skills, perspective))
+        return {"groups": [{"title": perspective.value, "skill_ids": ["s1", "s2"]}]}
+
+    result = SkillGroups(store).generate(SimpleNamespace(model="test", group=group))
+    assert [p for _, p in seen] == list(Perspective)
+    assert all(skills is scan_result.skills for skills, _ in seen)
+    assert saved == [result] and len(result) == 2
+    assert result[0].fingerprint == result[1].fingerprint
+
+
+def test_invalid_second_perspective_does_not_publish_first(scan_result):
+    saved = []
+
+    def group(skills, perspective):
+        return (
+            {"groups": [{"title": "Code", "skill_ids": ["s1", "s2"]}]}
+            if perspective == Perspective.TOPICS
+            else {}
+        )
+
+    store = SimpleNamespace(
+        read_all=lambda: GroupingSnapshot(scan_result.skills, ()), save=saved.append
+    )
+    with pytest.raises(GroupingError):
+        SkillGroups(store).generate(SimpleNamespace(model="test", group=group))
+    assert saved == []

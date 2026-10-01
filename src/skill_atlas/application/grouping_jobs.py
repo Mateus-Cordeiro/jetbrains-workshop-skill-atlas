@@ -1,4 +1,4 @@
-"""One generation worker; at most one active job per grouping perspective."""
+"""One deduplicated generation job publishes both perspectives."""
 
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -8,38 +8,37 @@ from typing import Literal
 from uuid import uuid4
 
 from skill_atlas.errors import AtlasError, GroupingError
-from skill_atlas.grouping import Grouping, Perspective
+from skill_atlas.grouping import Grouping
 
 
 @dataclass(frozen=True)
 class GroupingJob:
     id: str
-    perspective: Perspective
     state: Literal["queued", "running", "succeeded", "failed"] = "queued"
     error: str = ""
 
 
 class GroupingJobs:
-    def __init__(self, generate: Callable[[Perspective], Grouping]) -> None:
+    def __init__(self, generate: Callable[[], tuple[Grouping, ...]]) -> None:
         self.generate = generate
         self._lock = Lock()
-        self._jobs: dict[Perspective, GroupingJob] = {}
+        self._job: GroupingJob | None = None
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="skill-atlas-groups")
         self._closed = False
 
-    def latest(self, perspective: Perspective) -> GroupingJob | None:
+    def latest(self) -> GroupingJob | None:
         with self._lock:
-            return self._jobs.get(perspective)
+            return self._job
 
-    def submit(self, perspective: Perspective) -> GroupingJob:
+    def submit(self) -> GroupingJob:
         with self._lock:
             if self._closed:
                 raise GroupingError("The server is stopping. Restart it to generate groups.")
-            job = self._jobs.get(perspective)
+            job = self._job
             if job and job.state in {"queued", "running"}:
                 return job
-            job = GroupingJob(uuid4().hex, perspective)
-            self._jobs[perspective] = job
+            job = GroupingJob(uuid4().hex)
+            self._job = job
             self._executor.submit(self._run, job)
             return job
 
@@ -48,13 +47,14 @@ class GroupingJobs:
             self._closed = True
         self._executor.shutdown(wait=True, cancel_futures=True)
         with self._lock:
-            self._jobs = {p: j for p, j in self._jobs.items() if j.state != "queued"}
+            if self._job and self._job.state == "queued":
+                self._job = None
 
     def _run(self, job: GroupingJob) -> None:
         with self._lock:
-            self._jobs[job.perspective] = replace(job, state="running")
+            self._job = replace(job, state="running")
         try:
-            self.generate(job.perspective)
+            self.generate()
             result = replace(job, state="succeeded")
         except Exception as error:
             message = (
@@ -64,4 +64,4 @@ class GroupingJobs:
             )
             result = replace(job, state="failed", error=message)
         with self._lock:
-            self._jobs[job.perspective] = result
+            self._job = result

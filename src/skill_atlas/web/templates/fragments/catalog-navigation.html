@@ -1,5 +1,4 @@
 <nav class="catalog-navigation" aria-label="Browse catalog">
   <a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Repositories</a>
-  <a href="/groups/capabilities" {% if perspective|default('') == 'capabilities' %}aria-current="page"{% endif %}>Capabilities</a>
-  <a href="/groups/topics" {% if perspective|default('') == 'topics' %}aria-current="page"{% endif %}>Topics</a>
+  <a href="/explore" {% if request.url.path == '/explore' %}aria-current="page"{% endif %}>Explore</a>
 </nav>

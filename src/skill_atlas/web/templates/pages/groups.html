@@ -1,5 +1,11 @@
 {% extends 'base.html' %}
-{% block title %}{{ perspective|capitalize }} · Skill Atlas{% endblock %}
+{% block title %}Explore · Skill Atlas{% endblock %}
+{% block body_class %}explore-page{% endblock %}
+{% block assets %}
+<link rel="stylesheet" href="/static/explore.css">
+<script src="/static/g6.min.js" defer></script>
+<script src="/static/explore.js" defer></script>
+{% endblock %}
 {% block content %}
 {% include 'fragments/catalog-navigation.html' %}
 {% include 'fragments/groups.html' %}

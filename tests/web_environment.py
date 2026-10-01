@@ -31,6 +31,7 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
         grouping_requests=[],
         grouping_status=200,
         grouping_content=None,
+        grouping_content_by_perspective={},
         grouping_gate=Event(),
         scan_gate=Event(),
         document_gate=Event(),
@@ -46,9 +47,16 @@ def create_web_environment(tmp_path, scan_result, *, gate_timeout=10):
             state.grouping_requests.append(request)
             assert state.grouping_gate.wait(gate_timeout), "Grouping gate was not released"
             data = json.loads(json.loads(request.content)["messages"][1]["content"])
-            content = state.grouping_content or {
-                "groups": [{"title": "Improve software", "skill_ids": [s["id"] for s in data]}]
-            }
+            prompt = json.loads(request.content)["messages"][0]["content"]
+            perspective = "topics" if "subject area" in prompt else "capabilities"
+            content = state.grouping_content_by_perspective.get(perspective, state.grouping_content)
+            content = (
+                content
+                if content is not None
+                else {
+                    "groups": [{"title": "Improve software", "skill_ids": [s["id"] for s in data]}]
+                }
+            )
             return httpx.Response(
                 state.grouping_status,
                 json={

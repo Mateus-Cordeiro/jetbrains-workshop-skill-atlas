@@ -23,7 +23,7 @@ from skill_atlas.application.scan_jobs import ScanJobs
 from skill_atlas.application.similarity import SimilarSkills
 from skill_atlas.config import Settings
 from skill_atlas.errors import GroupingError
-from skill_atlas.grouping import Grouping, Perspective
+from skill_atlas.grouping import Grouping
 from skill_atlas.models import Repository, ScanResult
 
 
@@ -68,7 +68,7 @@ def create_web_app(settings: Settings) -> FastAPI:
     catalog = SQLiteCatalog(settings.database_path)
     groups = SkillGroups(SQLiteGroups(catalog))
 
-    def generate(perspective: Perspective) -> Grouping:
+    def generate() -> tuple[Grouping, ...]:
         endpoint = httpx.URL(settings.ollama_url)
         if (
             endpoint.scheme != "http"
@@ -86,7 +86,6 @@ def create_web_app(settings: Settings) -> FastAPI:
             trust_env=False,
         ) as client:
             return groups.generate(
-                perspective,
                 OllamaGrouping(
                     client,
                     settings.ollama_model,

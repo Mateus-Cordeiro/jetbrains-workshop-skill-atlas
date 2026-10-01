@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 
 from skill_atlas.errors import GroupingError
-from skill_atlas.grouping import Grouping, Perspective, SkillGroup, SkillIdentity
+from skill_atlas.grouping import Grouping, GroupingCatalog, Perspective, SkillGroup, SkillIdentity
 from skill_atlas.models import Skill
 from skill_atlas.ports import GroupingProvider, GroupingStore
 
@@ -73,19 +73,33 @@ class SkillGroups:
     def __init__(self, store: GroupingStore) -> None:
         self.store = store
 
-    def generate(self, perspective: Perspective, provider: GroupingProvider) -> Grouping:
-        skills = self.store.read(perspective).skills
+    def generate(self, provider: GroupingProvider) -> tuple[Grouping, ...]:
+        # Both model calls share one catalog snapshot. Publish neither until both validate.
+        skills = self.store.read_all().skills
         if not skills:
             raise GroupingError("No saved skills to group. Scan a repository first.")
-        groups = validate_groups(provider.group(skills, perspective), skills)
-        grouping = Grouping(perspective, fingerprint(skills), provider.model, groups)
-        self.store.save(grouping)
-        return grouping
+        version = fingerprint(skills)
+        groupings = tuple(
+            Grouping(p, version, provider.model, validate_groups(provider.group(skills, p), skills))
+            for p in Perspective
+        )
+        self.store.save(groupings)
+        return groupings
+
+    def explore(self) -> dict[Perspective, GroupingView]:
+        snapshot = self.store.read_all()
+        saved = {g.perspective: g for g in snapshot.groupings}
+        return {p: self._view(GroupingCatalog(snapshot.skills, saved.get(p))) for p in Perspective}
 
     def browse(
         self, perspective: Perspective, selected_identity: SkillIdentity | None = None
     ) -> GroupingView:
-        data = self.store.read(perspective)
+        return self._view(self.store.read(perspective), selected_identity)
+
+    @staticmethod
+    def _view(
+        data: GroupingCatalog, selected_identity: SkillIdentity | None = None
+    ) -> GroupingView:
         skills = {SkillIdentity.of(skill): skill for skill in data.skills}
         groups = (
             tuple(
